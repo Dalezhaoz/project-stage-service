@@ -23,8 +23,15 @@
     .server-meta { margin-top: 6px; color: #475569; font-size: 13px; }
     .server-controls { display: flex; gap: 8px; margin-top: 10px; }
     .server-controls button { flex: 1; }
-    .toolbar { display: grid; grid-template-columns: repeat(3, minmax(160px,1fr)); gap: 10px; margin-bottom: 12px; }
-    .summary { display: grid; grid-template-columns: repeat(5, minmax(100px,1fr)); gap: 10px; margin: 14px 0; }
+    .filters { display: grid; grid-template-columns: repeat(2, minmax(260px,1fr)); gap: 14px; margin-bottom: 12px; }
+    .field-card { border: 1px solid #d8dee8; border-radius: 12px; padding: 14px; background: #f8fafc; }
+    .field-title { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #1e293b; }
+    .checkbox-row { display: flex; flex-wrap: wrap; gap: 14px; }
+    .checkbox-row label, .check-list label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+    .checkbox-row input, .check-list input { width: auto; }
+    .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .check-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-height: 180px; overflow: auto; margin-top: 10px; }
+    .summary { display: grid; grid-template-columns: repeat(6, minmax(100px,1fr)); gap: 10px; margin: 14px 0; }
     .metric { background: #f8fafc; border: 1px solid #d8dee8; border-radius: 10px; padding: 12px; }
     .metric b { display: block; margin-top: 6px; font-size: 22px; }
     .status { min-height: 24px; white-space: pre-wrap; color: #334155; margin-top: 10px; }
@@ -45,9 +52,11 @@
     .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
     .server-list-panel { border:1px solid #d8dee8; border-radius:12px; padding:14px; background:#f8fafc; }
     .server-empty { color:#64748b; font-size:13px; }
+    .hint { color:#64748b; font-size:12px; margin-top:6px; }
     @media (max-width: 900px) {
       .modal-grid { grid-template-columns:1fr; }
-      .toolbar { grid-template-columns: 1fr; }
+      .filters { grid-template-columns: 1fr; }
+      .inline-grid { grid-template-columns: 1fr; }
       .summary { grid-template-columns: repeat(2, minmax(100px,1fr)); }
     }
   </style>
@@ -64,17 +73,38 @@
     </div>
     <div class="layout">
       <div class="card">
-        <label>服务器名称</label>
         <div class="title">查询条件</div>
-        <div class="toolbar">
-          <select id="status-filter">
-            <option>正在进行 + 即将开始</option>
-            <option>全部</option>
-            <option>只看正在进行</option>
-            <option>只看即将开始</option>
-          </select>
-          <input id="stage-keyword" placeholder="阶段关键字，例如：报名">
-          <input id="project-keyword" placeholder="项目关键字">
+        <div class="filters">
+          <div class="field-card">
+            <div class="field-title">状态</div>
+            <div class="checkbox-row">
+              <label><input type="checkbox" class="status-filter" value="已经结束"> 已结束</label>
+              <label><input type="checkbox" class="status-filter" value="正在进行" checked> 正在进行</label>
+              <label><input type="checkbox" class="status-filter" value="即将开始" checked> 即将开始</label>
+            </div>
+          </div>
+          <div class="field-card">
+            <div class="field-title">时间范围</div>
+            <div class="inline-grid">
+              <input id="range-start" type="datetime-local">
+              <input id="range-end" type="datetime-local">
+            </div>
+            <div class="hint">查询与时间范围有交集的项目阶段。</div>
+          </div>
+          <div class="field-card">
+            <div class="field-title">阶段筛选</div>
+            <div class="inline-grid">
+              <input id="stage-keyword" placeholder="阶段关键字，例如：报名">
+              <button id="load-stages-btn" class="ghost" type="button">刷新阶段选项</button>
+            </div>
+            <div id="stage-options" class="check-list">
+              <div class="server-empty">还没有加载阶段选项。</div>
+            </div>
+          </div>
+          <div class="field-card">
+            <div class="field-title">项目筛选</div>
+            <input id="project-keyword" placeholder="项目关键字">
+          </div>
         </div>
         <div class="actions">
           <button id="query-btn">开始查询</button>
@@ -113,6 +143,11 @@
           <div>
             <label>服务器名称</label>
             <input id="server-name" placeholder="例如：162">
+            <label>数据库类型</label>
+            <select id="server-type">
+              <option>SQL Server</option>
+              <option>MySQL</option>
+            </select>
             <label>数据库地址</label>
             <input id="server-host" placeholder="例如：192.168.1.162">
             <label>端口</label>
@@ -140,6 +175,7 @@
     let selectedIndex = null;
     let lastPayload = null;
     let serversCache = [];
+    let stageOptionsCache = [];
 
     async function loadServers() {
       const response = await fetch("/api/servers");
@@ -166,6 +202,7 @@
 
     function fillForm(server) {
       document.getElementById("server-name").value = server?.name || "";
+      document.getElementById("server-type").value = server?.databaseType || "SQL Server";
       document.getElementById("server-host").value = server?.host || "";
       document.getElementById("server-port").value = server?.port || "1433";
       document.getElementById("server-user").value = server?.username || "";
@@ -190,7 +227,7 @@
             <strong>${server.name}</strong>
             <label><input type="checkbox" data-action="toggle" data-index="${index}" ${server.enabled ? "checked" : ""}> 启用</label>
           </div>
-          <div class="server-meta">${server.host}:${server.port} / ${server.username}</div>
+          <div class="server-meta">${server.databaseType || "SQL Server"} / ${server.host}:${server.port} / ${server.username}</div>
           <div class="server-controls">
             <button class="ghost" data-action="edit" data-index="${index}">编辑</button>
             <button class="ghost" data-action="delete" data-index="${index}">删除</button>
@@ -222,9 +259,12 @@
     function buildPayload() {
       return {
         servers: enabledServers(),
-        statusFilter: document.getElementById("status-filter").value,
+        statusFilters: Array.from(document.querySelectorAll(".status-filter:checked")).map(item => item.value),
         stageKeyword: document.getElementById("stage-keyword").value.trim(),
+        stageNames: Array.from(document.querySelectorAll(".stage-filter:checked")).map(item => item.value),
         projectKeyword: document.getElementById("project-keyword").value.trim()
+        ,rangeStart: document.getElementById("range-start").value || null
+        ,rangeEnd: document.getElementById("range-end").value || null
       };
     }
 
@@ -233,8 +273,21 @@
         <div class="metric">启用服务器<b>${summary.enabledServers}</b></div>
         <div class="metric">遍历数据库<b>${summary.visitedDatabases}</b></div>
         <div class="metric">匹配业务库<b>${summary.matchedDatabases}</b></div>
+        <div class="metric">已结束<b>${summary.endedCount}</b></div>
         <div class="metric">正在进行<b>${summary.ongoingCount}</b></div>
         <div class="metric">即将开始<b>${summary.upcomingCount}</b></div>`;
+    }
+
+    function renderStageOptions(stageNames) {
+      stageOptionsCache = Array.isArray(stageNames) ? stageNames : [];
+      const container = document.getElementById("stage-options");
+      if (!stageOptionsCache.length) {
+        container.innerHTML = '<div class="server-empty">没有可选阶段，先检查已启用服务器或点击“刷新阶段选项”。</div>';
+        return;
+      }
+      container.innerHTML = stageOptionsCache.map(name => `
+        <label><input type="checkbox" class="stage-filter" value="${name}"> ${name}</label>
+      `).join("");
     }
 
     function renderRecords(records) {
@@ -278,6 +331,7 @@
     document.getElementById("save-server").addEventListener("click", async () => {
       const server = {
         name: document.getElementById("server-name").value.trim(),
+        databaseType: document.getElementById("server-type").value,
         host: document.getElementById("server-host").value.trim(),
         port: Number(document.getElementById("server-port").value.trim() || "1433"),
         username: document.getElementById("server-user").value.trim(),
@@ -309,6 +363,14 @@
       selectedIndex = null;
       fillForm(null);
       setServerStatus("");
+    });
+
+    document.getElementById("server-type").addEventListener("change", (event) => {
+      const value = event.target.value;
+      const port = document.getElementById("server-port");
+      if (!port.value || port.value === "1433" || port.value === "3306") {
+        port.value = value === "MySQL" ? "3306" : "1433";
+      }
     });
 
     document.getElementById("server-list").addEventListener("click", async (event) => {
@@ -356,6 +418,7 @@
         const result = await postJson("/api/test", {
           server: {
             name: document.getElementById("server-name").value.trim(),
+            databaseType: document.getElementById("server-type").value,
             host: document.getElementById("server-host").value.trim(),
             port: Number(document.getElementById("server-port").value.trim() || "1433"),
             username: document.getElementById("server-user").value.trim(),
@@ -369,6 +432,18 @@
       }
     });
 
+    document.getElementById("load-stages-btn").addEventListener("click", async () => {
+      try {
+        setQueryStatus("正在加载阶段选项...");
+        const payload = { servers: enabledServers(), statusFilters: [], stageKeyword: "", stageNames: [], projectKeyword: "", rangeStart: null, rangeEnd: null };
+        const result = await postJson("/api/stages", payload);
+        renderStageOptions(result);
+        setQueryStatus(`已加载阶段选项 ${result.length} 个。`);
+      } catch (error) {
+        setQueryStatus(error.message);
+      }
+    });
+
     document.getElementById("query-btn").addEventListener("click", async () => {
       try {
         lastPayload = buildPayload();
@@ -377,7 +452,7 @@
         renderSummary(result);
         renderRecords(result.records || []);
         document.getElementById("export-btn").disabled = (result.records || []).length === 0;
-        setQueryStatus(`查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个。`);
+        setQueryStatus(`查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，结果 ${result.records.length} 条。`);
       } catch (error) {
         document.getElementById("export-btn").disabled = true;
         setQueryStatus(error.message);
@@ -410,6 +485,7 @@
       try {
         await loadServers();
         renderServers();
+        renderStageOptions([]);
       } catch (error) {
         setServerStatus(error.message);
       }

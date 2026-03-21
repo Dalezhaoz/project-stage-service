@@ -52,6 +52,19 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageQ
     }
 });
 
+app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var stageNames = await queryService.QueryStageNamesAsync(request.Servers, cancellationToken);
+        return Results.Ok(stageNames);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+});
+
 app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStageQueryService queryService, ProjectStageExportService exportService, CancellationToken cancellationToken) =>
 {
     try
