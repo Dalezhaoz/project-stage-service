@@ -6,8 +6,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<ProjectStageQueryService>();
 builder.Services.AddSingleton<ProjectStageExportService>();
 builder.Services.AddSingleton<ServerConfigStore>();
+builder.Services.AddSingleton<ProjectStageCacheStore>();
+builder.Services.AddSingleton<ProjectStageRefreshService>();
+builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 
 var app = builder.Build();
+
+await app.Services.GetRequiredService<ProjectStageCacheStore>().InitializeAsync(CancellationToken.None);
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -39,11 +44,30 @@ app.MapPost("/api/test", async (TestConnectionRequest request, ProjectStageQuery
     }
 });
 
-app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
+app.MapGet("/api/cache-info", async (ProjectStageCacheStore cacheStore, CancellationToken cancellationToken) =>
+{
+    var cacheInfo = await cacheStore.GetCacheInfoAsync(cancellationToken);
+    return Results.Ok(cacheInfo);
+});
+
+app.MapPost("/api/refresh", async (ProjectStageRefreshRequest request, ProjectStageRefreshService refreshService, CancellationToken cancellationToken) =>
 {
     try
     {
-        var summary = await queryService.QueryAsync(request, cancellationToken);
+        var result = await refreshService.RefreshAsync(request.Servers, cancellationToken);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+});
+
+app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageCacheStore cacheStore, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var summary = await cacheStore.QueryAsync(request, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -52,11 +76,11 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageQ
     }
 });
 
-app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
+app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStageCacheStore cacheStore, CancellationToken cancellationToken) =>
 {
     try
     {
-        var stageNames = await queryService.QueryStageNamesAsync(request.Servers, cancellationToken);
+        var stageNames = await cacheStore.QueryStageNamesAsync(request, cancellationToken);
         return Results.Ok(stageNames);
     }
     catch (Exception ex)
@@ -65,11 +89,11 @@ app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStage
     }
 });
 
-app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStageQueryService queryService, ProjectStageExportService exportService, CancellationToken cancellationToken) =>
+app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStageCacheStore cacheStore, ProjectStageExportService exportService, CancellationToken cancellationToken) =>
 {
     try
     {
-        var summary = await queryService.QueryAsync(request, cancellationToken);
+        var summary = await cacheStore.QueryAsync(request, cancellationToken);
         var content = exportService.Export(summary);
         return Results.File(
             content,

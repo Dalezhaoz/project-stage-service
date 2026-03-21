@@ -28,6 +28,11 @@ public sealed class ProjectStageQueryRequest
     public DateTime? RangeEnd { get; set; }
 }
 
+public sealed class ProjectStageRefreshRequest
+{
+    public List<StageServerConfig> Servers { get; set; } = [];
+}
+
 public sealed class ProjectStageRecord
 {
     public string ServerName { get; set; } = "";
@@ -62,4 +67,23 @@ public sealed class ProjectStageSummary
     public int EndedCount { get; set; }
     public int OngoingCount { get; set; }
     public int UpcomingCount { get; set; }
+}
+
+public sealed class ProjectStageCacheInfo
+{
+    public bool HasData { get; set; }
+    public DateTime? RefreshedAt { get; set; }
+    public int EnabledServers { get; set; }
+    public int VisitedDatabases { get; set; }
+    public int MatchedDatabases { get; set; }
+    public int RecordCount { get; set; }
+}
+
+public sealed class ProjectStageRefreshResult
+{
+    public DateTime RefreshedAt { get; set; }
+    public int EnabledServers { get; set; }
+    public int VisitedDatabases { get; set; }
+    public int MatchedDatabases { get; set; }
+    public int RecordCount { get; set; }
 }

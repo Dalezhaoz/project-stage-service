@@ -44,9 +44,11 @@
     .detail-card { padding: 10px 0; }
     .detail-table th { position: static; background: #eef2f7; }
     .muted { color: #64748b; font-size: 13px; }
-    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
     .topbar-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .server-badge { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid #d8dee8; border-radius:999px; background:#fff; color:#334155; font-size:14px; }
+    .cache-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .cache-info { color:#475569; font-size:13px; }
     .overlay { position:fixed; inset:0; background:rgba(15,23,42,.35); display:none; align-items:center; justify-content:center; padding:24px; z-index:1000; }
     .overlay.show { display:flex; }
     .modal { width:min(780px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:16px; border:1px solid #d8dee8; box-shadow:0 24px 80px rgba(15,23,42,.28); padding:20px; }
@@ -68,13 +70,18 @@
 <body>
   <div class="page">
     <h1>项目阶段汇总服务</h1>
-    <div class="topbar">
-      <div class="topbar-left">
-        <button id="open-server-modal" class="secondary">管理服务器</button>
-        <div class="server-badge">已配置服务器：<strong id="server-count">0</strong></div>
-        <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
+      <div class="topbar">
+        <div class="topbar-left">
+          <button id="open-server-modal" class="secondary">管理服务器</button>
+          <button id="refresh-btn">更新数据</button>
+          <div class="server-badge">已配置服务器：<strong id="server-count">0</strong></div>
+          <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
+        </div>
+        <div class="cache-bar">
+          <div class="server-badge">缓存记录：<strong id="cache-record-count">0</strong></div>
+          <div class="cache-info" id="cache-info">缓存尚未更新</div>
+        </div>
       </div>
-    </div>
     <div class="layout">
       <div class="card">
         <div class="title">查询条件</div>
@@ -180,6 +187,14 @@
     let serversCache = [];
     let stageOptionsCache = [];
 
+    async function loadCacheInfo() {
+      const response = await fetch("/api/cache-info");
+      if (!response.ok) {
+        throw new Error("读取缓存状态失败");
+      }
+      return response.json();
+    }
+
     async function loadServers() {
       const response = await fetch("/api/servers");
       if (!response.ok) {
@@ -249,6 +264,17 @@
 
     function setQueryStatus(text) {
       document.getElementById("query-status").textContent = text;
+    }
+
+    function renderCacheInfo(info) {
+      document.getElementById("cache-record-count").textContent = String(info?.recordCount || 0);
+      if (!info?.hasData || !info?.refreshedAt) {
+        document.getElementById("cache-info").textContent = "缓存尚未更新，请先点击“更新数据”。";
+        return;
+      }
+
+      document.getElementById("cache-info").textContent =
+        `上次更新：${formatDateTime(info.refreshedAt)}，启用服务器 ${info.enabledServers} 台，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
     }
 
     function showServerModal() {
@@ -467,25 +493,47 @@
 
     document.getElementById("load-stages-btn").addEventListener("click", async () => {
       try {
-        setQueryStatus("正在加载阶段选项...");
+        setQueryStatus("正在从缓存加载阶段选项...");
         const payload = { servers: enabledServers(), statusFilters: [], stageKeyword: "", stageNames: [], projectKeyword: "", rangeStart: null, rangeEnd: null };
         const result = await postJson("/api/stages", payload);
         renderStageOptions(result);
-        setQueryStatus(`已加载阶段选项 ${result.length} 个。`);
+        setQueryStatus(`已从缓存加载阶段选项 ${result.length} 个。`);
       } catch (error) {
         setQueryStatus(error.message);
+      }
+    });
+
+    document.getElementById("refresh-btn").addEventListener("click", async () => {
+      try {
+        setQueryStatus("正在更新缓存数据，请稍候...");
+        document.getElementById("refresh-btn").disabled = true;
+        const result = await postJson("/api/refresh", { servers: enabledServers() });
+        renderCacheInfo(await loadCacheInfo());
+        setQueryStatus(`更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`);
+        const stagePayload = { servers: enabledServers(), statusFilters: [], stageKeyword: "", stageNames: [], projectKeyword: "", rangeStart: null, rangeEnd: null };
+        renderStageOptions(await postJson("/api/stages", stagePayload));
+        if (lastPayload) {
+          const queryResult = await postJson("/api/query", lastPayload);
+          renderSummary(queryResult);
+          renderGroups(queryResult.groups || []);
+          document.getElementById("export-btn").disabled = (queryResult.records || []).length === 0;
+        }
+      } catch (error) {
+        setQueryStatus(error.message);
+      } finally {
+        document.getElementById("refresh-btn").disabled = false;
       }
     });
 
     document.getElementById("query-btn").addEventListener("click", async () => {
       try {
         lastPayload = buildPayload();
-        setQueryStatus("正在查询，请稍候...");
+        setQueryStatus("正在查询缓存，请稍候...");
         const result = await postJson("/api/query", lastPayload);
         renderSummary(result);
         renderGroups(result.groups || []);
         document.getElementById("export-btn").disabled = (result.records || []).length === 0;
-        setQueryStatus(`查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，项目 ${((result.groups || []).length)} 个，阶段 ${(result.records || []).length} 条。`);
+        setQueryStatus(`缓存查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，项目 ${((result.groups || []).length)} 个，阶段 ${(result.records || []).length} 条。`);
       } catch (error) {
         document.getElementById("export-btn").disabled = true;
         setQueryStatus(error.message);
@@ -531,6 +579,7 @@
         await loadServers();
         renderServers();
         renderStageOptions([]);
+        renderCacheInfo(await loadCacheInfo());
       } catch (error) {
         setServerStatus(error.message);
       }
