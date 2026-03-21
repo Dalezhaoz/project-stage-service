@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>项目阶段汇总服务</title>
+  <style>
+    body { font-family: "Microsoft YaHei", sans-serif; background: #f6f8fb; color: #0f172a; margin: 0; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 18px; font-size: 28px; }
+    .grid { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .card { background: #fff; border: 1px solid #d8dee8; border-radius: 12px; padding: 16px; box-shadow: 0 4px 18px rgba(15,23,42,.06); }
+    .title { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+    label { display: block; margin: 10px 0 6px; font-size: 14px; }
+    input, select, button { font: inherit; }
+    input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #c4ccda; }
+    button { border: none; border-radius: 8px; padding: 10px 14px; background: #2563eb; color: #fff; cursor: pointer; }
+    button.secondary { background: #64748b; }
+    button.ghost { background: #e5e7eb; color: #111827; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .server-item { margin-top: 10px; padding: 12px; border: 1px solid #d8dee8; border-radius: 10px; background: #f8fafc; }
+    .server-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .server-meta { margin-top: 6px; color: #475569; font-size: 13px; }
+    .server-controls { display: flex; gap: 8px; margin-top: 10px; }
+    .server-controls button { flex: 1; }
+    .toolbar { display: grid; grid-template-columns: repeat(3, minmax(160px,1fr)); gap: 10px; margin-bottom: 12px; }
+    .summary { display: grid; grid-template-columns: repeat(5, minmax(100px,1fr)); gap: 10px; margin: 14px 0; }
+    .metric { background: #f8fafc; border: 1px solid #d8dee8; border-radius: 10px; padding: 12px; }
+    .metric b { display: block; margin-top: 6px; font-size: 22px; }
+    .status { min-height: 24px; white-space: pre-wrap; color: #334155; margin-top: 10px; }
+    .results { max-height: 620px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d8dee8; padding: 8px 10px; font-size: 14px; text-align: left; }
+    th { background: #f8fafc; position: sticky; top: 0; }
+    .muted { color: #64748b; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>项目阶段汇总服务</h1>
+    <div class="grid">
+      <div class="card">
+        <div class="title">服务器配置</div>
+        <label>服务器名称</label>
+        <input id="server-name" placeholder="例如：162">
+        <label>数据库地址</label>
+        <input id="server-host" placeholder="例如：192.168.1.162">
+        <label>端口</label>
+        <input id="server-port" value="1433">
+        <label>用户名</label>
+        <input id="server-user">
+        <label>密码</label>
+        <input id="server-password" type="password">
+        <div class="actions">
+          <button id="save-server">新增/更新</button>
+          <button id="clear-server" class="ghost">清空表单</button>
+        </div>
+        <div class="actions">
+          <button id="test-server" class="secondary">测试连接</button>
+        </div>
+        <div class="status" id="server-status"></div>
+        <div class="title" style="margin-top: 18px;">服务器列表</div>
+        <div id="server-list"></div>
+      </div>
+      <div class="card">
+        <div class="title">查询条件</div>
+        <div class="toolbar">
+          <select id="status-filter">
+            <option>正在进行 + 即将开始</option>
+            <option>全部</option>
+            <option>只看正在进行</option>
+            <option>只看即将开始</option>
+          </select>
+          <input id="stage-keyword" placeholder="阶段关键字，例如：报名">
+          <input id="project-keyword" placeholder="项目关键字">
+        </div>
+        <div class="actions">
+          <button id="query-btn">开始查询</button>
+          <button id="export-btn" class="secondary" disabled>导出 Excel</button>
+        </div>
+        <div class="status" id="query-status">未开始查询</div>
+        <div class="summary" id="summary-panel"></div>
+        <div class="muted">结果会自动忽略不包含业务表的数据库，只汇总符合条件的项目阶段。</div>
+        <div class="results" style="margin-top: 14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>服务器</th>
+                <th>数据库</th>
+                <th>项目名称</th>
+                <th>阶段名称</th>
+                <th>开始时间</th>
+                <th>结束时间</th>
+                <th>当前状态</th>
+              </tr>
+            </thead>
+            <tbody id="result-body">
+              <tr><td colspan="7" class="muted">暂无结果</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const storageKey = "project-stage-service-servers";
+    let selectedIndex = null;
+    let lastPayload = null;
+
+    function loadServers() {
+      try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); }
+      catch { return []; }
+    }
+
+    function saveServers(servers) {
+      localStorage.setItem(storageKey, JSON.stringify(servers));
+    }
+
+    function fillForm(server) {
+      document.getElementById("server-name").value = server?.name || "";
+      document.getElementById("server-host").value = server?.host || "";
+      document.getElementById("server-port").value = server?.port || "1433";
+      document.getElementById("server-user").value = server?.username || "";
+      document.getElementById("server-password").value = server?.password || "";
+    }
+
+    function renderServers() {
+      const container = document.getElementById("server-list");
+      const servers = loadServers();
+      container.innerHTML = "";
+      if (!servers.length) {
+        container.innerHTML = '<div class="muted">还没有添加服务器。</div>';
+        return;
+      }
+      servers.forEach((server, index) => {
+        const item = document.createElement("div");
+        item.className = "server-item";
+        item.innerHTML = `
+          <div class="server-head">
+            <strong>${server.name}</strong>
+            <label><input type="checkbox" data-action="toggle" data-index="${index}" ${server.enabled ? "checked" : ""}> 启用</label>
+          </div>
+          <div class="server-meta">${server.host}:${server.port} / ${server.username}</div>
+          <div class="server-controls">
+            <button class="ghost" data-action="edit" data-index="${index}">编辑</button>
+            <button class="ghost" data-action="delete" data-index="${index}">删除</button>
+          </div>`;
+        container.appendChild(item);
+      });
+    }
+
+    function enabledServers() {
+      return loadServers().filter(item => item.enabled);
+    }
+
+    function setServerStatus(text) {
+      document.getElementById("server-status").textContent = text;
+    }
+
+    function setQueryStatus(text) {
+      document.getElementById("query-status").textContent = text;
+    }
+
+    function buildPayload() {
+      return {
+        servers: enabledServers(),
+        statusFilter: document.getElementById("status-filter").value,
+        stageKeyword: document.getElementById("stage-keyword").value.trim(),
+        projectKeyword: document.getElementById("project-keyword").value.trim()
+      };
+    }
+
+    function renderSummary(summary) {
+      document.getElementById("summary-panel").innerHTML = `
+        <div class="metric">启用服务器<b>${summary.enabledServers}</b></div>
+        <div class="metric">遍历数据库<b>${summary.visitedDatabases}</b></div>
+        <div class="metric">匹配业务库<b>${summary.matchedDatabases}</b></div>
+        <div class="metric">正在进行<b>${summary.ongoingCount}</b></div>
+        <div class="metric">即将开始<b>${summary.upcomingCount}</b></div>`;
+    }
+
+    function renderRecords(records) {
+      const body = document.getElementById("result-body");
+      if (!records.length) {
+        body.innerHTML = '<tr><td colspan="7" class="muted">没有符合条件的结果</td></tr>';
+        return;
+      }
+
+      body.innerHTML = records.map(item => `
+        <tr>
+          <td>${item.serverName}</td>
+          <td>${item.databaseName}</td>
+          <td>${item.projectName}</td>
+          <td>${item.stageName}</td>
+          <td>${item.startTime.replace("T", " ").slice(0, 19)}</td>
+          <td>${item.endTime.replace("T", " ").slice(0, 19)}</td>
+          <td>${item.status}</td>
+        </tr>`).join("");
+    }
+
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "请求失败");
+      return data;
+    }
+
+    document.getElementById("save-server").addEventListener("click", () => {
+      const server = {
+        name: document.getElementById("server-name").value.trim(),
+        host: document.getElementById("server-host").value.trim(),
+        port: Number(document.getElementById("server-port").value.trim() || "1433"),
+        username: document.getElementById("server-user").value.trim(),
+        password: document.getElementById("server-password").value.trim(),
+        enabled: true
+      };
+
+      if (!server.name || !server.host || !server.username || !server.password) {
+        setServerStatus("请完整填写服务器信息。");
+        return;
+      }
+
+      const servers = loadServers();
+      if (selectedIndex === null) servers.push(server);
+      else servers[selectedIndex] = { ...servers[selectedIndex], ...server };
+
+      saveServers(servers);
+      selectedIndex = null;
+      fillForm(null);
+      setServerStatus("服务器配置已保存。");
+      renderServers();
+    });
+
+    document.getElementById("clear-server").addEventListener("click", () => {
+      selectedIndex = null;
+      fillForm(null);
+      setServerStatus("");
+    });
+
+    document.getElementById("server-list").addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const action = target.dataset.action;
+      const index = Number(target.dataset.index);
+      const servers = loadServers();
+      if (Number.isNaN(index) || !servers[index]) return;
+
+      if (action === "edit") {
+        selectedIndex = index;
+        fillForm(servers[index]);
+      } else if (action === "delete") {
+        servers.splice(index, 1);
+        saveServers(servers);
+        renderServers();
+      }
+    });
+
+    document.getElementById("server-list").addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.dataset.action !== "toggle") return;
+      const index = Number(target.dataset.index);
+      const servers = loadServers();
+      if (Number.isNaN(index) || !servers[index]) return;
+      servers[index].enabled = target.checked;
+      saveServers(servers);
+    });
+
+    document.getElementById("test-server").addEventListener("click", async () => {
+      try {
+        setServerStatus("正在测试连接...");
+        const result = await postJson("/api/test", {
+          server: {
+            name: document.getElementById("server-name").value.trim(),
+            host: document.getElementById("server-host").value.trim(),
+            port: Number(document.getElementById("server-port").value.trim() || "1433"),
+            username: document.getElementById("server-user").value.trim(),
+            password: document.getElementById("server-password").value.trim(),
+            enabled: true
+          }
+        });
+        setServerStatus(`连接成功。遍历数据库 ${result.visited_databases} 个。`);
+      } catch (error) {
+        setServerStatus(error.message);
+      }
+    });
+
+    document.getElementById("query-btn").addEventListener("click", async () => {
+      try {
+        lastPayload = buildPayload();
+        setQueryStatus("正在查询，请稍候...");
+        const result = await postJson("/api/query", lastPayload);
+        renderSummary(result);
+        renderRecords(result.records || []);
+        document.getElementById("export-btn").disabled = (result.records || []).length === 0;
+        setQueryStatus(`查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个。`);
+      } catch (error) {
+        document.getElementById("export-btn").disabled = true;
+        setQueryStatus(error.message);
+      }
+    });
+
+    document.getElementById("export-btn").addEventListener("click", async () => {
+      if (!lastPayload) return;
+      try {
+        const response = await fetch("/api/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(lastPayload)
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.detail || "导出失败");
+        }
+        const blob = await response.blob();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "项目阶段汇总.xlsx";
+        link.click();
+      } catch (error) {
+        setQueryStatus(error.message);
+      }
+    });
+
+    renderServers();
+  </script>
+</body>
+</html>
