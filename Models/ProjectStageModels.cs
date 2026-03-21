@@ -32,6 +32,7 @@ public sealed class ProjectStageRecord
 {
     public string ServerName { get; set; } = "";
     public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
     public string ProjectName { get; set; } = "";
     public string StageName { get; set; } = "";
     public DateTime StartTime { get; set; }
@@ -39,9 +40,22 @@ public sealed class ProjectStageRecord
     public string Status { get; set; } = "";
 }
 
+public sealed class ProjectStageGroup
+{
+    public string ServerName { get; set; } = "";
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+    public string ProjectName { get; set; } = "";
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+    public List<string> Statuses { get; set; } = [];
+    public List<ProjectStageRecord> Stages { get; set; } = [];
+}
+
 public sealed class ProjectStageSummary
 {
     public List<ProjectStageRecord> Records { get; set; } = [];
+    public List<ProjectStageGroup> Groups { get; set; } = [];
     public int EnabledServers { get; set; }
     public int VisitedDatabases { get; set; }
     public int MatchedDatabases { get; set; }

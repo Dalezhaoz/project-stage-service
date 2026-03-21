@@ -76,6 +76,37 @@ public sealed class ProjectStageQueryService
         summary.EndedCount = summary.Records.Count(item => item.Status == "已经结束");
         summary.OngoingCount = summary.Records.Count(item => item.Status == "正在进行");
         summary.UpcomingCount = summary.Records.Count(item => item.Status == "即将开始");
+        summary.Groups = summary.Records
+            .GroupBy(item => new { item.ServerName, item.DatabaseName, item.ExamCode })
+            .Select(group =>
+            {
+                var stages = group
+                    .OrderBy(item => item.StartTime)
+                    .ThenBy(item => item.EndTime)
+                    .ThenBy(item => item.StageName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                return new ProjectStageGroup
+                {
+                    ServerName = group.Key.ServerName,
+                    DatabaseName = group.Key.DatabaseName,
+                    ExamCode = group.Key.ExamCode,
+                    ProjectName = stages.FirstOrDefault()?.ProjectName ?? string.Empty,
+                    StartTime = stages.Min(item => item.StartTime),
+                    EndTime = stages.Max(item => item.EndTime),
+                    Statuses = stages
+                        .Select(item => item.Status)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(item => item == "正在进行" ? 0 : item == "即将开始" ? 1 : 2)
+                        .ToList(),
+                    Stages = stages
+                };
+            })
+            .OrderBy(item => item.ServerName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.DatabaseName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ProjectName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ExamCode, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         return summary;
     }
 
@@ -258,6 +289,7 @@ public sealed class ProjectStageQueryService
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             SELECT
+                A.Code,
                 A.NAME,
                 B.Description,
                 C.KDate,
@@ -288,6 +320,7 @@ public sealed class ProjectStageQueryService
         await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT
+                a.id,
                 a.name,
                 b.name,
                 b.start_date,
@@ -313,16 +346,17 @@ public sealed class ProjectStageQueryService
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            var projectName = reader.IsDBNull(0) ? "" : reader.GetString(0).Trim();
-            var stageName = reader.IsDBNull(1) ? "" : reader.GetString(1).Trim();
-            if (string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(stageName))
+            var examCode = reader.IsDBNull(0) ? "" : Convert.ToString(reader.GetValue(0))?.Trim() ?? "";
+            var projectName = reader.IsDBNull(1) ? "" : reader.GetString(1).Trim();
+            var stageName = reader.IsDBNull(2) ? "" : reader.GetString(2).Trim();
+            if (string.IsNullOrWhiteSpace(examCode) || string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(stageName))
             {
                 continue;
             }
 
-            var startTime = reader.GetDateTime(2);
-            var endTime = reader.GetDateTime(3);
-            var record = BuildRecord(serverName, databaseName, projectName, stageName, startTime, endTime, now);
+            var startTime = reader.GetDateTime(3);
+            var endTime = reader.GetDateTime(4);
+            var record = BuildRecord(serverName, databaseName, examCode, projectName, stageName, startTime, endTime, now);
             if (AllowRecord(record, request))
             {
                 records.Add(record);
@@ -344,16 +378,17 @@ public sealed class ProjectStageQueryService
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            var projectName = reader.IsDBNull(0) ? "" : reader.GetString(0).Trim();
-            var stageName = reader.IsDBNull(1) ? "" : reader.GetString(1).Trim();
-            if (string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(stageName))
+            var examCode = reader.IsDBNull(0) ? "" : Convert.ToString(reader.GetValue(0))?.Trim() ?? "";
+            var projectName = reader.IsDBNull(1) ? "" : reader.GetString(1).Trim();
+            var stageName = reader.IsDBNull(2) ? "" : reader.GetString(2).Trim();
+            if (string.IsNullOrWhiteSpace(examCode) || string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(stageName))
             {
                 continue;
             }
 
-            var startTime = reader.GetDateTime(2);
-            var endTime = reader.GetDateTime(3);
-            var record = BuildRecord(serverName, databaseName, projectName, stageName, startTime, endTime, now);
+            var startTime = reader.GetDateTime(3);
+            var endTime = reader.GetDateTime(4);
+            var record = BuildRecord(serverName, databaseName, examCode, projectName, stageName, startTime, endTime, now);
             if (AllowRecord(record, request))
             {
                 records.Add(record);
@@ -366,6 +401,7 @@ public sealed class ProjectStageQueryService
     private static ProjectStageRecord BuildRecord(
         string serverName,
         string databaseName,
+        string examCode,
         string projectName,
         string stageName,
         DateTime startTime,
@@ -376,6 +412,7 @@ public sealed class ProjectStageQueryService
         {
             ServerName = serverName,
             DatabaseName = databaseName,
+            ExamCode = examCode,
             ProjectName = projectName,
             StageName = stageName,
             StartTime = startTime,

@@ -39,6 +39,10 @@
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #d8dee8; padding: 8px 10px; font-size: 14px; text-align: left; }
     th { background: #f8fafc; position: sticky; top: 0; }
+    .expand-btn { padding: 4px 10px; font-size: 13px; background: #e5e7eb; color: #111827; border-radius: 6px; }
+    .detail-row { background: #fbfcfe; }
+    .detail-card { padding: 10px 0; }
+    .detail-table th { position: static; background: #eef2f7; }
     .muted { color: #64748b; font-size: 13px; }
     .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
     .topbar-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
@@ -117,17 +121,16 @@
           <table>
             <thead>
               <tr>
+                <th style="width:80px;">操作</th>
                 <th>服务器</th>
                 <th>数据库</th>
+                <th>考试代码</th>
                 <th>项目名称</th>
-                <th>阶段名称</th>
-                <th>开始时间</th>
-                <th>结束时间</th>
-                <th>当前状态</th>
+                <th>当前阶段</th>
               </tr>
             </thead>
             <tbody id="result-body">
-              <tr><td colspan="7" class="muted">暂无结果</td></tr>
+              <tr><td colspan="6" class="muted">暂无结果</td></tr>
             </tbody>
           </table>
         </div>
@@ -290,22 +293,52 @@
       `).join("");
     }
 
-    function renderRecords(records) {
+    function formatDateTime(value) {
+      if (!value) return "";
+      return value.replace("T", " ").slice(0, 19);
+    }
+
+    function renderGroups(groups) {
       const body = document.getElementById("result-body");
-      if (!records.length) {
-        body.innerHTML = '<tr><td colspan="7" class="muted">没有符合条件的结果</td></tr>';
+      if (!groups.length) {
+        body.innerHTML = '<tr><td colspan="6" class="muted">没有符合条件的结果</td></tr>';
         return;
       }
 
-      body.innerHTML = records.map(item => `
-        <tr>
+      body.innerHTML = groups.map((item, index) => `
+        <tr class="group-row">
+          <td><button class="expand-btn" type="button" data-group-index="${index}">展开</button></td>
           <td>${item.serverName}</td>
           <td>${item.databaseName}</td>
+          <td>${item.examCode}</td>
           <td>${item.projectName}</td>
-          <td>${item.stageName}</td>
-          <td>${item.startTime.replace("T", " ").slice(0, 19)}</td>
-          <td>${item.endTime.replace("T", " ").slice(0, 19)}</td>
-          <td>${item.status}</td>
+          <td>${(item.statuses || []).join("、")}</td>
+        </tr>
+        <tr class="detail-row" id="detail-row-${index}" style="display:none;">
+          <td colspan="6">
+            <div class="detail-card">
+              <table class="detail-table">
+                <thead>
+                  <tr>
+                    <th>阶段名称</th>
+                    <th>开始时间</th>
+                    <th>结束时间</th>
+                    <th>当前状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(item.stages || []).map(stage => `
+                    <tr>
+                      <td>${stage.stageName}</td>
+                      <td>${formatDateTime(stage.startTime)}</td>
+                      <td>${formatDateTime(stage.endTime)}</td>
+                      <td>${stage.status}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </td>
         </tr>`).join("");
     }
 
@@ -450,13 +483,25 @@
         setQueryStatus("正在查询，请稍候...");
         const result = await postJson("/api/query", lastPayload);
         renderSummary(result);
-        renderRecords(result.records || []);
+        renderGroups(result.groups || []);
         document.getElementById("export-btn").disabled = (result.records || []).length === 0;
-        setQueryStatus(`查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，结果 ${result.records.length} 条。`);
+        setQueryStatus(`查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，项目 ${((result.groups || []).length)} 个，阶段 ${(result.records || []).length} 条。`);
       } catch (error) {
         document.getElementById("export-btn").disabled = true;
         setQueryStatus(error.message);
       }
+    });
+
+    document.getElementById("result-body").addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.classList.contains("expand-btn")) return;
+      const index = target.dataset.groupIndex;
+      const row = document.getElementById(`detail-row-${index}`);
+      if (!row) return;
+      const visible = row.style.display !== "none";
+      row.style.display = visible ? "none" : "";
+      target.textContent = visible ? "展开" : "收起";
     });
 
     document.getElementById("export-btn").addEventListener("click", async () => {
