@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<ProjectStageQueryService>();
 builder.Services.AddSingleton<ProjectStageExportService>();
+builder.Services.AddSingleton<ServerConfigStore>();
 
 var app = builder.Build();
 
@@ -12,6 +13,18 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+app.MapGet("/api/servers", async (ServerConfigStore store, CancellationToken cancellationToken) =>
+{
+    var servers = await store.LoadAsync(cancellationToken);
+    return Results.Ok(servers);
+});
+
+app.MapPost("/api/servers", async (List<StageServerConfig> servers, ServerConfigStore store, CancellationToken cancellationToken) =>
+{
+    await store.SaveAsync(servers, cancellationToken);
+    return Results.Ok(new { saved = servers.Count });
+});
 
 app.MapPost("/api/test", async (TestConnectionRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
 {

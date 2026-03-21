@@ -8,7 +8,7 @@
     body { font-family: "Microsoft YaHei", sans-serif; background: #f6f8fb; color: #0f172a; margin: 0; }
     .page { max-width: 1280px; margin: 0 auto; padding: 24px; }
     h1 { margin: 0 0 18px; font-size: 28px; }
-    .grid { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
     .card { background: #fff; border: 1px solid #d8dee8; border-radius: 12px; padding: 16px; box-shadow: 0 4px 18px rgba(15,23,42,.06); }
     .title { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
     label { display: block; margin: 10px 0 6px; font-size: 14px; }
@@ -33,36 +33,38 @@
     th, td { border: 1px solid #d8dee8; padding: 8px 10px; font-size: 14px; text-align: left; }
     th { background: #f8fafc; position: sticky; top: 0; }
     .muted { color: #64748b; font-size: 13px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+    .topbar-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .server-badge { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid #d8dee8; border-radius:999px; background:#fff; color:#334155; font-size:14px; }
+    .overlay { position:fixed; inset:0; background:rgba(15,23,42,.35); display:none; align-items:center; justify-content:center; padding:24px; z-index:1000; }
+    .overlay.show { display:flex; }
+    .modal { width:min(780px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:16px; border:1px solid #d8dee8; box-shadow:0 24px 80px rgba(15,23,42,.28); padding:20px; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+    .modal-head h2 { margin:0; font-size:22px; }
+    .close-btn { background:#e5e7eb; color:#111827; }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+    .server-list-panel { border:1px solid #d8dee8; border-radius:12px; padding:14px; background:#f8fafc; }
+    .server-empty { color:#64748b; font-size:13px; }
+    @media (max-width: 900px) {
+      .modal-grid { grid-template-columns:1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(2, minmax(100px,1fr)); }
+    }
   </style>
 </head>
 <body>
   <div class="page">
     <h1>项目阶段汇总服务</h1>
-    <div class="grid">
-      <div class="card">
-        <div class="title">服务器配置</div>
-        <label>服务器名称</label>
-        <input id="server-name" placeholder="例如：162">
-        <label>数据库地址</label>
-        <input id="server-host" placeholder="例如：192.168.1.162">
-        <label>端口</label>
-        <input id="server-port" value="1433">
-        <label>用户名</label>
-        <input id="server-user">
-        <label>密码</label>
-        <input id="server-password" type="password">
-        <div class="actions">
-          <button id="save-server">新增/更新</button>
-          <button id="clear-server" class="ghost">清空表单</button>
-        </div>
-        <div class="actions">
-          <button id="test-server" class="secondary">测试连接</button>
-        </div>
-        <div class="status" id="server-status"></div>
-        <div class="title" style="margin-top: 18px;">服务器列表</div>
-        <div id="server-list"></div>
+    <div class="topbar">
+      <div class="topbar-left">
+        <button id="open-server-modal" class="secondary">管理服务器</button>
+        <div class="server-badge">已配置服务器：<strong id="server-count">0</strong></div>
+        <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
       </div>
+    </div>
+    <div class="layout">
       <div class="card">
+        <label>服务器名称</label>
         <div class="title">查询条件</div>
         <div class="toolbar">
           <select id="status-filter">
@@ -101,19 +103,65 @@
         </div>
       </div>
     </div>
+    <div class="overlay" id="server-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>服务器配置</h2>
+          <button id="close-server-modal" class="close-btn">关闭</button>
+        </div>
+        <div class="modal-grid">
+          <div>
+            <label>服务器名称</label>
+            <input id="server-name" placeholder="例如：162">
+            <label>数据库地址</label>
+            <input id="server-host" placeholder="例如：192.168.1.162">
+            <label>端口</label>
+            <input id="server-port" value="1433">
+            <label>用户名</label>
+            <input id="server-user">
+            <label>密码</label>
+            <input id="server-password" type="password">
+            <div class="actions">
+              <button id="save-server">新增/更新</button>
+              <button id="clear-server" class="ghost">清空表单</button>
+              <button id="test-server" class="secondary">测试连接</button>
+            </div>
+            <div class="status" id="server-status"></div>
+          </div>
+          <div class="server-list-panel">
+            <div class="title">服务器列表</div>
+            <div id="server-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <script>
-    const storageKey = "project-stage-service-servers";
     let selectedIndex = null;
     let lastPayload = null;
+    let serversCache = [];
 
-    function loadServers() {
-      try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); }
-      catch { return []; }
+    async function loadServers() {
+      const response = await fetch("/api/servers");
+      if (!response.ok) {
+        throw new Error("读取服务器配置失败");
+      }
+      const data = await response.json();
+      serversCache = Array.isArray(data) ? data : [];
+      return serversCache;
     }
 
-    function saveServers(servers) {
-      localStorage.setItem(storageKey, JSON.stringify(servers));
+    async function saveServers(servers) {
+      const response = await fetch("/api/servers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(servers)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || "保存服务器配置失败");
+      }
+      serversCache = servers;
     }
 
     function fillForm(server) {
@@ -126,10 +174,12 @@
 
     function renderServers() {
       const container = document.getElementById("server-list");
-      const servers = loadServers();
+      const servers = serversCache;
+      document.getElementById("server-count").textContent = String(servers.length);
+      document.getElementById("enabled-count").textContent = String(servers.filter(item => item.enabled).length);
       container.innerHTML = "";
       if (!servers.length) {
-        container.innerHTML = '<div class="muted">还没有添加服务器。</div>';
+        container.innerHTML = '<div class="server-empty">还没有添加服务器。</div>';
         return;
       }
       servers.forEach((server, index) => {
@@ -150,7 +200,7 @@
     }
 
     function enabledServers() {
-      return loadServers().filter(item => item.enabled);
+      return serversCache.filter(item => item.enabled);
     }
 
     function setServerStatus(text) {
@@ -159,6 +209,14 @@
 
     function setQueryStatus(text) {
       document.getElementById("query-status").textContent = text;
+    }
+
+    function showServerModal() {
+      document.getElementById("server-overlay").classList.add("show");
+    }
+
+    function hideServerModal() {
+      document.getElementById("server-overlay").classList.remove("show");
     }
 
     function buildPayload() {
@@ -209,7 +267,15 @@
       return data;
     }
 
-    document.getElementById("save-server").addEventListener("click", () => {
+    document.getElementById("open-server-modal").addEventListener("click", showServerModal);
+    document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
+    document.getElementById("server-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("server-overlay")) {
+        hideServerModal();
+      }
+    });
+
+    document.getElementById("save-server").addEventListener("click", async () => {
       const server = {
         name: document.getElementById("server-name").value.trim(),
         host: document.getElementById("server-host").value.trim(),
@@ -224,15 +290,19 @@
         return;
       }
 
-      const servers = loadServers();
+      const servers = [...serversCache];
       if (selectedIndex === null) servers.push(server);
       else servers[selectedIndex] = { ...servers[selectedIndex], ...server };
-
-      saveServers(servers);
-      selectedIndex = null;
-      fillForm(null);
-      setServerStatus("服务器配置已保存。");
-      renderServers();
+      try {
+        await saveServers(servers);
+        selectedIndex = null;
+        fillForm(null);
+        setServerStatus("服务器配置已保存到本机加密文件。");
+        renderServers();
+        hideServerModal();
+      } catch (error) {
+        setServerStatus(error.message);
+      }
     });
 
     document.getElementById("clear-server").addEventListener("click", () => {
@@ -241,33 +311,43 @@
       setServerStatus("");
     });
 
-    document.getElementById("server-list").addEventListener("click", (event) => {
+    document.getElementById("server-list").addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       const action = target.dataset.action;
       const index = Number(target.dataset.index);
-      const servers = loadServers();
+      const servers = [...serversCache];
       if (Number.isNaN(index) || !servers[index]) return;
 
       if (action === "edit") {
         selectedIndex = index;
         fillForm(servers[index]);
+        showServerModal();
       } else if (action === "delete") {
         servers.splice(index, 1);
-        saveServers(servers);
-        renderServers();
+        try {
+          await saveServers(servers);
+          renderServers();
+          setServerStatus("服务器配置已删除。");
+        } catch (error) {
+          setServerStatus(error.message);
+        }
       }
     });
 
-    document.getElementById("server-list").addEventListener("change", (event) => {
+    document.getElementById("server-list").addEventListener("change", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement)) return;
       if (target.dataset.action !== "toggle") return;
       const index = Number(target.dataset.index);
-      const servers = loadServers();
+      const servers = [...serversCache];
       if (Number.isNaN(index) || !servers[index]) return;
       servers[index].enabled = target.checked;
-      saveServers(servers);
+      try {
+        await saveServers(servers);
+      } catch (error) {
+        setServerStatus(error.message);
+      }
     });
 
     document.getElementById("test-server").addEventListener("click", async () => {
@@ -326,7 +406,14 @@
       }
     });
 
-    renderServers();
+    (async () => {
+      try {
+        await loadServers();
+        renderServers();
+      } catch (error) {
+        setServerStatus(error.message);
+      }
+    })();
   </script>
 </body>
 </html>
