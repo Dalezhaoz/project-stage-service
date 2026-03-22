@@ -301,6 +301,7 @@ public sealed class ProjectStageQueryService
                 ON B.Codeid = 'WT'
                AND B.Code = C.Kind
             WHERE A.CodeLen = '2'
+              AND C.Kind <> '06'
             ORDER BY C.KDate ASC
             """;
 
