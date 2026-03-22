@@ -83,6 +83,82 @@
     .checkbox-row label, .check-list label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
     .checkbox-row input, .check-list input { width: auto; }
     .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .inline-grid.compact { grid-template-columns: 1.1fr .9fr; }
+    .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 14px; }
+    .filter-item { display: grid; gap: 8px; align-content: start; }
+    .filter-item.span-2 { grid-column: span 2; }
+    .filter-label { font-size: 13px; font-weight: 700; color: #334155; }
+    .multi-dropdown { position: relative; }
+    .multi-dropdown > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: var(--text);
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      user-select: none;
+    }
+    .multi-dropdown > summary::-webkit-details-marker { display: none; }
+    .multi-dropdown > summary::after { content: "▾"; color: var(--muted); font-size: 13px; flex-shrink: 0; }
+    .multi-dropdown[open] > summary {
+      outline: none;
+      border-color: #78a4ff;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      background: #fcfdff;
+    }
+    .dropdown-panel {
+      position: absolute;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      top: calc(100% + 8px);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+      padding: 12px;
+      max-height: 280px;
+      overflow: auto;
+    }
+    .dropdown-list { display: grid; gap: 10px; }
+    .dropdown-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .dropdown-list input { width: auto; }
+    .stage-preset-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .stage-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 13px;
+      color: #334155;
+      cursor: pointer;
+      user-select: none;
+      transition: all .16s ease;
+    }
+    .stage-chip input { display: none; }
+    .stage-chip.active {
+      border-color: #8bb3ff;
+      background: #eff5ff;
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+    .stage-custom-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .check-list {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -143,6 +219,8 @@
       .page-title h1 { font-size: 30px; }
       .modal-grid { grid-template-columns:1fr; }
       .filters { grid-template-columns: 1fr; }
+      .filter-grid { grid-template-columns: 1fr; }
+      .filter-item.span-2 { grid-column: span 1; }
       .inline-grid { grid-template-columns: 1fr; }
       .summary { grid-template-columns: repeat(2, minmax(100px,1fr)); }
     }
@@ -170,55 +248,69 @@
       </div>
     <div class="layout">
       <div class="card">
-        <div class="title">查询条件</div>
+        <div class="title">筛选</div>
         <div class="filters">
           <div class="field-card">
-            <div class="field-title">状态</div>
-            <div class="checkbox-row">
-              <label><input type="checkbox" class="status-filter" value="已经结束"> 已结束</label>
-              <label><input type="checkbox" class="status-filter" value="正在进行" checked> 正在进行</label>
-              <label><input type="checkbox" class="status-filter" value="即将开始" checked> 即将开始</label>
-            </div>
-          </div>
-          <div class="field-card">
-            <div class="field-title">时间范围</div>
-            <div class="inline-grid">
-              <input id="range-start" type="datetime-local">
-              <input id="range-end" type="datetime-local">
-            </div>
-            <div class="hint">查询与时间范围有交集的项目阶段。</div>
-          </div>
-          <div class="field-card">
-            <div class="field-title">阶段筛选</div>
-            <div class="inline-grid">
-              <input id="stage-keyword" placeholder="阶段关键字，例如：报名">
-              <button id="load-stages-btn" class="ghost" type="button">刷新阶段选项</button>
-            </div>
-            <div class="checkbox-row" style="margin-top:10px;">
-              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="报名"> 报名</label>
-              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="缴费"> 缴费</label>
-              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="交费"> 交费</label>
-              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="准考证"> 准考证</label>
-              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="面试"> 面试</label>
-              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="成绩"> 成绩</label>
-            </div>
-            <div id="stage-options" class="check-list">
-              <div class="server-empty">还没有加载阶段选项。</div>
-            </div>
-          </div>
-          <div class="field-card">
-            <div class="field-title">项目筛选</div>
-            <input id="project-keyword" placeholder="项目关键字">
-          </div>
-          <div class="field-card">
-            <div class="field-title">其他筛选</div>
-            <div class="inline-grid">
-              <input id="server-keyword" placeholder="服务器关键字">
-              <input id="database-keyword" placeholder="数据库关键字">
-            </div>
-            <div class="inline-grid" style="margin-top:10px;">
-              <input id="exam-code-keyword" placeholder="考试代码">
-              <div></div>
+            <div class="filter-grid">
+              <div class="filter-item">
+                <div class="filter-label">状态</div>
+                <details class="multi-dropdown">
+                  <summary><span id="status-summary">已结束、正在进行、即将开始</span></summary>
+                  <div class="dropdown-panel">
+                    <div class="dropdown-list">
+                      <label><input type="checkbox" class="status-filter" value="已经结束" checked> 已结束</label>
+                      <label><input type="checkbox" class="status-filter" value="正在进行" checked> 正在进行</label>
+                      <label><input type="checkbox" class="status-filter" value="即将开始" checked> 即将开始</label>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">阶段筛选</div>
+                <details class="multi-dropdown">
+                  <summary><span id="stage-summary">未选择阶段</span></summary>
+                  <div class="dropdown-panel">
+                    <div id="stage-options" class="dropdown-list">
+                      <div class="server-empty">还没有可选阶段。</div>
+                    </div>
+                  </div>
+                </details>
+                <div class="stage-custom-row">
+                  <input id="stage-keyword" placeholder="手动添加阶段，例如：体检">
+                  <button id="add-stage-keyword" class="ghost" type="button">添加</button>
+                </div>
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">时间范围</div>
+                <div class="inline-grid">
+                  <input id="range-start" type="datetime-local">
+                  <input id="range-end" type="datetime-local">
+                </div>
+                <div class="hint">查询与时间范围有交集的项目阶段。</div>
+              </div>
+              <div class="filter-item span-2">
+                <div class="filter-label">项目关键字</div>
+                <input id="project-keyword" placeholder="项目关键字">
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">服务器</div>
+                <details class="multi-dropdown">
+                  <summary><span id="server-summary">全部服务器</span></summary>
+                  <div class="dropdown-panel">
+                    <div id="server-filter-options" class="dropdown-list">
+                      <div class="server-empty">还没有可选服务器。</div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">数据库关键字</div>
+                <input id="database-keyword" placeholder="数据库关键字">
+              </div>
+              <div class="filter-item">
+                <div class="filter-label">考试代码</div>
+                <input id="exam-code-keyword" placeholder="考试代码">
+              </div>
             </div>
           </div>
         </div>
@@ -293,6 +385,38 @@
     let lastPayload = null;
     let serversCache = [];
     let stageOptionsCache = [];
+    const presetStageNames = ["报名", "缴费", "交费", "准考证", "面试", "成绩"];
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function collectCheckedValues(selector) {
+      return Array.from(document.querySelectorAll(selector))
+        .filter(item => item.checked)
+        .map(item => item.value);
+    }
+
+    function updateDropdownSummary(summaryId, selector, emptyText, allText, totalCount = null) {
+      const summary = document.getElementById(summaryId);
+      if (!summary) return;
+      const values = collectCheckedValues(selector);
+      const effectiveTotal = totalCount ?? document.querySelectorAll(selector).length;
+      if (!values.length) {
+        summary.textContent = emptyText;
+        return;
+      }
+      if (effectiveTotal > 0 && values.length === effectiveTotal) {
+        summary.textContent = allText;
+        return;
+      }
+      summary.textContent = values.join("、");
+    }
 
     async function loadCacheInfo() {
       const response = await fetch("/api/cache-info");
@@ -334,6 +458,29 @@
       document.getElementById("server-password").value = server?.password || "";
     }
 
+    function renderServerFilterOptions() {
+      const container = document.getElementById("server-filter-options");
+      if (!container) return;
+
+      const selected = new Set(collectCheckedValues(".server-filter"));
+      const options = serversCache
+        .map(item => item.name?.trim())
+        .filter(Boolean)
+        .filter((name, index, list) => list.findIndex(item => item.toLowerCase() === name.toLowerCase()) === index)
+        .sort((a, b) => a.localeCompare(b, "zh-CN"));
+
+      if (!options.length) {
+        container.innerHTML = '<div class="server-empty">还没有可选服务器。</div>';
+        updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", 0);
+        return;
+      }
+
+      container.innerHTML = options.map(name => `
+        <label><input type="checkbox" class="server-filter" value="${escapeHtml(name)}" ${selected.has(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
+      `).join("");
+      updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", options.length);
+    }
+
     function renderServers() {
       const container = document.getElementById("server-list");
       const servers = serversCache;
@@ -342,6 +489,7 @@
       container.innerHTML = "";
       if (!servers.length) {
         container.innerHTML = '<div class="server-empty">还没有添加服务器。</div>';
+        renderServerFilterOptions();
         return;
       }
       servers.forEach((server, index) => {
@@ -359,6 +507,7 @@
           </div>`;
         container.appendChild(item);
       });
+      renderServerFilterOptions();
     }
 
     function enabledServers() {
@@ -395,11 +544,12 @@
     function buildPayload() {
       return {
         servers: enabledServers(),
-        statusFilters: Array.from(document.querySelectorAll(".status-filter:checked")).map(item => item.value),
-        stageKeyword: document.getElementById("stage-keyword").value.trim(),
-        stageNames: Array.from(document.querySelectorAll(".stage-filter:checked")).map(item => item.value),
+        statusFilters: collectCheckedValues(".status-filter"),
+        stageKeyword: "",
+        stageNames: collectCheckedValues(".stage-filter"),
+        serverNames: collectCheckedValues(".server-filter"),
         projectKeyword: document.getElementById("project-keyword").value.trim(),
-        serverKeyword: document.getElementById("server-keyword").value.trim(),
+        serverKeyword: "",
         databaseKeyword: document.getElementById("database-keyword").value.trim(),
         examCodeKeyword: document.getElementById("exam-code-keyword").value.trim()
         ,rangeStart: document.getElementById("range-start").value || null
@@ -425,15 +575,27 @@
     }
 
     function renderStageOptions(stageNames) {
-      stageOptionsCache = Array.isArray(stageNames) ? stageNames : [];
+      const selected = new Set(collectCheckedValues(".stage-filter"));
+      const manualValue = document.getElementById("stage-keyword").value.trim();
+      const allOptions = [...presetStageNames, ...(Array.isArray(stageNames) ? stageNames : []), ...selected];
+      if (manualValue) {
+        allOptions.push(manualValue);
+      }
+      stageOptionsCache = allOptions
+        .map(item => item?.trim())
+        .filter(Boolean)
+        .filter((item, index, list) => list.findIndex(value => value.toLowerCase() === item.toLowerCase()) === index)
+        .sort((a, b) => a.localeCompare(b, "zh-CN"));
       const container = document.getElementById("stage-options");
       if (!stageOptionsCache.length) {
-        container.innerHTML = '<div class="server-empty">没有可选阶段，先检查已启用服务器或点击“刷新阶段选项”。</div>';
+        container.innerHTML = '<div class="server-empty">还没有可选阶段。</div>';
+        updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", 0);
         return;
       }
       container.innerHTML = stageOptionsCache.map(name => `
-        <label><input type="checkbox" class="stage-filter" value="${name}"> ${name}</label>
+        <label><input type="checkbox" class="stage-filter" value="${escapeHtml(name)}" ${selected.has(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
       `).join("");
+      updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", stageOptionsCache.length);
     }
 
     function formatDateTime(value) {
@@ -608,16 +770,22 @@
       }
     });
 
-    document.getElementById("load-stages-btn").addEventListener("click", async () => {
+    async function refreshStageOptions(showStatus = false) {
       try {
-        setQueryStatus("正在从缓存加载阶段选项...");
+        if (showStatus) {
+          setQueryStatus("正在从缓存加载阶段选项...");
+        }
         const result = await postJson("/api/stages", buildStagePayload());
         renderStageOptions(result);
-        setQueryStatus(`已从缓存加载阶段选项 ${result.length} 个。`);
+        if (showStatus) {
+          setQueryStatus(`已从缓存加载阶段选项 ${result.length} 个。`);
+        }
       } catch (error) {
-        setQueryStatus(error.message);
+        if (showStatus) {
+          setQueryStatus(error.message);
+        }
       }
-    });
+    }
 
     document.getElementById("refresh-btn").addEventListener("click", async () => {
       try {
@@ -626,7 +794,7 @@
         const result = await postJson("/api/refresh", { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
         setQueryStatus(`更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`);
-        renderStageOptions(await postJson("/api/stages", buildStagePayload()));
+        await refreshStageOptions();
         if (lastPayload) {
           const queryResult = await postJson("/api/query", lastPayload);
           renderSummary(queryResult);
@@ -667,6 +835,38 @@
       target.textContent = visible ? "展开" : "收起";
     });
 
+    document.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.classList.contains("status-filter")) {
+        updateDropdownSummary("status-summary", ".status-filter", "未选择状态", "全部状态", 3);
+      }
+      if (target.classList.contains("stage-filter")) {
+        updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", stageOptionsCache.length);
+      }
+      if (target.classList.contains("server-filter")) {
+        updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", document.querySelectorAll(".server-filter").length);
+      }
+    });
+
+    document.getElementById("add-stage-keyword").addEventListener("click", () => {
+      const input = document.getElementById("stage-keyword");
+      const value = input.value.trim();
+      if (!value) return;
+
+      if (!stageOptionsCache.some(item => item.toLowerCase() === value.toLowerCase())) {
+        stageOptionsCache.push(value);
+      }
+      renderStageOptions(stageOptionsCache);
+      const checkbox = Array.from(document.querySelectorAll(".stage-filter"))
+        .find(item => item.value.toLowerCase() === value.toLowerCase());
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+      updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", stageOptionsCache.length);
+      input.value = "";
+    });
+
     document.getElementById("export-btn").addEventListener("click", async () => {
       if (!lastPayload) return;
       try {
@@ -693,7 +893,8 @@
       try {
         await loadServers();
         renderServers();
-        renderStageOptions([]);
+        updateDropdownSummary("status-summary", ".status-filter", "未选择状态", "全部状态", 3);
+        await refreshStageOptions();
         renderCacheInfo(await loadCacheInfo());
       } catch (error) {
         setServerStatus(error.message);

@@ -23,6 +23,7 @@ public sealed class ProjectStageQueryRequest
     public List<string> StatusFilters { get; set; } = ["正在进行", "即将开始"];
     public string StageKeyword { get; set; } = "";
     public List<string> StageNames { get; set; } = [];
+    public List<string> ServerNames { get; set; } = [];
     public string ProjectKeyword { get; set; } = "";
     public string ServerKeyword { get; set; } = "";
     public string DatabaseKeyword { get; set; } = "";

@@ -168,6 +168,7 @@ public sealed class ProjectStageCacheStore
         {
             Servers = request.Servers,
             StatusFilters = request.StatusFilters,
+            ServerNames = request.ServerNames,
             ProjectKeyword = request.ProjectKeyword,
             ServerKeyword = request.ServerKeyword,
             DatabaseKeyword = request.DatabaseKeyword,
@@ -288,6 +289,12 @@ public sealed class ProjectStageCacheStore
 
     private static bool AllowRecord(ProjectStageRecord record, ProjectStageQueryRequest request)
     {
+        if (request.ServerNames.Count > 0 &&
+            !request.ServerNames.Any(item => string.Equals(item?.Trim(), record.ServerName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
         if (!ContainsIgnoreCase(record.ServerName, request.ServerKeyword))
         {
             return false;
