@@ -24,6 +24,9 @@ public sealed class ProjectStageQueryRequest
     public string StageKeyword { get; set; } = "";
     public List<string> StageNames { get; set; } = [];
     public string ProjectKeyword { get; set; } = "";
+    public string ServerKeyword { get; set; } = "";
+    public string DatabaseKeyword { get; set; } = "";
+    public string ExamCodeKeyword { get; set; } = "";
     public DateTime? RangeStart { get; set; }
     public DateTime? RangeEnd { get; set; }
 }

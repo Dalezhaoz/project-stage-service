@@ -41,6 +41,46 @@ public sealed class ProjectStageQueryService
         return stageNames.OrderBy(item => item, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    public async Task<List<string>> QueryStageNamesAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken)
+    {
+        var enabledServers = request.Servers.Where(item => item.Enabled).ToList();
+        var stageNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var stageFilterRequest = new ProjectStageQueryRequest
+        {
+            Servers = request.Servers,
+            StatusFilters = request.StatusFilters,
+            ProjectKeyword = request.ProjectKeyword,
+            ServerKeyword = request.ServerKeyword,
+            DatabaseKeyword = request.DatabaseKeyword,
+            ExamCodeKeyword = request.ExamCodeKeyword,
+            RangeStart = request.RangeStart,
+            RangeEnd = request.RangeEnd
+        };
+
+        foreach (var server in enabledServers)
+        {
+            var databaseNames = await LoadDatabaseNamesAsync(server, cancellationToken);
+            foreach (var databaseName in databaseNames)
+            {
+                if (!await HasBusinessTablesAsync(server, databaseName, cancellationToken))
+                {
+                    continue;
+                }
+
+                var records = await QueryDatabaseAsync(server, databaseName, DateTime.Now, stageFilterRequest, cancellationToken);
+                foreach (var stageName in records.Select(item => item.StageName))
+                {
+                    if (!string.IsNullOrWhiteSpace(stageName))
+                    {
+                        stageNames.Add(stageName);
+                    }
+                }
+            }
+        }
+
+        return stageNames.OrderBy(item => item, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     public async Task<ProjectStageSummary> QueryAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken)
     {
         var enabledServers = request.Servers.Where(item => item.Enabled).ToList();
@@ -424,6 +464,21 @@ public sealed class ProjectStageQueryService
 
     private static bool AllowRecord(ProjectStageRecord record, ProjectStageQueryRequest request)
     {
+        if (!ContainsIgnoreCase(record.ServerName, request.ServerKeyword))
+        {
+            return false;
+        }
+
+        if (!ContainsIgnoreCase(record.DatabaseName, request.DatabaseKeyword))
+        {
+            return false;
+        }
+
+        if (!ContainsIgnoreCase(record.ExamCode, request.ExamCodeKeyword))
+        {
+            return false;
+        }
+
         if (!ContainsIgnoreCase(record.ProjectName, request.ProjectKeyword))
         {
             return false;

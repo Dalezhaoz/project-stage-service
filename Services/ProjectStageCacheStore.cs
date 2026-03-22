@@ -164,7 +164,20 @@ public sealed class ProjectStageCacheStore
     public async Task<List<string>> QueryStageNamesAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken)
     {
         var records = await LoadRecordsAsync(cancellationToken);
+        var stageFilterRequest = new ProjectStageQueryRequest
+        {
+            Servers = request.Servers,
+            StatusFilters = request.StatusFilters,
+            ProjectKeyword = request.ProjectKeyword,
+            ServerKeyword = request.ServerKeyword,
+            DatabaseKeyword = request.DatabaseKeyword,
+            ExamCodeKeyword = request.ExamCodeKeyword,
+            RangeStart = request.RangeStart,
+            RangeEnd = request.RangeEnd
+        };
+
         return ApplyServerFilter(records, request.Servers)
+            .Where(item => AllowRecord(item, stageFilterRequest))
             .Select(item => item.StageName)
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -275,6 +288,21 @@ public sealed class ProjectStageCacheStore
 
     private static bool AllowRecord(ProjectStageRecord record, ProjectStageQueryRequest request)
     {
+        if (!ContainsIgnoreCase(record.ServerName, request.ServerKeyword))
+        {
+            return false;
+        }
+
+        if (!ContainsIgnoreCase(record.DatabaseName, request.DatabaseKeyword))
+        {
+            return false;
+        }
+
+        if (!ContainsIgnoreCase(record.ExamCode, request.ExamCodeKeyword))
+        {
+            return false;
+        }
+
         if (!ContainsIgnoreCase(record.ProjectName, request.ProjectKeyword))
         {
             return false;

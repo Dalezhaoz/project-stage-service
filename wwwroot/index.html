@@ -108,6 +108,14 @@
               <input id="stage-keyword" placeholder="阶段关键字，例如：报名">
               <button id="load-stages-btn" class="ghost" type="button">刷新阶段选项</button>
             </div>
+            <div class="checkbox-row" style="margin-top:10px;">
+              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="报名"> 报名</label>
+              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="缴费"> 缴费</label>
+              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="交费"> 交费</label>
+              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="准考证"> 准考证</label>
+              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="面试"> 面试</label>
+              <label><input type="checkbox" class="stage-filter preset-stage-filter" value="成绩"> 成绩</label>
+            </div>
             <div id="stage-options" class="check-list">
               <div class="server-empty">还没有加载阶段选项。</div>
             </div>
@@ -115,6 +123,17 @@
           <div class="field-card">
             <div class="field-title">项目筛选</div>
             <input id="project-keyword" placeholder="项目关键字">
+          </div>
+          <div class="field-card">
+            <div class="field-title">其他筛选</div>
+            <div class="inline-grid">
+              <input id="server-keyword" placeholder="服务器关键字">
+              <input id="database-keyword" placeholder="数据库关键字">
+            </div>
+            <div class="inline-grid" style="margin-top:10px;">
+              <input id="exam-code-keyword" placeholder="考试代码">
+              <div></div>
+            </div>
           </div>
         </div>
         <div class="actions">
@@ -128,12 +147,12 @@
           <table>
             <thead>
               <tr>
-                <th style="width:80px;">操作</th>
                 <th>服务器</th>
                 <th>数据库</th>
                 <th>考试代码</th>
                 <th>项目名称</th>
                 <th>当前阶段</th>
+                <th style="width:80px;">操作</th>
               </tr>
             </thead>
             <tbody id="result-body">
@@ -291,10 +310,20 @@
         statusFilters: Array.from(document.querySelectorAll(".status-filter:checked")).map(item => item.value),
         stageKeyword: document.getElementById("stage-keyword").value.trim(),
         stageNames: Array.from(document.querySelectorAll(".stage-filter:checked")).map(item => item.value),
-        projectKeyword: document.getElementById("project-keyword").value.trim()
+        projectKeyword: document.getElementById("project-keyword").value.trim(),
+        serverKeyword: document.getElementById("server-keyword").value.trim(),
+        databaseKeyword: document.getElementById("database-keyword").value.trim(),
+        examCodeKeyword: document.getElementById("exam-code-keyword").value.trim()
         ,rangeStart: document.getElementById("range-start").value || null
         ,rangeEnd: document.getElementById("range-end").value || null
       };
+    }
+
+    function buildStagePayload() {
+      const payload = buildPayload();
+      payload.stageKeyword = "";
+      payload.stageNames = [];
+      return payload;
     }
 
     function renderSummary(summary) {
@@ -333,12 +362,12 @@
 
       body.innerHTML = groups.map((item, index) => `
         <tr class="group-row">
-          <td><button class="expand-btn" type="button" data-group-index="${index}">展开</button></td>
           <td>${item.serverName}</td>
           <td>${item.databaseName}</td>
           <td>${item.examCode}</td>
           <td>${item.projectName}</td>
           <td>${(item.statuses || []).join("、")}</td>
+          <td><button class="expand-btn" type="button" data-group-index="${index}">展开</button></td>
         </tr>
         <tr class="detail-row" id="detail-row-${index}" style="display:none;">
           <td colspan="6">
@@ -494,8 +523,7 @@
     document.getElementById("load-stages-btn").addEventListener("click", async () => {
       try {
         setQueryStatus("正在从缓存加载阶段选项...");
-        const payload = { servers: enabledServers(), statusFilters: [], stageKeyword: "", stageNames: [], projectKeyword: "", rangeStart: null, rangeEnd: null };
-        const result = await postJson("/api/stages", payload);
+        const result = await postJson("/api/stages", buildStagePayload());
         renderStageOptions(result);
         setQueryStatus(`已从缓存加载阶段选项 ${result.length} 个。`);
       } catch (error) {
@@ -510,8 +538,7 @@
         const result = await postJson("/api/refresh", { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
         setQueryStatus(`更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`);
-        const stagePayload = { servers: enabledServers(), statusFilters: [], stageKeyword: "", stageNames: [], projectKeyword: "", rangeStart: null, rangeEnd: null };
-        renderStageOptions(await postJson("/api/stages", stagePayload));
+        renderStageOptions(await postJson("/api/stages", buildStagePayload()));
         if (lastPayload) {
           const queryResult = await postJson("/api/query", lastPayload);
           renderSummary(queryResult);
