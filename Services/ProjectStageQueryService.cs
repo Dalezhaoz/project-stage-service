@@ -327,7 +327,7 @@ public sealed class ProjectStageQueryService
                 b.end_date
             FROM mgt_exam_organize a
             JOIN mgt_exam_step b
-              ON 1 = 1
+              ON a.id = b.exam_id
             ORDER BY b.start_date ASC
             """;
 
