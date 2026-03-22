@@ -490,7 +490,9 @@ public sealed class ProjectStageQueryService
         }
 
         if (request.StageNames.Count > 0 &&
-            !request.StageNames.Any(item => string.Equals(item, record.StageName, StringComparison.OrdinalIgnoreCase)))
+            !request.StageNames.Any(item =>
+                !string.IsNullOrWhiteSpace(item) &&
+                record.StageName.Contains(item.Trim(), StringComparison.OrdinalIgnoreCase)))
         {
             return false;
         }
