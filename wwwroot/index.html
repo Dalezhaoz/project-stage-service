@@ -5,61 +5,142 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>项目阶段汇总服务</title>
   <style>
-    body { font-family: "Microsoft YaHei", sans-serif; background: #f6f8fb; color: #0f172a; margin: 0; }
-    .page { max-width: 1280px; margin: 0 auto; padding: 24px; }
-    h1 { margin: 0 0 18px; font-size: 28px; }
-    .layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
-    .card { background: #fff; border: 1px solid #d8dee8; border-radius: 12px; padding: 16px; box-shadow: 0 4px 18px rgba(15,23,42,.06); }
-    .title { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
-    label { display: block; margin: 10px 0 6px; font-size: 14px; }
+    :root {
+      --bg: #f3f6fb;
+      --card: #ffffff;
+      --card-soft: #f8fbff;
+      --line: #d9e1ee;
+      --line-soft: #e7edf6;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #64748b;
+      --ghost: #eef2f7;
+      --success: #0f766e;
+      --shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: "Microsoft YaHei", sans-serif; background: linear-gradient(180deg, #edf3fb 0%, var(--bg) 220px); color: var(--text); margin: 0; }
+    .page { max-width: 1380px; margin: 0 auto; padding: 28px 28px 40px; }
+    .page-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .page-title h1 { margin: 0; font-size: 36px; line-height: 1.1; letter-spacing: -0.02em; }
+    .page-title .subtitle { margin-top: 8px; color: var(--muted); font-size: 14px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 22px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+    .title { font-size: 24px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.02em; }
+    label { display: block; margin: 12px 0 7px; font-size: 14px; color: #1e293b; font-weight: 600; }
     input, select, button { font: inherit; }
-    input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #c4ccda; }
-    button { border: none; border-radius: 8px; padding: 10px 14px; background: #2563eb; color: #fff; cursor: pointer; }
-    button.secondary { background: #64748b; }
-    button.ghost { background: #e5e7eb; color: #111827; }
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
-    .server-item { margin-top: 10px; padding: 12px; border: 1px solid #d8dee8; border-radius: 10px; background: #f8fafc; }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: var(--text);
+      transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #78a4ff;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      background: #fcfdff;
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 16px;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform .12s ease, background-color .18s ease, box-shadow .18s ease;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+    }
+    button:hover { background: var(--primary-dark); }
+    button:active { transform: translateY(1px); }
+    button.secondary { background: var(--secondary); box-shadow: 0 8px 18px rgba(100, 116, 139, 0.16); }
+    button.ghost, .close-btn, .expand-btn { background: var(--ghost); color: #111827; box-shadow: none; }
+    button:disabled { cursor: not-allowed; opacity: .55; box-shadow: none; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+    .server-item { margin-top: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-soft); }
     .server-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .server-meta { margin-top: 6px; color: #475569; font-size: 13px; }
+    .server-meta { margin-top: 8px; color: #475569; font-size: 13px; line-height: 1.5; }
     .server-controls { display: flex; gap: 8px; margin-top: 10px; }
     .server-controls button { flex: 1; }
-    .filters { display: grid; grid-template-columns: repeat(2, minmax(260px,1fr)); gap: 14px; margin-bottom: 12px; }
-    .field-card { border: 1px solid #d8dee8; border-radius: 12px; padding: 14px; background: #f8fafc; }
-    .field-title { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #1e293b; }
-    .checkbox-row { display: flex; flex-wrap: wrap; gap: 14px; }
+    .filters { display: grid; grid-template-columns: repeat(2, minmax(280px,1fr)); gap: 16px; margin-bottom: 14px; }
+    .field-card { border: 1px solid var(--line); border-radius: 16px; padding: 16px; background: var(--card-soft); min-height: 100%; }
+    .field-title { margin: 0 0 12px; font-size: 15px; font-weight: 800; color: #1e293b; }
+    .checkbox-row { display: flex; flex-wrap: wrap; gap: 16px; }
     .checkbox-row label, .check-list label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
     .checkbox-row input, .check-list input { width: auto; }
-    .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .check-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-height: 180px; overflow: auto; margin-top: 10px; }
-    .summary { display: grid; grid-template-columns: repeat(6, minmax(100px,1fr)); gap: 10px; margin: 14px 0; }
-    .metric { background: #f8fafc; border: 1px solid #d8dee8; border-radius: 10px; padding: 12px; }
-    .metric b { display: block; margin-top: 6px; font-size: 22px; }
-    .status { min-height: 24px; white-space: pre-wrap; color: #334155; margin-top: 10px; }
-    .results { max-height: 620px; overflow: auto; }
+    .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .check-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      max-height: 210px;
+      overflow: auto;
+      margin-top: 12px;
+      padding-right: 4px;
+    }
+    .summary { display: grid; grid-template-columns: repeat(6, minmax(110px,1fr)); gap: 12px; margin: 18px 0; }
+    .metric { background: linear-gradient(180deg, #f8fbff 0%, #f4f8fd 100%); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-height: 94px; }
+    .metric div { color: var(--muted); font-size: 13px; font-weight: 600; }
+    .metric b { display: block; margin-top: 8px; font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+    .status {
+      min-height: 24px;
+      white-space: pre-wrap;
+      color: #334155;
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+    }
+    .results { max-height: 640px; overflow: auto; border: 1px solid var(--line); border-radius: 16px; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #d8dee8; padding: 8px 10px; font-size: 14px; text-align: left; }
-    th { background: #f8fafc; position: sticky; top: 0; }
-    .expand-btn { padding: 4px 10px; font-size: 13px; background: #e5e7eb; color: #111827; border-radius: 6px; }
-    .detail-row { background: #fbfcfe; }
-    .detail-card { padding: 10px 0; }
-    .detail-table th { position: static; background: #eef2f7; }
-    .muted { color: #64748b; font-size: 13px; }
-    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    th, td { border-bottom: 1px solid var(--line); padding: 12px 12px; font-size: 14px; text-align: left; vertical-align: top; }
+    th { background: #f7faff; position: sticky; top: 0; z-index: 1; font-weight: 800; color: #1e293b; }
+    tbody tr:hover { background: #fafcff; }
+    .expand-btn { padding: 6px 12px; font-size: 13px; border-radius: 999px; }
+    .detail-row { background: #fbfdff; }
+    .detail-card { padding: 14px 0 6px; }
+    .detail-table th { position: static; background: #eef4fb; }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
     .topbar-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-    .server-badge { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid #d8dee8; border-radius:999px; background:#fff; color:#334155; font-size:14px; }
+    .server-badge {
+      display:inline-flex; align-items:center; gap:8px; padding:10px 14px;
+      border:1px solid var(--line); border-radius:999px; background:#fff; color:#334155; font-size:14px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
     .cache-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-    .cache-info { color:#475569; font-size:13px; }
+    .cache-info { color:#475569; font-size:13px; padding: 10px 14px; background: rgba(255,255,255,.8); border-radius: 999px; border: 1px solid var(--line); }
     .overlay { position:fixed; inset:0; background:rgba(15,23,42,.35); display:none; align-items:center; justify-content:center; padding:24px; z-index:1000; }
     .overlay.show { display:flex; }
-    .modal { width:min(780px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:16px; border:1px solid #d8dee8; box-shadow:0 24px 80px rgba(15,23,42,.28); padding:20px; }
+    .modal { width:min(860px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:20px; border:1px solid var(--line); box-shadow:0 24px 80px rgba(15,23,42,.28); padding:22px; }
     .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
     .modal-head h2 { margin:0; font-size:22px; }
-    .close-btn { background:#e5e7eb; color:#111827; }
     .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
-    .server-list-panel { border:1px solid #d8dee8; border-radius:12px; padding:14px; background:#f8fafc; }
+    .server-list-panel { border:1px solid var(--line); border-radius:16px; padding:16px; background:var(--card-soft); }
     .server-empty { color:#64748b; font-size:13px; }
     .hint { color:#64748b; font-size:12px; margin-top:6px; }
+    .query-actions { align-items: center; }
+    .query-actions #query-btn { min-width: 132px; }
+    .query-actions #export-btn { min-width: 120px; }
+    .section-note { margin-top: 10px; color: var(--muted); font-size: 13px; }
     @media (max-width: 900px) {
+      .page { padding: 20px 16px 32px; }
+      .page-title h1 { font-size: 30px; }
       .modal-grid { grid-template-columns:1fr; }
       .filters { grid-template-columns: 1fr; }
       .inline-grid { grid-template-columns: 1fr; }
@@ -69,7 +150,12 @@
 </head>
 <body>
   <div class="page">
-    <h1>项目阶段汇总服务</h1>
+    <div class="page-header">
+      <div class="page-title">
+        <h1>项目阶段汇总服务</h1>
+        <div class="subtitle">跨 SQL Server / MySQL 汇总项目阶段，按考试代码聚合展示，默认读取本地缓存。</div>
+      </div>
+    </div>
       <div class="topbar">
         <div class="topbar-left">
           <button id="open-server-modal" class="secondary">管理服务器</button>
@@ -137,12 +223,14 @@
           </div>
         </div>
         <div class="actions">
+          <div class="query-actions actions" style="margin-top:0;">
           <button id="query-btn">开始查询</button>
           <button id="export-btn" class="secondary" disabled>导出 Excel</button>
+          </div>
         </div>
         <div class="status" id="query-status">未开始查询</div>
         <div class="summary" id="summary-panel"></div>
-        <div class="muted">结果会自动忽略不包含业务表的数据库，只汇总符合条件的项目阶段。</div>
+        <div class="section-note">结果会自动忽略不包含业务表的数据库，只汇总符合条件的项目阶段。</div>
         <div class="results" style="margin-top: 14px;">
           <table>
             <thead>
