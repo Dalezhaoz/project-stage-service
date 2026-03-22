@@ -86,7 +86,7 @@ public sealed class ProjectStageCacheStore
     {
         await using var connection = OpenConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
 
         await using (var deleteRecords = connection.CreateCommand())
         {
