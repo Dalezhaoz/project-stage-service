@@ -17,7 +17,7 @@ public sealed class ProjectStageCountRefreshHostedService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var nextRun = DateTime.Today.AddHours(6).AddMinutes(30);
+            var nextRun = DateTime.Today.AddHours(6);
             if (nextRun <= DateTime.Now)
             {
                 nextRun = nextRun.AddDays(1);
