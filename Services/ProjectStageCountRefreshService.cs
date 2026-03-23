@@ -7,6 +7,8 @@ public sealed class ProjectStageCountRefreshService
     private readonly ServerConfigStore _serverConfigStore;
     private readonly ProjectStageCacheStore _cacheStore;
     private readonly ProjectStageQueryService _queryService;
+    private readonly SummaryStoreConfigStore _summaryStoreConfigStore;
+    private readonly SummaryStoreService _summaryStoreService;
     private readonly ILogger<ProjectStageCountRefreshService> _logger;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
@@ -14,11 +16,15 @@ public sealed class ProjectStageCountRefreshService
         ServerConfigStore serverConfigStore,
         ProjectStageCacheStore cacheStore,
         ProjectStageQueryService queryService,
+        SummaryStoreConfigStore summaryStoreConfigStore,
+        SummaryStoreService summaryStoreService,
         ILogger<ProjectStageCountRefreshService> logger)
     {
         _serverConfigStore = serverConfigStore;
         _cacheStore = cacheStore;
         _queryService = queryService;
+        _summaryStoreConfigStore = summaryStoreConfigStore;
+        _summaryStoreService = summaryStoreService;
         _logger = logger;
     }
 
@@ -85,6 +91,22 @@ public sealed class ProjectStageCountRefreshService
             }
 
             _logger.LogInformation("Scheduled count refresh completed for all enabled servers.");
+
+            var summaryStoreConfig = await _summaryStoreConfigStore.LoadAsync(cancellationToken);
+            if (summaryStoreConfig.Enabled)
+            {
+                var cacheSummary = await _cacheStore.QueryAsync(new ProjectStageQueryRequest
+                {
+                    Servers = servers,
+                    StatusFilters = [],
+                    StageKeyword = "",
+                    StageNames = [],
+                    ProjectKeyword = "",
+                    RangeStart = null,
+                    RangeEnd = null
+                }, cancellationToken);
+                await _summaryStoreService.SyncSnapshotAsync(summaryStoreConfig, cacheSummary, cancellationToken);
+            }
         }
         finally
         {

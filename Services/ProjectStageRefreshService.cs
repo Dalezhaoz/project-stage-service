@@ -7,6 +7,8 @@ public sealed class ProjectStageRefreshService
     private readonly ServerConfigStore _serverConfigStore;
     private readonly ProjectStageQueryService _queryService;
     private readonly ProjectStageCacheStore _cacheStore;
+    private readonly SummaryStoreConfigStore _summaryStoreConfigStore;
+    private readonly SummaryStoreService _summaryStoreService;
     private readonly ILogger<ProjectStageRefreshService> _logger;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
@@ -14,11 +16,15 @@ public sealed class ProjectStageRefreshService
         ServerConfigStore serverConfigStore,
         ProjectStageQueryService queryService,
         ProjectStageCacheStore cacheStore,
+        SummaryStoreConfigStore summaryStoreConfigStore,
+        SummaryStoreService summaryStoreService,
         ILogger<ProjectStageRefreshService> logger)
     {
         _serverConfigStore = serverConfigStore;
         _queryService = queryService;
         _cacheStore = cacheStore;
+        _summaryStoreConfigStore = summaryStoreConfigStore;
+        _summaryStoreService = summaryStoreService;
         _logger = logger;
     }
 
@@ -53,6 +59,12 @@ public sealed class ProjectStageRefreshService
             }, cancellationToken);
 
             await _cacheStore.SaveSnapshotAsync(summary, cancellationToken);
+
+            var summaryStoreConfig = await _summaryStoreConfigStore.LoadAsync(cancellationToken);
+            if (summaryStoreConfig.Enabled)
+            {
+                await _summaryStoreService.SyncSnapshotAsync(summaryStoreConfig, summary, cancellationToken);
+            }
 
             var refreshedAt = DateTime.Now;
             _logger.LogInformation(

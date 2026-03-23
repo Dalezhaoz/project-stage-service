@@ -47,6 +47,21 @@ public sealed class ResetPasswordRequest
     public string Username { get; set; } = "";
 }
 
+public sealed class SummaryStoreConfig
+{
+    public string Host { get; set; } = "";
+    public int Port { get; set; } = 1433;
+    public string DatabaseName { get; set; } = "";
+    public string Username { get; set; } = "";
+    public string Password { get; set; } = "";
+    public bool Enabled { get; set; }
+}
+
+public sealed class SummaryStoreTestRequest
+{
+    public SummaryStoreConfig Config { get; set; } = new();
+}
+
 public sealed class ProjectStageQueryRequest
 {
     public List<StageServerConfig> Servers { get; set; } = [];

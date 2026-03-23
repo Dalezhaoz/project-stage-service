@@ -36,6 +36,8 @@ builder.Services.AddSingleton<ProjectStageCacheStore>();
 builder.Services.AddSingleton<ProjectStageRefreshService>();
 builder.Services.AddSingleton<ProjectStageCountRefreshService>();
 builder.Services.AddSingleton<LocalAuthService>();
+builder.Services.AddSingleton<SummaryStoreConfigStore>();
+builder.Services.AddSingleton<SummaryStoreService>();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
 
@@ -210,6 +212,35 @@ app.MapPost("/api/auth/logout", async (HttpContext httpContext) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+app.MapGet("/api/summary-store", async (SummaryStoreConfigStore store, CancellationToken cancellationToken) =>
+{
+    return Results.Ok(await store.LoadAsync(cancellationToken));
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/summary-store", async (SummaryStoreConfig config, SummaryStoreConfigStore store, SummaryStoreService service, CancellationToken cancellationToken) =>
+{
+    await store.SaveAsync(config, cancellationToken);
+    if (config.Enabled)
+    {
+        await service.EnsureSchemaAsync(config, cancellationToken);
+    }
+
+    return Results.Ok(new { saved = true });
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/summary-store/test", async (SummaryStoreTestRequest request, SummaryStoreService service, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var result = await service.TestConnectionAsync(request.Config, cancellationToken);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
 app.MapGet("/api/servers", async (ServerConfigStore store, CancellationToken cancellationToken) =>
 {
     var servers = await store.LoadAsync(cancellationToken);
@@ -258,7 +289,13 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageC
 {
     try
     {
-        var summary = await cacheStore.QueryAsync(request, cancellationToken);
+        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
+        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
+        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+
+        var summary = summaryStoreConfig.Enabled
+            ? await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken)
+            : await cacheStore.QueryAsync(request, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -271,12 +308,18 @@ app.MapPost("/api/board-counts", async (BoardCountRequest request, ProjectStageQ
 {
     try
     {
-        var summary = await queryService.QueryAsync(
-            request.Query,
-            request.IncludeRegistrationCount,
-            request.IncludeAdmissionTicketCount,
-            request.Targets,
-            cancellationToken);
+        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
+        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
+        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+
+        var summary = summaryStoreConfig.Enabled
+            ? await summaryStoreService.QueryAsync(summaryStoreConfig, request.Query, cancellationToken)
+            : await queryService.QueryAsync(
+                request.Query,
+                request.IncludeRegistrationCount,
+                request.IncludeAdmissionTicketCount,
+                request.Targets,
+                cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -289,7 +332,13 @@ app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStage
 {
     try
     {
-        var stageNames = await cacheStore.QueryStageNamesAsync(request, cancellationToken);
+        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
+        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
+        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+
+        var stageNames = summaryStoreConfig.Enabled
+            ? await summaryStoreService.QueryStageNamesAsync(summaryStoreConfig, request, cancellationToken)
+            : await cacheStore.QueryStageNamesAsync(request, cancellationToken);
         return Results.Ok(stageNames);
     }
     catch (Exception ex)
@@ -302,7 +351,13 @@ app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStage
 {
     try
     {
-        var summary = await cacheStore.QueryAsync(request, cancellationToken);
+        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
+        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
+        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+
+        var summary = summaryStoreConfig.Enabled
+            ? await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken)
+            : await cacheStore.QueryAsync(request, cancellationToken);
         var content = exportService.Export(summary);
         return Results.File(
             content,

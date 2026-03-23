@@ -563,6 +563,18 @@
       flex-wrap: wrap;
       margin-top: 10px;
     }
+    .plain-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .plain-check input {
+      width: auto;
+      margin: 0;
+    }
     .user-list-panel {
       margin-top: 14px;
       border: 1px solid var(--line);
@@ -648,6 +660,7 @@
       <div class="topbar" id="config-panel">
         <div class="topbar-left">
           <button id="open-server-modal" class="secondary">管理服务器</button>
+          <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
           <button id="refresh-btn">更新数据</button>
         </div>
         <div class="topbar-right">
@@ -831,6 +844,37 @@
         <div class="auth-status" id="password-status"></div>
       </div>
     </div>
+    <div class="overlay" id="summary-store-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2>中心库配置</h2>
+          <button id="close-summary-store-modal" class="close-btn">关闭</button>
+        </div>
+        <label>数据库地址</label>
+        <input id="summary-store-host" placeholder="例如：192.168.1.10">
+        <label>端口</label>
+        <input id="summary-store-port" value="1433">
+        <label>数据库名</label>
+        <input id="summary-store-database" placeholder="例如：project_stage_center">
+        <label>用户名</label>
+        <input id="summary-store-username">
+        <label>密码</label>
+        <input id="summary-store-password" type="password">
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="summary-store-enabled">
+            <span>启用中心表查询</span>
+          </label>
+        </div>
+        <div class="auth-actions">
+          <button id="save-summary-store-btn">保存配置</button>
+          <button id="test-summary-store-btn" class="secondary">测试连接</button>
+        </div>
+        <div class="hint">启用后，更新数据会同步写入中心 SQL Server，查询优先读中心表。</div>
+        <div class="hint" id="summary-store-enabled-text">当前状态：未启用</div>
+        <div class="auth-status" id="summary-store-status"></div>
+      </div>
+    </div>
     <div class="overlay" id="server-overlay">
       <div class="modal">
         <div class="modal-head">
@@ -878,6 +922,7 @@
     let authReady = false;
     let currentIsAdmin = false;
     let forcePasswordChange = false;
+    let summaryStoreConfig = null;
 
     function buildAppUrl(path) {
       const normalizedPath = String(path || "").replace(/^\/+/, "");
@@ -1130,6 +1175,10 @@
       document.getElementById("password-status").textContent = text;
     }
 
+    function setSummaryStoreStatus(text) {
+      document.getElementById("summary-store-status").textContent = text;
+    }
+
     function updateAuthView(hasAccount, username = "", isAdmin = false) {
       authMode = hasAccount ? "login" : "setup";
       currentIsAdmin = isAdmin;
@@ -1143,6 +1192,7 @@
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
+      document.getElementById("open-summary-store-modal").style.display = username && isAdmin ? "inline-flex" : "none";
     }
 
     function showAuthOverlay() {
@@ -1181,6 +1231,51 @@
       document.getElementById("password-new").value = "";
       document.getElementById("password-confirm").value = "";
       setPasswordStatus("");
+    }
+
+    function fillSummaryStoreForm(config) {
+      const value = config || {};
+      document.getElementById("summary-store-host").value = value.host || "";
+      document.getElementById("summary-store-port").value = value.port || 1433;
+      document.getElementById("summary-store-database").value = value.databaseName || "";
+      document.getElementById("summary-store-username").value = value.username || "";
+      document.getElementById("summary-store-password").value = value.password || "";
+      document.getElementById("summary-store-enabled").checked = Boolean(value.enabled);
+      document.getElementById("summary-store-enabled-text").textContent = `当前状态：${value.enabled ? "已启用" : "未启用"}`;
+    }
+
+    async function loadSummaryStoreConfig() {
+      const response = await apiFetch(buildAppUrl("api/summary-store"));
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "读取中心库配置失败");
+      }
+
+      summaryStoreConfig = await response.json();
+      fillSummaryStoreForm(summaryStoreConfig);
+      return summaryStoreConfig;
+    }
+
+    function buildSummaryStorePayload() {
+      return {
+        host: document.getElementById("summary-store-host").value.trim(),
+        port: Number(document.getElementById("summary-store-port").value.trim() || "1433"),
+        databaseName: document.getElementById("summary-store-database").value.trim(),
+        username: document.getElementById("summary-store-username").value.trim(),
+        password: document.getElementById("summary-store-password").value.trim(),
+        enabled: document.getElementById("summary-store-enabled").checked
+      };
+    }
+
+    async function showSummaryStoreOverlay() {
+      document.getElementById("summary-store-overlay").classList.add("show");
+      setSummaryStoreStatus("");
+      await loadSummaryStoreConfig();
+    }
+
+    function hideSummaryStoreOverlay() {
+      document.getElementById("summary-store-overlay").classList.remove("show");
+      setSummaryStoreStatus("");
     }
 
     async function apiFetch(url, options = {}) {
@@ -1432,9 +1527,18 @@
       if (!currentIsAdmin) return;
       showUserOverlay();
     });
+    document.getElementById("open-summary-store-modal").addEventListener("click", async () => {
+      if (!currentIsAdmin) return;
+      try {
+        await showSummaryStoreOverlay();
+      } catch (error) {
+        setQueryStatus(error.message);
+      }
+    });
     document.getElementById("open-password-modal").addEventListener("click", () => showPasswordOverlay(false));
     document.getElementById("close-user-modal").addEventListener("click", hideUserOverlay);
     document.getElementById("close-password-modal").addEventListener("click", hidePasswordOverlay);
+    document.getElementById("close-summary-store-modal").addEventListener("click", hideSummaryStoreOverlay);
     document.getElementById("user-overlay").addEventListener("click", (event) => {
       if (event.target === document.getElementById("user-overlay")) {
         hideUserOverlay();
@@ -1443,6 +1547,11 @@
     document.getElementById("password-overlay").addEventListener("click", (event) => {
       if (event.target === document.getElementById("password-overlay")) {
         hidePasswordOverlay();
+      }
+    });
+    document.getElementById("summary-store-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("summary-store-overlay")) {
+        hideSummaryStoreOverlay();
       }
     });
     document.getElementById("auth-submit-btn").addEventListener("click", async () => {
@@ -1545,6 +1654,31 @@
       } catch (error) {
         setPasswordStatus(error.message);
       }
+    });
+    document.getElementById("save-summary-store-btn").addEventListener("click", async () => {
+      try {
+        const payload = buildSummaryStorePayload();
+        setSummaryStoreStatus("正在保存中心库配置...");
+        await postJson(buildAppUrl("api/summary-store"), payload);
+        summaryStoreConfig = payload;
+        setSummaryStoreStatus("中心库配置已保存。");
+      } catch (error) {
+        setSummaryStoreStatus(error.message);
+      }
+    });
+    document.getElementById("test-summary-store-btn").addEventListener("click", async () => {
+      try {
+        const payload = buildSummaryStorePayload();
+        setSummaryStoreStatus("正在测试中心库连接...");
+        const result = await postJson(buildAppUrl("api/summary-store/test"), { config: payload });
+        setSummaryStoreStatus(`连接成功。中心表记录 ${result.record_count} 条。`);
+      } catch (error) {
+        setSummaryStoreStatus(error.message);
+      }
+    });
+    document.getElementById("summary-store-enabled").addEventListener("change", (event) => {
+      document.getElementById("summary-store-enabled-text").textContent =
+        `当前状态：${event.target.checked ? "已启用" : "未启用"}`;
     });
 
     document.getElementById("save-server").addEventListener("click", async () => {
