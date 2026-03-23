@@ -308,18 +308,12 @@ app.MapPost("/api/board-counts", async (BoardCountRequest request, ProjectStageQ
 {
     try
     {
-        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
-        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
-        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
-
-        var summary = summaryStoreConfig.Enabled
-            ? await summaryStoreService.QueryAsync(summaryStoreConfig, request.Query, cancellationToken)
-            : await queryService.QueryAsync(
-                request.Query,
-                request.IncludeRegistrationCount,
-                request.IncludeAdmissionTicketCount,
-                request.Targets,
-                cancellationToken);
+        var summary = await queryService.QueryAsync(
+            request.Query,
+            request.IncludeRegistrationCount,
+            request.IncludeAdmissionTicketCount,
+            request.Targets,
+            cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
