@@ -16,9 +16,7 @@ public sealed class ServerConfigStore
 
     public ServerConfigStore()
     {
-        var baseDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ProjectStageService");
+        var baseDir = AppDataPath.GetBaseDirectory();
         Directory.CreateDirectory(baseDir);
         _configPath = Path.Combine(baseDir, "servers.dat");
     }
@@ -53,7 +51,7 @@ public sealed class ServerConfigStore
     {
         if (OperatingSystem.IsWindows())
         {
-            return ProtectedData.Protect(plain, null, DataProtectionScope.CurrentUser);
+            return ProtectedData.Protect(plain, null, DataProtectionScope.LocalMachine);
         }
 
         // Non-Windows fallback for local development only.
@@ -64,7 +62,7 @@ public sealed class ServerConfigStore
     {
         if (OperatingSystem.IsWindows())
         {
-            return ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+            return ProtectedData.Unprotect(encrypted, null, DataProtectionScope.LocalMachine);
         }
 
         return encrypted;

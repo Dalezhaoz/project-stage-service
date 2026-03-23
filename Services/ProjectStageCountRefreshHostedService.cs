@@ -1,13 +1,13 @@
 namespace ProjectStageService.Services;
 
-public sealed class ProjectStageRefreshHostedService : BackgroundService
+public sealed class ProjectStageCountRefreshHostedService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<ProjectStageRefreshHostedService> _logger;
+    private readonly ILogger<ProjectStageCountRefreshHostedService> _logger;
 
-    public ProjectStageRefreshHostedService(
+    public ProjectStageCountRefreshHostedService(
         IServiceProvider serviceProvider,
-        ILogger<ProjectStageRefreshHostedService> logger)
+        ILogger<ProjectStageCountRefreshHostedService> logger)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -17,7 +17,7 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var nextRun = DateTime.Today.AddHours(6);
+            var nextRun = DateTime.Today.AddHours(6).AddMinutes(30);
             if (nextRun <= DateTime.Now)
             {
                 nextRun = nextRun.AddDays(1);
@@ -25,7 +25,7 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
 
             var delay = nextRun - DateTime.Now;
 
-            _logger.LogInformation("Next automatic stage cache refresh scheduled at {NextRun}.", nextRun);
+            _logger.LogInformation("Next automatic count refresh scheduled at {NextRun}.", nextRun);
 
             try
             {
@@ -39,8 +39,8 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
             try
             {
                 using var scope = _serviceProvider.CreateScope();
-                var refreshService = scope.ServiceProvider.GetRequiredService<ProjectStageRefreshService>();
-                await refreshService.RefreshAsync(null, stoppingToken);
+                var refreshService = scope.ServiceProvider.GetRequiredService<ProjectStageCountRefreshService>();
+                await refreshService.RefreshAsync(stoppingToken);
             }
             catch (TaskCanceledException)
             {
@@ -48,7 +48,7 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Automatic stage cache refresh failed.");
+                _logger.LogError(ex, "Automatic count refresh failed.");
             }
         }
     }

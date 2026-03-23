@@ -7,3 +7,5 @@ obj/
 *.cache
 *.log
 .DS_Store
+publish/
+publish.zip

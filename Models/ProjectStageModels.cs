@@ -17,10 +17,41 @@ public sealed class TestConnectionRequest
     public StageServerConfig Server { get; set; } = new();
 }
 
+public sealed class LoginRequest
+{
+    public string Username { get; set; } = "";
+    public string Password { get; set; } = "";
+}
+
+public sealed class SetupAuthRequest
+{
+    public string Username { get; set; } = "";
+    public string Password { get; set; } = "";
+    public string ConfirmPassword { get; set; } = "";
+}
+
+public sealed class CreateUserRequest
+{
+    public string Username { get; set; } = "";
+}
+
+public sealed class ChangePasswordRequest
+{
+    public string CurrentPassword { get; set; } = "";
+    public string NewPassword { get; set; } = "";
+    public string ConfirmPassword { get; set; } = "";
+}
+
+public sealed class ResetPasswordRequest
+{
+    public string Username { get; set; } = "";
+}
+
 public sealed class ProjectStageQueryRequest
 {
     public List<StageServerConfig> Servers { get; set; } = [];
     public List<string> StatusFilters { get; set; } = ["正在进行", "即将开始"];
+    public string TimeMatchMode { get; set; } = "overlap";
     public string StageKeyword { get; set; } = "";
     public List<string> StageNames { get; set; } = [];
     public List<string> ServerNames { get; set; } = [];
@@ -30,11 +61,36 @@ public sealed class ProjectStageQueryRequest
     public string ExamCodeKeyword { get; set; } = "";
     public DateTime? RangeStart { get; set; }
     public DateTime? RangeEnd { get; set; }
+    public List<int> DayOffsets { get; set; } = [];
 }
 
 public sealed class ProjectStageRefreshRequest
 {
     public List<StageServerConfig> Servers { get; set; } = [];
+}
+
+public sealed class BoardCountRequest
+{
+    public ProjectStageQueryRequest Query { get; set; } = new();
+    public bool IncludeRegistrationCount { get; set; }
+    public bool IncludeAdmissionTicketCount { get; set; }
+    public List<BoardCountTarget> Targets { get; set; } = [];
+}
+
+public sealed class BoardCountTarget
+{
+    public string ServerName { get; set; } = "";
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+}
+
+public sealed class ServerCountUpdate
+{
+    public string ServerName { get; set; } = "";
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+    public int? RegistrationCount { get; set; }
+    public int? AdmissionTicketCount { get; set; }
 }
 
 public sealed class ProjectStageRecord
@@ -47,6 +103,8 @@ public sealed class ProjectStageRecord
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public string Status { get; set; } = "";
+    public int RegistrationCount { get; set; }
+    public int AdmissionTicketCount { get; set; }
 }
 
 public sealed class ProjectStageGroup
@@ -57,6 +115,8 @@ public sealed class ProjectStageGroup
     public string ProjectName { get; set; } = "";
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
+    public int RegistrationCount { get; set; }
+    public int AdmissionTicketCount { get; set; }
     public List<string> Statuses { get; set; } = [];
     public List<ProjectStageRecord> Stages { get; set; } = [];
 }

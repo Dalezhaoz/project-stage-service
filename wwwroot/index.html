@@ -30,19 +30,20 @@
       justify-content: space-between;
       align-items: flex-end;
       gap: 12px;
-      margin-bottom: 18px;
+      margin-bottom: 12px;
     }
     .page-title h1 { margin: 0; font-size: 36px; line-height: 1.1; letter-spacing: -0.02em; }
     .page-title .subtitle { margin-top: 8px; color: var(--muted); font-size: 14px; }
+    .page-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .layout { display: grid; grid-template-columns: 1fr; gap: 22px; }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
-    .title { font-size: 24px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.02em; }
-    label { display: block; margin: 12px 0 7px; font-size: 14px; color: #1e293b; font-weight: 600; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+    .title { font-size: 20px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.02em; }
+    label { display: block; margin: 0 0 6px; font-size: 14px; color: #1e293b; font-weight: 600; }
     input, select, button { font: inherit; }
     input, select {
       width: 100%;
-      padding: 12px 14px;
-      border-radius: 12px;
+      padding: 7px 9px;
+      border-radius: 9px;
       border: 1px solid #c7d3e6;
       background: #fff;
       color: var(--text);
@@ -56,8 +57,8 @@
     }
     button {
       border: none;
-      border-radius: 12px;
-      padding: 11px 16px;
+      border-radius: 9px;
+      padding: 7px 10px;
       background: var(--primary);
       color: #fff;
       cursor: pointer;
@@ -70,34 +71,46 @@
     button.secondary { background: var(--secondary); box-shadow: 0 8px 18px rgba(100, 116, 139, 0.16); }
     button.ghost, .close-btn, .expand-btn { background: var(--ghost); color: #111827; box-shadow: none; }
     button:disabled { cursor: not-allowed; opacity: .55; box-shadow: none; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
     .server-item { margin-top: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-soft); }
     .server-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .server-meta { margin-top: 8px; color: #475569; font-size: 13px; line-height: 1.5; }
     .server-controls { display: flex; gap: 8px; margin-top: 10px; }
     .server-controls button { flex: 1; }
-    .filters { display: grid; grid-template-columns: repeat(2, minmax(280px,1fr)); gap: 16px; margin-bottom: 14px; }
-    .field-card { border: 1px solid var(--line); border-radius: 16px; padding: 16px; background: var(--card-soft); min-height: 100%; }
+    .filters { margin-bottom: 8px; }
+    .field-card {
+      border: 1px solid #d7e3f4;
+      border-radius: 14px;
+      padding: 8px;
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.07), transparent 30%),
+        linear-gradient(180deg, #f8fbff 0%, #f4f7fc 100%);
+    }
     .field-title { margin: 0 0 12px; font-size: 15px; font-weight: 800; color: #1e293b; }
     .checkbox-row { display: flex; flex-wrap: wrap; gap: 16px; }
     .checkbox-row label, .check-list label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
     .checkbox-row input, .check-list input { width: auto; }
-    .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .inline-grid.compact { grid-template-columns: 1.1fr .9fr; }
-    .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 14px; }
-    .filter-item { display: grid; gap: 8px; align-content: start; }
-    .filter-item.span-2 { grid-column: span 2; }
-    .filter-label { font-size: 13px; font-weight: 700; color: #334155; }
+    .inline-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .filter-grid { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 6px 8px; align-items: end; }
+    .filter-item { display: grid; gap: 4px; align-content: start; }
+    .filter-item.status { grid-column: span 4; }
+    .filter-item.stage { grid-column: span 5; }
+    .filter-item.time { grid-column: span 7; }
+    .filter-item.project { grid-column: span 5; }
+    .filter-item.server { grid-column: span 4; }
+    .filter-item.database { grid-column: span 4; }
+    .filter-item.exam { grid-column: span 3; }
+    .filter-label { font-size: 11px; font-weight: 700; color: #334155; }
     .multi-dropdown { position: relative; }
     .multi-dropdown > summary {
       list-style: none;
       cursor: pointer;
-      padding: 12px 14px;
-      border-radius: 12px;
+      padding: 7px 9px;
+      border-radius: 9px;
       border: 1px solid #c7d3e6;
       background: #fff;
       color: var(--text);
-      min-height: 48px;
+      min-height: 34px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -120,7 +133,7 @@
       top: calc(100% + 8px);
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 12px;
       box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
       padding: 12px;
       max-height: 280px;
@@ -130,35 +143,160 @@
     .dropdown-list label {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       margin: 0;
       font-size: 14px;
       font-weight: 600;
       color: #1e293b;
     }
     .dropdown-list input { width: auto; }
-    .stage-preset-row { display: flex; flex-wrap: wrap; gap: 8px; }
-    .stage-chip {
+    .tag-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 30px;
+    }
+    .mini-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+    }
+    .mini-option {
       display: inline-flex;
       align-items: center;
-      padding: 7px 10px;
+      gap: 6px;
+      padding: 4px 8px;
       border-radius: 999px;
-      border: 1px solid var(--line);
+      border: 1px solid #c7d3e6;
       background: #fff;
-      font-size: 13px;
       color: #334155;
+      font-size: 11px;
+      font-weight: 700;
       cursor: pointer;
       user-select: none;
       transition: all .16s ease;
     }
-    .stage-chip input { display: none; }
-    .stage-chip.active {
+    .mini-option input { display: none; }
+    .mini-option.active {
       border-color: #8bb3ff;
-      background: #eff5ff;
-      color: var(--primary-dark);
+      background: #eaf2ff;
+      color: #1d4ed8;
+      box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.08);
+    }
+    .range-preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 4px;
+    }
+    .range-preset-btn {
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: #334155;
+      box-shadow: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
       font-weight: 700;
     }
-    .stage-custom-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    .range-preset-btn.active {
+      border-color: #8bb3ff;
+      background: #eaf2ff;
+      color: #1d4ed8;
+    }
+    .tag-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: all .16s ease;
+    }
+    .tag-option input {
+      display: none;
+    }
+    .tag-option.active {
+      border-color: #8bb3ff;
+      background: #eaf2ff;
+      color: #1d4ed8;
+      box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.08);
+    }
+    .range-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+    .inline-toggle-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .inline-toggle-btn {
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: #334155;
+      box-shadow: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .inline-toggle-btn.active {
+      border-color: #8bb3ff;
+      background: #eaf2ff;
+      color: #1d4ed8;
+    }
+    .toggle-panel {
+      display: none;
+      margin-top: 6px;
+    }
+    .toggle-panel.show {
+      display: block;
+    }
+    .filter-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .filter-actions .actions {
+      margin-top: 0;
+    }
+    .filter-actions .query-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .filter-helper {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .view-switch {
+      display: flex;
+      gap: 6px;
+      margin: 10px 0 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .view-tab {
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: #334155;
+      box-shadow: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
     .check-list {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -168,21 +306,190 @@
       margin-top: 12px;
       padding-right: 4px;
     }
-    .summary { display: grid; grid-template-columns: repeat(6, minmax(110px,1fr)); gap: 12px; margin: 18px 0; }
-    .metric { background: linear-gradient(180deg, #f8fbff 0%, #f4f8fd 100%); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-height: 94px; }
-    .metric div { color: var(--muted); font-size: 13px; font-weight: 600; }
-    .metric b { display: block; margin-top: 8px; font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f8fbff 0%, #f4f8fd 100%);
+    }
+    .metric {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      min-height: auto;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+    .metric div { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .metric b { display: inline; margin-top: 0; font-size: 20px; line-height: 1; letter-spacing: -0.03em; }
+    .metric-sep {
+      color: #c0cad8;
+      font-size: 14px;
+    }
     .status {
       min-height: 24px;
       white-space: pre-wrap;
       color: #334155;
-      margin-top: 12px;
-      padding: 12px 14px;
+      margin-top: 10px;
+      padding: 8px 10px;
       background: #f8fafc;
       border: 1px solid var(--line-soft);
       border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.5;
     }
-    .results { max-height: 640px; overflow: auto; border: 1px solid var(--line); border-radius: 16px; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .board-column {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+      min-height: 280px;
+      overflow: hidden;
+    }
+    .board-head {
+      display: grid;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .board-head-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .board-count {
+      display: inline-flex;
+      min-width: 24px;
+      height: 24px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      color: #475569;
+    }
+    .board-head-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .board-head-btn {
+      border: 1px solid #c7d3e6;
+      background: #fff;
+      color: #334155;
+      box-shadow: none;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .board-head-btn:disabled {
+      opacity: .55;
+    }
+    .board-list {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      max-height: 560px;
+      overflow: auto;
+    }
+    .board-card {
+      border: 1px solid #d7e3f4;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .board-card-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.45;
+    }
+    .board-card-meta {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .board-card-timeline {
+      margin-top: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .board-timeline-item {
+      display: grid;
+      grid-template-columns: minmax(56px, auto) 1fr;
+      gap: 8px;
+      align-items: start;
+      font-size: 12px;
+      color: #334155;
+    }
+    .board-timeline-label {
+      color: #64748b;
+      font-weight: 700;
+    }
+    .board-card-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .board-stat {
+      border: 1px solid #dbe6f5;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 8px 10px;
+    }
+    .board-stat-label {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .board-stat-value {
+      margin-top: 4px;
+      color: #0f172a;
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .board-card-stages {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .board-stage-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f8fbff;
+      border: 1px solid #dbe6f5;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .board-empty {
+      color: #64748b;
+      font-size: 13px;
+      padding: 16px;
+    }
     table { width: 100%; border-collapse: collapse; }
     th, td { border-bottom: 1px solid var(--line); padding: 12px 12px; font-size: 14px; text-align: left; vertical-align: top; }
     th { background: #f7faff; position: sticky; top: 0; z-index: 1; font-weight: 800; color: #1e293b; }
@@ -192,8 +499,10 @@
     .detail-card { padding: 14px 0 6px; }
     .detail-table th { position: static; background: #eef4fb; }
     .muted { color: var(--muted); font-size: 13px; line-height: 1.6; }
-    .topbar { display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
+    .topbar { display:none; justify-content:space-between; align-items:center; gap:14px; margin-bottom:12px; flex-wrap:wrap; }
+    .topbar.show { display:flex; }
     .topbar-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .topbar-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .server-badge {
       display:inline-flex; align-items:center; gap:8px; padding:10px 14px;
       border:1px solid var(--line); border-radius:999px; background:#fff; color:#334155; font-size:14px;
@@ -201,6 +510,35 @@
     }
     .cache-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     .cache-info { color:#475569; font-size:13px; padding: 10px 14px; background: rgba(255,255,255,.8); border-radius: 999px; border: 1px solid var(--line); }
+    .topbar-toggle {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #334155;
+      box-shadow: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .header-toggle {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #334155;
+      box-shadow: none;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .topbar-detail {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .topbar-detail.show {
+      display: flex;
+    }
     .overlay { position:fixed; inset:0; background:rgba(15,23,42,.35); display:none; align-items:center; justify-content:center; padding:24px; z-index:1000; }
     .overlay.show { display:flex; }
     .modal { width:min(860px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:20px; border:1px solid var(--line); box-shadow:0 24px 80px rgba(15,23,42,.28); padding:22px; }
@@ -210,6 +548,50 @@
     .server-list-panel { border:1px solid var(--line); border-radius:16px; padding:16px; background:var(--card-soft); }
     .server-empty { color:#64748b; font-size:13px; }
     .hint { color:#64748b; font-size:12px; margin-top:6px; }
+    .auth-overlay { background: rgba(15, 23, 42, 0.52); z-index: 1200; }
+    .auth-modal { width: min(420px, 100%); }
+    .auth-status {
+      min-height: 20px;
+      margin-top: 10px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .auth-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .user-list-panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card-soft);
+      padding: 12px;
+    }
+    .user-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .user-row:last-child { border-bottom: none; }
+    .user-meta { color: #334155; font-size: 13px; font-weight: 700; }
+    .user-role { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .auth-user {
+      color: #475569;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .danger-note {
+      color: #b45309;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
     .query-actions { align-items: center; }
     .query-actions #query-btn { min-width: 132px; }
     .query-actions #export-btn { min-width: 120px; }
@@ -218,11 +600,33 @@
       .page { padding: 20px 16px 32px; }
       .page-title h1 { font-size: 30px; }
       .modal-grid { grid-template-columns:1fr; }
-      .filters { grid-template-columns: 1fr; }
-      .filter-grid { grid-template-columns: 1fr; }
-      .filter-item.span-2 { grid-column: span 1; }
+      .filter-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+      .filter-item.status,
+      .filter-item.stage,
+      .filter-item.time,
+      .filter-item.project,
+      .filter-item.server,
+      .filter-item.database,
+      .filter-item.exam { grid-column: span 4; }
       .inline-grid { grid-template-columns: 1fr; }
-      .summary { grid-template-columns: repeat(2, minmax(100px,1fr)); }
+      .range-grid { grid-template-columns: 1fr; }
+      .summary { gap: 8px; padding: 8px 10px; }
+      .board { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .card { padding: 18px; }
+      .field-card { padding: 16px; border-radius: 18px; }
+      .filter-grid { grid-template-columns: 1fr; }
+      .filter-item.status,
+      .filter-item.stage,
+      .filter-item.time,
+      .filter-item.project,
+      .filter-item.server,
+      .filter-item.database,
+      .filter-item.exam { grid-column: span 1; }
+      .filter-actions { align-items: stretch; }
+      .filter-actions .query-actions { width: 100%; }
+      .filter-actions .query-actions button { flex: 1; }
     }
   </style>
 </head>
@@ -230,20 +634,30 @@
   <div class="page">
     <div class="page-header">
       <div class="page-title">
-        <h1>项目阶段汇总服务</h1>
+        <div class="page-title-row">
+          <h1>项目阶段汇总服务</h1>
+          <span class="auth-user" id="auth-user"></span>
+          <button id="toggle-config-panel" type="button" class="header-toggle">配置</button>
+          <button id="open-user-modal" type="button" class="header-toggle" style="display:none;">新建用户</button>
+          <button id="open-password-modal" type="button" class="header-toggle" style="display:none;">修改密码</button>
+          <button id="logout-btn" type="button" class="header-toggle" style="display:none;">退出登录</button>
+        </div>
         <div class="subtitle">跨 SQL Server / MySQL 汇总项目阶段，按考试代码聚合展示，默认读取本地缓存。</div>
       </div>
     </div>
-      <div class="topbar">
+      <div class="topbar" id="config-panel">
         <div class="topbar-left">
           <button id="open-server-modal" class="secondary">管理服务器</button>
           <button id="refresh-btn">更新数据</button>
-          <div class="server-badge">已配置服务器：<strong id="server-count">0</strong></div>
-          <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
         </div>
-        <div class="cache-bar">
-          <div class="server-badge">缓存记录：<strong id="cache-record-count">0</strong></div>
-          <div class="cache-info" id="cache-info">缓存尚未更新</div>
+        <div class="topbar-right">
+          <button id="toggle-topbar-detail" type="button" class="topbar-toggle">显示运行信息</button>
+          <div class="topbar-detail" id="topbar-detail">
+            <div class="server-badge">已配置服务器：<strong id="server-count">0</strong></div>
+            <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
+            <div class="server-badge">缓存记录：<strong id="cache-record-count">0</strong></div>
+            <div class="cache-info" id="cache-info">缓存尚未更新</div>
+          </div>
         </div>
       </div>
     <div class="layout">
@@ -252,94 +666,169 @@
         <div class="filters">
           <div class="field-card">
             <div class="filter-grid">
-              <div class="filter-item">
+              <div class="filter-item status">
                 <div class="filter-label">状态</div>
-                <details class="multi-dropdown">
-                  <summary><span id="status-summary">已结束、正在进行、即将开始</span></summary>
-                  <div class="dropdown-panel">
-                    <div class="dropdown-list">
-                      <label><input type="checkbox" class="status-filter" value="已经结束" checked> 已结束</label>
-                      <label><input type="checkbox" class="status-filter" value="正在进行" checked> 正在进行</label>
-                      <label><input type="checkbox" class="status-filter" value="即将开始" checked> 即将开始</label>
-                    </div>
-                  </div>
-                </details>
+                <div class="tag-selector">
+                  <label class="tag-option">
+                    <input type="checkbox" class="status-filter" value="已经结束">
+                    <span>已结束</span>
+                  </label>
+                  <label class="tag-option active">
+                    <input type="checkbox" class="status-filter" value="正在进行" checked>
+                    <span>正在进行</span>
+                  </label>
+                  <label class="tag-option active">
+                    <input type="checkbox" class="status-filter" value="即将开始" checked>
+                    <span>即将开始</span>
+                  </label>
+                </div>
               </div>
-              <div class="filter-item">
+              <div class="filter-item stage">
                 <div class="filter-label">阶段筛选</div>
-                <details class="multi-dropdown">
-                  <summary><span id="stage-summary">未选择阶段</span></summary>
-                  <div class="dropdown-panel">
-                    <div id="stage-options" class="dropdown-list">
-                      <div class="server-empty">还没有可选阶段。</div>
-                    </div>
-                  </div>
-                </details>
-                <div class="stage-custom-row">
-                  <input id="stage-keyword" placeholder="手动添加阶段，例如：体检">
-                  <button id="add-stage-keyword" class="ghost" type="button">添加</button>
-                </div>
+                <input id="stage-keyword" placeholder="直接输入阶段关键字，多个条件用 / 分隔">
               </div>
-              <div class="filter-item">
+              <div class="filter-item time">
                 <div class="filter-label">时间范围</div>
-                <div class="inline-grid">
-                  <input id="range-start" type="datetime-local">
-                  <input id="range-end" type="datetime-local">
+                <div class="mini-selector">
+                  <label class="mini-option active">
+                    <input type="radio" name="time-match-mode" class="time-match-mode" value="overlap" checked>
+                    <span>时间段都看</span>
+                  </label>
+                  <label class="mini-option">
+                    <input type="radio" name="time-match-mode" class="time-match-mode" value="start">
+                    <span>只看开始</span>
+                  </label>
+                  <label class="mini-option">
+                    <input type="radio" name="time-match-mode" class="time-match-mode" value="end">
+                    <span>只看结束</span>
+                  </label>
                 </div>
-                <div class="hint">查询与时间范围有交集的项目阶段。</div>
+                <div class="range-preset-row">
+                  <button type="button" class="range-preset-btn" data-day-offset="0">今天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="1">未来1天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="2">未来2天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="3">未来3天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="4">未来4天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="5">未来5天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="6">未来6天</button>
+                  <button type="button" class="range-preset-btn" data-day-offset="7">未来7天</button>
+                </div>
+                <div class="inline-toggle-row">
+                  <button type="button" id="toggle-custom-range" class="inline-toggle-btn">自定义时间</button>
+                </div>
+                <div class="toggle-panel" id="custom-range-panel">
+                  <div class="range-grid">
+                    <input id="range-start" type="datetime-local">
+                    <input id="range-end" type="datetime-local">
+                  </div>
+                </div>
               </div>
-              <div class="filter-item span-2">
+              <div class="filter-item project">
                 <div class="filter-label">项目关键字</div>
                 <input id="project-keyword" placeholder="项目关键字">
               </div>
-              <div class="filter-item">
-                <div class="filter-label">服务器</div>
-                <details class="multi-dropdown">
-                  <summary><span id="server-summary">全部服务器</span></summary>
-                  <div class="dropdown-panel">
-                    <div id="server-filter-options" class="dropdown-list">
-                      <div class="server-empty">还没有可选服务器。</div>
+              <div class="filter-item project" style="grid-column: span 11;">
+                <div class="inline-toggle-row">
+                  <button type="button" id="toggle-advanced-filter" class="inline-toggle-btn">高级筛选</button>
+                </div>
+                <div class="toggle-panel" id="advanced-filter-panel">
+                  <div class="filter-grid" style="grid-template-columns: repeat(11, minmax(0, 1fr));">
+                    <div class="filter-item" style="grid-column: span 4;">
+                      <div class="filter-label">服务器</div>
+                      <details class="multi-dropdown">
+                        <summary><span id="server-summary">全部服务器</span></summary>
+                        <div class="dropdown-panel">
+                          <div id="server-filter-options" class="dropdown-list">
+                            <div class="server-empty">还没有可选服务器。</div>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                    <div class="filter-item" style="grid-column: span 4;">
+                      <div class="filter-label">数据库关键字</div>
+                      <input id="database-keyword" placeholder="数据库关键字">
+                    </div>
+                    <div class="filter-item" style="grid-column: span 3;">
+                      <div class="filter-label">考试代码</div>
+                      <input id="exam-code-keyword" placeholder="考试代码">
                     </div>
                   </div>
-                </details>
-              </div>
-              <div class="filter-item">
-                <div class="filter-label">数据库关键字</div>
-                <input id="database-keyword" placeholder="数据库关键字">
-              </div>
-              <div class="filter-item">
-                <div class="filter-label">考试代码</div>
-                <input id="exam-code-keyword" placeholder="考试代码">
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="actions">
-          <div class="query-actions actions" style="margin-top:0;">
-          <button id="query-btn">开始查询</button>
-          <button id="export-btn" class="secondary" disabled>导出 Excel</button>
+        <div class="filter-actions">
+          <div class="filter-helper">结果会自动忽略不包含业务表的数据库，只汇总符合条件的项目阶段。</div>
+          <div class="query-actions">
+            <button id="query-btn">开始查询</button>
+            <button id="export-btn" class="secondary" disabled>导出 Excel</button>
           </div>
         </div>
         <div class="status" id="query-status">未开始查询</div>
         <div class="summary" id="summary-panel"></div>
-        <div class="section-note">结果会自动忽略不包含业务表的数据库，只汇总符合条件的项目阶段。</div>
-        <div class="results" style="margin-top: 14px;">
-          <table>
-            <thead>
-              <tr>
-                <th>服务器</th>
-                <th>数据库</th>
-                <th>考试代码</th>
-                <th>项目名称</th>
-                <th>当前阶段</th>
-                <th style="width:80px;">操作</th>
-              </tr>
-            </thead>
-            <tbody id="result-body">
-              <tr><td colspan="6" class="muted">暂无结果</td></tr>
-            </tbody>
-          </table>
+        <div class="view-switch">
+          <span class="filter-helper">时间按钮支持复选，查询会按所选自然日逐日命中项目阶段。</span>
         </div>
+        <div class="board" id="board-panel"></div>
+      </div>
+    </div>
+    <div class="overlay auth-overlay" id="auth-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2 id="auth-title">登录验证</h2>
+        </div>
+        <label>用户名</label>
+        <input id="auth-username" autocomplete="username" placeholder="请输入用户名">
+        <label>密码</label>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="请输入密码">
+        <div id="auth-confirm-wrap" style="display:none;">
+          <label>确认密码</label>
+          <input id="auth-confirm-password" type="password" autocomplete="new-password" placeholder="请再次输入密码">
+        </div>
+        <div class="actions">
+          <button id="auth-submit-btn">登录</button>
+        </div>
+        <div class="hint" id="auth-hint">请输入登录账号后继续。</div>
+        <div class="auth-status" id="auth-status"></div>
+      </div>
+    </div>
+    <div class="overlay" id="user-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2>新建用户</h2>
+          <button id="close-user-modal" class="close-btn">关闭</button>
+        </div>
+        <label>用户名</label>
+        <input id="new-user-username" autocomplete="username" placeholder="请输入同事账号">
+        <div class="auth-actions">
+          <button id="create-user-btn">创建用户</button>
+        </div>
+        <div class="hint">新建用户默认初始密码为 <strong>11111111</strong>，首次登录必须修改密码。</div>
+        <div class="auth-status" id="user-status"></div>
+        <div class="user-list-panel">
+          <div class="title" style="font-size:16px; margin-bottom:8px;">用户列表</div>
+          <div id="user-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="overlay" id="password-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2 id="password-title">修改密码</h2>
+          <button id="close-password-modal" class="close-btn">关闭</button>
+        </div>
+        <label>当前密码</label>
+        <input id="password-current" type="password" autocomplete="current-password" placeholder="请输入当前密码">
+        <label>新密码</label>
+        <input id="password-new" type="password" autocomplete="new-password" placeholder="请输入新密码">
+        <label>确认新密码</label>
+        <input id="password-confirm" type="password" autocomplete="new-password" placeholder="请再次输入新密码">
+        <div class="auth-actions">
+          <button id="change-password-btn">保存新密码</button>
+        </div>
+        <div class="danger-note" id="password-note" style="display:none;">当前账号使用的是初始密码，必须先修改后才能继续使用。</div>
+        <div class="auth-status" id="password-status"></div>
       </div>
     </div>
     <div class="overlay" id="server-overlay">
@@ -383,10 +872,20 @@
   <script>
     let selectedIndex = null;
     let lastPayload = null;
+    let lastSummary = null;
     let serversCache = [];
-    let stageOptionsCache = [];
-    const presetStageNames = ["报名", "缴费", "交费", "准考证", "面试", "成绩"];
+    let authMode = "login";
+    let authReady = false;
+    let currentIsAdmin = false;
+    let forcePasswordChange = false;
 
+    function buildAppUrl(path) {
+      const normalizedPath = String(path || "").replace(/^\/+/, "");
+      const basePath = window.location.pathname.endsWith("/")
+        ? window.location.pathname
+        : window.location.pathname.replace(/\/[^/]*$/, "/");
+      return new URL(normalizedPath, `${window.location.origin}${basePath}`).toString();
+    }
     function escapeHtml(value) {
       return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -400,6 +899,61 @@
       return Array.from(document.querySelectorAll(selector))
         .filter(item => item.checked)
         .map(item => item.value);
+    }
+
+    function parseStageKeywords(value) {
+      return String(value ?? "")
+        .split("/")
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function toLocalDateTimeValue(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function getSelectedDayOffsets() {
+      return Array.from(document.querySelectorAll(".range-preset-btn.active"))
+        .map(button => Number(button.dataset.dayOffset))
+        .filter(offset => !Number.isNaN(offset))
+        .sort((a, b) => a - b);
+    }
+
+    function syncRangeInputsFromSelectedDays() {
+      const startInput = document.getElementById("range-start");
+      const endInput = document.getElementById("range-end");
+      const offsets = getSelectedDayOffsets();
+      if (!offsets.length) {
+        startInput.disabled = false;
+        endInput.disabled = false;
+        startInput.value = "";
+        endInput.value = "";
+        return;
+      }
+
+      const today = new Date();
+      const firstOffset = offsets[0];
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + firstOffset, 0, 0, 0);
+      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + firstOffset, 23, 59, 0);
+      startInput.disabled = true;
+      endInput.disabled = true;
+      startInput.value = toLocalDateTimeValue(start);
+      endInput.value = toLocalDateTimeValue(end);
+    }
+
+    function buildAdmissionCountQueryPayload() {
+      const payload = {
+        ...lastPayload,
+        statusFilters: ["即将开始"],
+        stageNames: ["准考证"],
+        dayOffsets: [0, 1, 2, 3, 4, 5, 6, 7]
+      };
+      return payload;
     }
 
     function updateDropdownSummary(summaryId, selector, emptyText, allText, totalCount = null) {
@@ -419,7 +973,7 @@
     }
 
     async function loadCacheInfo() {
-      const response = await fetch("/api/cache-info");
+      const response = await apiFetch(buildAppUrl("api/cache-info"));
       if (!response.ok) {
         throw new Error("读取缓存状态失败");
       }
@@ -427,7 +981,7 @@
     }
 
     async function loadServers() {
-      const response = await fetch("/api/servers");
+      const response = await apiFetch(buildAppUrl("api/servers"));
       if (!response.ok) {
         throw new Error("读取服务器配置失败");
       }
@@ -437,7 +991,7 @@
     }
 
     async function saveServers(servers) {
-      const response = await fetch("/api/servers", {
+      const response = await apiFetch(buildAppUrl("api/servers"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(servers)
@@ -542,60 +1096,163 @@
     }
 
     function buildPayload() {
+      const typedStageNames = parseStageKeywords(document.getElementById("stage-keyword").value);
+      const stageNames = [...typedStageNames]
+        .filter((item, index, list) => list.findIndex(value => value.toLowerCase() === item.toLowerCase()) === index);
+      const dayOffsets = getSelectedDayOffsets();
+
       return {
         servers: enabledServers(),
         statusFilters: collectCheckedValues(".status-filter"),
+        timeMatchMode: document.querySelector(".time-match-mode:checked")?.value || "overlap",
         stageKeyword: "",
-        stageNames: collectCheckedValues(".stage-filter"),
+        stageNames,
         serverNames: collectCheckedValues(".server-filter"),
         projectKeyword: document.getElementById("project-keyword").value.trim(),
         serverKeyword: "",
         databaseKeyword: document.getElementById("database-keyword").value.trim(),
-        examCodeKeyword: document.getElementById("exam-code-keyword").value.trim()
-        ,rangeStart: document.getElementById("range-start").value || null
-        ,rangeEnd: document.getElementById("range-end").value || null
+        examCodeKeyword: document.getElementById("exam-code-keyword").value.trim(),
+        dayOffsets,
+        rangeStart: dayOffsets.length > 0 ? null : (document.getElementById("range-start").value || null),
+        rangeEnd: dayOffsets.length > 0 ? null : (document.getElementById("range-end").value || null)
       };
     }
 
-    function buildStagePayload() {
-      const payload = buildPayload();
-      payload.stageKeyword = "";
-      payload.stageNames = [];
-      return payload;
+    function setAuthStatus(text) {
+      document.getElementById("auth-status").textContent = text;
+    }
+
+    function setUserStatus(text) {
+      document.getElementById("user-status").textContent = text;
+    }
+
+    function setPasswordStatus(text) {
+      document.getElementById("password-status").textContent = text;
+    }
+
+    function updateAuthView(hasAccount, username = "", isAdmin = false) {
+      authMode = hasAccount ? "login" : "setup";
+      currentIsAdmin = isAdmin;
+      document.getElementById("auth-title").textContent = hasAccount ? "登录验证" : "初始化账号";
+      document.getElementById("auth-submit-btn").textContent = hasAccount ? "登录" : "设置账号并登录";
+      document.getElementById("auth-hint").textContent = hasAccount
+        ? "请输入登录账号后继续。"
+        : "系统首次使用，请先设置一个本地管理员账号。";
+      document.getElementById("auth-confirm-wrap").style.display = hasAccount ? "none" : "block";
+      document.getElementById("auth-user").textContent = username ? `当前用户：${username}` : "";
+      document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
+      document.getElementById("open-user-modal").style.display = username && isAdmin ? "inline-flex" : "none";
+      document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
+    }
+
+    function showAuthOverlay() {
+      document.getElementById("auth-overlay").classList.add("show");
+    }
+
+    function hideAuthOverlay() {
+      document.getElementById("auth-overlay").classList.remove("show");
+      setAuthStatus("");
+    }
+
+    function showUserOverlay() {
+      document.getElementById("user-overlay").classList.add("show");
+      loadUsersForAdmin().catch(error => setUserStatus(error.message));
+    }
+
+    function hideUserOverlay() {
+      document.getElementById("user-overlay").classList.remove("show");
+      setUserStatus("");
+      document.getElementById("new-user-username").value = "";
+      document.getElementById("user-list").innerHTML = "";
+    }
+
+    function showPasswordOverlay(force = false) {
+      forcePasswordChange = force;
+      document.getElementById("password-overlay").classList.add("show");
+      document.getElementById("password-note").style.display = force ? "block" : "none";
+      document.getElementById("close-password-modal").style.display = force ? "none" : "inline-flex";
+      document.getElementById("password-title").textContent = force ? "首次登录请修改密码" : "修改密码";
+    }
+
+    function hidePasswordOverlay() {
+      if (forcePasswordChange) return;
+      document.getElementById("password-overlay").classList.remove("show");
+      document.getElementById("password-current").value = "";
+      document.getElementById("password-new").value = "";
+      document.getElementById("password-confirm").value = "";
+      setPasswordStatus("");
+    }
+
+    async function apiFetch(url, options = {}) {
+      const response = await fetch(url, options);
+      if (response.status === 401) {
+        authReady = false;
+        updateAuthView(true, "", false);
+        showAuthOverlay();
+      }
+      if (response.status === 403) {
+        const data = await response.clone().json().catch(() => ({}));
+        if ((data.detail || "").includes("首次登录必须先修改密码")) {
+          showPasswordOverlay(true);
+        }
+      }
+      return response;
+    }
+
+    async function loadAuthStatus() {
+      const response = await fetch(buildAppUrl("api/auth/status"));
+      if (!response.ok) {
+        throw new Error("读取登录状态失败");
+      }
+      return response.json();
+    }
+
+    async function loadUsersForAdmin() {
+      const response = await apiFetch(buildAppUrl("api/auth/users"));
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "读取用户列表失败");
+      }
+
+      const users = await response.json();
+      const container = document.getElementById("user-list");
+      container.innerHTML = (Array.isArray(users) ? users : []).map(user => `
+        <div class="user-row">
+          <div>
+            <div class="user-meta">${escapeHtml(user.username)}</div>
+            <div class="user-role">${user.isAdmin ? "管理员" : "普通用户"}</div>
+          </div>
+          ${user.isAdmin ? "" : `<button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>`}
+        </div>
+      `).join("") || '<div class="server-empty">还没有用户。</div>';
+    }
+
+    async function bootstrapAfterLogin() {
+      await loadServers();
+      renderServers();
+      renderCacheInfo(await loadCacheInfo());
+      authReady = true;
     }
 
     function renderSummary(summary) {
-      document.getElementById("summary-panel").innerHTML = `
-        <div class="metric">启用服务器<b>${summary.enabledServers}</b></div>
-        <div class="metric">遍历数据库<b>${summary.visitedDatabases}</b></div>
-        <div class="metric">匹配业务库<b>${summary.matchedDatabases}</b></div>
-        <div class="metric">已结束<b>${summary.endedCount}</b></div>
-        <div class="metric">正在进行<b>${summary.ongoingCount}</b></div>
-        <div class="metric">即将开始<b>${summary.upcomingCount}</b></div>`;
-    }
+      lastSummary = summary;
+      const groups = Array.isArray(summary?.groups) ? summary.groups : [];
+      const ongoingGroups = groups.filter(item => getGroupPrimaryStatus(item) === "正在进行");
+      const upcomingGroups = groups.filter(item => getGroupPrimaryStatus(item) === "即将开始");
+      const endedGroups = groups.filter(item => getGroupPrimaryStatus(item) === "已结束");
+      const totalRegistrationCount = groups.reduce((sum, item) => sum + (item.registrationCount || 0), 0);
+      const totalAdmissionTicketCount = groups.reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
 
-    function renderStageOptions(stageNames) {
-      const selected = new Set(collectCheckedValues(".stage-filter"));
-      const manualValue = document.getElementById("stage-keyword").value.trim();
-      const allOptions = [...presetStageNames, ...(Array.isArray(stageNames) ? stageNames : []), ...selected];
-      if (manualValue) {
-        allOptions.push(manualValue);
-      }
-      stageOptionsCache = allOptions
-        .map(item => item?.trim())
-        .filter(Boolean)
-        .filter((item, index, list) => list.findIndex(value => value.toLowerCase() === item.toLowerCase()) === index)
-        .sort((a, b) => a.localeCompare(b, "zh-CN"));
-      const container = document.getElementById("stage-options");
-      if (!stageOptionsCache.length) {
-        container.innerHTML = '<div class="server-empty">还没有可选阶段。</div>';
-        updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", 0);
-        return;
-      }
-      container.innerHTML = stageOptionsCache.map(name => `
-        <label><input type="checkbox" class="stage-filter" value="${escapeHtml(name)}" ${selected.has(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
-      `).join("");
-      updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", stageOptionsCache.length);
+      document.getElementById("summary-panel").innerHTML = `
+        <div class="metric"><div>正在进行</div><b>${ongoingGroups.length}</b></div>
+        <span class="metric-sep">|</span>
+        <div class="metric"><div>即将开始</div><b>${upcomingGroups.length}</b></div>
+        <span class="metric-sep">|</span>
+        <div class="metric"><div>已结束</div><b>${endedGroups.length}</b></div>
+        <span class="metric-sep">|</span>
+        <div class="metric"><div>报名人数</div><b>${totalRegistrationCount}</b></div>
+        <span class="metric-sep">|</span>
+        <div class="metric"><div>准考证人数</div><b>${totalAdmissionTicketCount}</b></div>`;
     }
 
     function formatDateTime(value) {
@@ -603,66 +1260,290 @@
       return value.replace("T", " ").slice(0, 19);
     }
 
-    function renderGroups(groups) {
-      const body = document.getElementById("result-body");
+    function renderStageTimeRange(stage, emptyText = "-") {
+      if (!stage) return emptyText;
+      return `${formatDateTime(stage.startTime)} 至 ${formatDateTime(stage.endTime)}`;
+    }
+
+    function buildTimelineStages(stages) {
+      const items = Array.isArray(stages) ? stages : [];
+      const seen = new Set();
+      return items.filter(stage => {
+        const name = String(stage?.stageName || "").trim();
+        if (!name) return false;
+        const key = name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function getGroupPrimaryStatus(group) {
+      const statuses = Array.isArray(group?.statuses) ? group.statuses : [];
+      if (statuses.includes("正在进行")) return "正在进行";
+      if (statuses.includes("即将开始")) return "即将开始";
+      if (statuses.includes("已经结束") || statuses.includes("已结束")) return "已结束";
+      return statuses[0] || "其他";
+    }
+
+    function getBoardTargets(statusFilter) {
+      const groups = Array.isArray(lastSummary?.groups) ? lastSummary.groups : [];
+      return groups
+        .filter(group => getGroupPrimaryStatus(group) === statusFilter)
+        .map(group => ({
+          serverName: group.serverName,
+          databaseName: group.databaseName,
+          examCode: group.examCode
+        }));
+    }
+
+    function renderBoard(groups) {
+      const board = document.getElementById("board-panel");
+      const columns = [
+        { key: "正在进行", title: "正在进行", showRegistration: true, showAdmission: false },
+        { key: "即将开始", title: "即将开始", showRegistration: false, showAdmission: true },
+        { key: "已结束", title: "已结束", showRegistration: true, showAdmission: true }
+      ];
+
       if (!groups.length) {
-        body.innerHTML = '<tr><td colspan="6" class="muted">没有符合条件的结果</td></tr>';
+        board.innerHTML = columns.map(column => `
+          <section class="board-column">
+            <div class="board-head">
+              <div class="board-head-top"><span>${column.title}</span><span class="board-count">0</span></div>
+            </div>
+            <div class="board-empty">没有项目</div>
+          </section>
+        `).join("");
         return;
       }
 
-      body.innerHTML = groups.map((item, index) => `
-        <tr class="group-row">
-          <td>${item.serverName}</td>
-          <td>${item.databaseName}</td>
-          <td>${item.examCode}</td>
-          <td>${item.projectName}</td>
-          <td>${(item.statuses || []).join("、")}</td>
-          <td><button class="expand-btn" type="button" data-group-index="${index}">展开</button></td>
-        </tr>
-        <tr class="detail-row" id="detail-row-${index}" style="display:none;">
-          <td colspan="6">
-            <div class="detail-card">
-              <table class="detail-table">
-                <thead>
-                  <tr>
-                    <th>阶段名称</th>
-                    <th>开始时间</th>
-                    <th>结束时间</th>
-                    <th>当前状态</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${(item.stages || []).map(stage => `
-                    <tr>
-                      <td>${stage.stageName}</td>
-                      <td>${formatDateTime(stage.startTime)}</td>
-                      <td>${formatDateTime(stage.endTime)}</td>
-                      <td>${stage.status}</td>
-                    </tr>
-                  `).join("")}
-                </tbody>
-              </table>
+      board.innerHTML = columns.map(column => {
+        const items = groups.filter(group => getGroupPrimaryStatus(group) === column.key);
+        return `
+          <section class="board-column">
+            <div class="board-head">
+              <div class="board-head-top"><span>${column.title}</span><span class="board-count">${items.length}</span></div>
+              <div class="board-head-actions">
+                ${column.showRegistration ? `<button class="board-head-btn" type="button" data-board-action="registration" data-board-status="${column.key}">统计报名人数</button>` : ""}
+                ${column.showAdmission ? `<button class="board-head-btn" type="button" data-board-action="admission" data-board-status="${column.key}">统计准考证人数</button>` : ""}
+              </div>
             </div>
-          </td>
-        </tr>`).join("");
+            <div class="board-list">
+              ${items.length ? items.map(item => `
+                <article class="board-card">
+                  <div class="board-card-title">${escapeHtml(item.projectName || "-")}</div>
+                  <div class="board-card-meta">
+                    <div>${escapeHtml(item.serverName)} / ${escapeHtml(item.databaseName)}</div>
+                    <div>考试代码：${escapeHtml(item.examCode || "-")}</div>
+                  </div>
+                  <div class="board-card-timeline">
+                    ${buildTimelineStages(item.stages).map(stage => `
+                      <div class="board-timeline-item">
+                        <div class="board-timeline-label">${escapeHtml(stage.stageName)}</div>
+                        <div>${escapeHtml(renderStageTimeRange(stage))}</div>
+                      </div>
+                    `).join("") || `
+                      <div class="board-timeline-item">
+                        <div class="board-timeline-label">阶段</div>
+                        <div>-</div>
+                      </div>
+                    `}
+                  </div>
+                  <div class="board-card-stats">
+                    ${column.showRegistration ? `
+                      <div class="board-stat">
+                        <div class="board-stat-label">报名人数</div>
+                        <div class="board-stat-value">${item.registrationCount ?? 0}</div>
+                      </div>
+                    ` : ""}
+                    ${column.showAdmission ? `
+                      <div class="board-stat">
+                        <div class="board-stat-label">准考证人数</div>
+                        <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
+                      </div>
+                    ` : ""}
+                  </div>
+                  <div class="board-card-stages">
+                    ${(item.stages || []).map(stage => `<span class="board-stage-tag">${escapeHtml(stage.stageName)}</span>`).join("")}
+                  </div>
+                </article>
+              `).join("") : '<div class="board-empty">没有项目</div>'}
+            </div>
+          </section>
+        `;
+      }).join("");
     }
 
     async function postJson(url, payload) {
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (response.status === 401) throw new Error("请先登录。");
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "请求失败");
       return data;
     }
 
+    document.getElementById("toggle-config-panel").addEventListener("click", () => {
+      const panel = document.getElementById("config-panel");
+      const button = document.getElementById("toggle-config-panel");
+      const visible = panel.classList.toggle("show");
+      button.textContent = visible ? "收起配置" : "配置";
+    });
+    document.getElementById("toggle-custom-range").addEventListener("click", () => {
+      const panel = document.getElementById("custom-range-panel");
+      const button = document.getElementById("toggle-custom-range");
+      const visible = panel.classList.toggle("show");
+      button.classList.toggle("active", visible);
+    });
+    document.getElementById("toggle-advanced-filter").addEventListener("click", () => {
+      const panel = document.getElementById("advanced-filter-panel");
+      const button = document.getElementById("toggle-advanced-filter");
+      const visible = panel.classList.toggle("show");
+      button.classList.toggle("active", visible);
+    });
     document.getElementById("open-server-modal").addEventListener("click", showServerModal);
     document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
+    document.getElementById("toggle-topbar-detail").addEventListener("click", () => {
+      const detail = document.getElementById("topbar-detail");
+      const button = document.getElementById("toggle-topbar-detail");
+      const visible = detail.classList.toggle("show");
+      button.textContent = visible ? "收起运行信息" : "显示运行信息";
+    });
     document.getElementById("server-overlay").addEventListener("click", (event) => {
       if (event.target === document.getElementById("server-overlay")) {
         hideServerModal();
+      }
+    });
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      try {
+        await postJson(buildAppUrl("api/auth/logout"), {});
+      } catch (error) {
+        setQueryStatus(error.message);
+      } finally {
+        authReady = false;
+        updateAuthView(true, "", false);
+        showAuthOverlay();
+      }
+    });
+    document.getElementById("open-user-modal").addEventListener("click", () => {
+      if (!currentIsAdmin) return;
+      showUserOverlay();
+    });
+    document.getElementById("open-password-modal").addEventListener("click", () => showPasswordOverlay(false));
+    document.getElementById("close-user-modal").addEventListener("click", hideUserOverlay);
+    document.getElementById("close-password-modal").addEventListener("click", hidePasswordOverlay);
+    document.getElementById("user-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("user-overlay")) {
+        hideUserOverlay();
+      }
+    });
+    document.getElementById("password-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("password-overlay")) {
+        hidePasswordOverlay();
+      }
+    });
+    document.getElementById("auth-submit-btn").addEventListener("click", async () => {
+      const username = document.getElementById("auth-username").value.trim();
+      const password = document.getElementById("auth-password").value;
+      const confirmPassword = document.getElementById("auth-confirm-password").value;
+
+      if (!username || !password) {
+        setAuthStatus("请输入用户名和密码。");
+        return;
+      }
+
+      try {
+        setAuthStatus(authMode === "setup" ? "正在设置账号..." : "正在登录...");
+        if (authMode === "setup") {
+          await postJson(buildAppUrl("api/auth/setup"), {
+            username,
+            password,
+            confirmPassword
+          });
+        } else {
+          await postJson(buildAppUrl("api/auth/login"), {
+            username,
+            password
+          });
+        }
+
+        const authStatus = await loadAuthStatus();
+        updateAuthView(true, username, Boolean(authStatus?.isAdmin));
+        hideAuthOverlay();
+        if (authStatus?.forcePasswordChange) {
+          showPasswordOverlay(true);
+          authReady = false;
+          return;
+        }
+        await bootstrapAfterLogin();
+      } catch (error) {
+        setAuthStatus(error.message);
+      }
+    });
+    document.getElementById("create-user-btn").addEventListener("click", async () => {
+      const username = document.getElementById("new-user-username").value.trim();
+
+      if (!username) {
+        setUserStatus("请输入用户名。");
+        return;
+      }
+
+      try {
+        setUserStatus("正在创建用户...");
+        const result = await postJson(buildAppUrl("api/auth/users"), {
+          username
+        });
+        setUserStatus(`用户 ${result.username} 已创建，初始密码为 ${result.defaultPassword}。`);
+        document.getElementById("new-user-username").value = "";
+        await loadUsersForAdmin();
+      } catch (error) {
+        setUserStatus(error.message);
+      }
+    });
+    document.getElementById("user-list").addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const username = target.dataset.resetUser;
+      if (!username) return;
+
+      try {
+        setUserStatus(`正在重置 ${username} 的密码...`);
+        const result = await postJson(buildAppUrl("api/auth/reset-password"), { username });
+        setUserStatus(`用户 ${result.username} 的密码已重置为 ${result.defaultPassword}。`);
+      } catch (error) {
+        setUserStatus(error.message);
+      }
+    });
+    document.getElementById("change-password-btn").addEventListener("click", async () => {
+      const currentPassword = document.getElementById("password-current").value;
+      const newPassword = document.getElementById("password-new").value;
+      const confirmPassword = document.getElementById("password-confirm").value;
+
+      if (!currentPassword || !newPassword) {
+        setPasswordStatus("请输入当前密码和新密码。");
+        return;
+      }
+
+      try {
+        setPasswordStatus("正在修改密码...");
+        await postJson(buildAppUrl("api/auth/change-password"), {
+          currentPassword,
+          newPassword,
+          confirmPassword
+        });
+        forcePasswordChange = false;
+        document.getElementById("password-overlay").classList.remove("show");
+        document.getElementById("password-current").value = "";
+        document.getElementById("password-new").value = "";
+        document.getElementById("password-confirm").value = "";
+        setPasswordStatus("");
+        await bootstrapAfterLogin();
+        setQueryStatus("密码已更新。");
+      } catch (error) {
+        setPasswordStatus(error.message);
       }
     });
 
@@ -753,7 +1634,7 @@
     document.getElementById("test-server").addEventListener("click", async () => {
       try {
         setServerStatus("正在测试连接...");
-        const result = await postJson("/api/test", {
+        const result = await postJson(buildAppUrl("api/test"), {
           server: {
             name: document.getElementById("server-name").value.trim(),
             databaseType: document.getElementById("server-type").value,
@@ -770,35 +1651,18 @@
       }
     });
 
-    async function refreshStageOptions(showStatus = false) {
-      try {
-        if (showStatus) {
-          setQueryStatus("正在从缓存加载阶段选项...");
-        }
-        const result = await postJson("/api/stages", buildStagePayload());
-        renderStageOptions(result);
-        if (showStatus) {
-          setQueryStatus(`已从缓存加载阶段选项 ${result.length} 个。`);
-        }
-      } catch (error) {
-        if (showStatus) {
-          setQueryStatus(error.message);
-        }
-      }
-    }
-
     document.getElementById("refresh-btn").addEventListener("click", async () => {
       try {
+        if (!authReady) throw new Error("请先登录。");
         setQueryStatus("正在更新缓存数据，请稍候...");
         document.getElementById("refresh-btn").disabled = true;
-        const result = await postJson("/api/refresh", { servers: enabledServers() });
+        const result = await postJson(buildAppUrl("api/refresh"), { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
         setQueryStatus(`更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`);
-        await refreshStageOptions();
         if (lastPayload) {
-          const queryResult = await postJson("/api/query", lastPayload);
+          const queryResult = await postJson(buildAppUrl("api/query"), lastPayload);
           renderSummary(queryResult);
-          renderGroups(queryResult.groups || []);
+          renderBoard(queryResult.groups || []);
           document.getElementById("export-btn").disabled = (queryResult.records || []).length === 0;
         }
       } catch (error) {
@@ -810,11 +1674,12 @@
 
     document.getElementById("query-btn").addEventListener("click", async () => {
       try {
+        if (!authReady) throw new Error("请先登录。");
         lastPayload = buildPayload();
         setQueryStatus("正在查询缓存，请稍候...");
-        const result = await postJson("/api/query", lastPayload);
+        const result = await postJson(buildAppUrl("api/query"), lastPayload);
         renderSummary(result);
-        renderGroups(result.groups || []);
+        renderBoard(result.groups || []);
         document.getElementById("export-btn").disabled = (result.records || []).length === 0;
         setQueryStatus(`缓存查询完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，项目 ${((result.groups || []).length)} 个，阶段 ${(result.records || []).length} 条。`);
       } catch (error) {
@@ -823,58 +1688,107 @@
       }
     });
 
-    document.getElementById("result-body").addEventListener("click", (event) => {
+    async function loadBoardCounts(includeRegistrationCount, includeAdmissionTicketCount, statusFilter) {
+      if (!lastPayload) {
+        setQueryStatus("请先查询，再按当前筛选条件统计人数。");
+        return;
+      }
+
+      const targets = getBoardTargets(statusFilter);
+      if (!targets.length) {
+        setQueryStatus(`当前“${statusFilter}”列没有可统计的项目。`);
+        return;
+      }
+
+      try {
+        if (!authReady) throw new Error("请先登录。");
+        setQueryStatus(
+          includeRegistrationCount && includeAdmissionTicketCount
+            ? "正在按当前筛选条件统计报名人数和准考证人数，请稍候..."
+            : includeRegistrationCount
+              ? `正在统计“${statusFilter}”列的报名人数，请稍候...`
+              : "正在统计今天到未来 7 天内、且状态为即将开始的准考证人数，请稍候..."
+        );
+        const result = await postJson(buildAppUrl("api/board-counts"), {
+          query: includeAdmissionTicketCount && !includeRegistrationCount
+            ? buildAdmissionCountQueryPayload()
+            : {
+                ...lastPayload,
+                statusFilters: [statusFilter]
+              },
+          includeRegistrationCount,
+          includeAdmissionTicketCount,
+          targets
+        });
+        renderSummary(result);
+        renderBoard(result.groups || []);
+        setQueryStatus(`人数统计完成：项目 ${((result.groups || []).length)} 个，阶段 ${(result.records || []).length} 条。`);
+      } catch (error) {
+        setQueryStatus(error.message);
+      }
+    }
+
+    document.getElementById("board-panel").addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
-      if (!target.classList.contains("expand-btn")) return;
-      const index = target.dataset.groupIndex;
-      const row = document.getElementById(`detail-row-${index}`);
-      if (!row) return;
-      const visible = row.style.display !== "none";
-      row.style.display = visible ? "none" : "";
-      target.textContent = visible ? "展开" : "收起";
+      const action = target.dataset.boardAction;
+      const status = target.dataset.boardStatus;
+      if (!action || !status) return;
+
+      const button = target;
+      button.setAttribute("disabled", "disabled");
+      try {
+        if (action === "registration") {
+          await loadBoardCounts(true, false, status);
+        } else if (action === "admission") {
+          await loadBoardCounts(false, true, status);
+        }
+      } finally {
+        button.removeAttribute("disabled");
+      }
     });
 
     document.addEventListener("change", (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement)) return;
       if (target.classList.contains("status-filter")) {
-        updateDropdownSummary("status-summary", ".status-filter", "未选择状态", "全部状态", 3);
-      }
-      if (target.classList.contains("stage-filter")) {
-        updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", stageOptionsCache.length);
+        target.closest(".tag-option")?.classList.toggle("active", target.checked);
       }
       if (target.classList.contains("server-filter")) {
         updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", document.querySelectorAll(".server-filter").length);
       }
+      if (target.classList.contains("time-match-mode")) {
+        document.querySelectorAll(".mini-option").forEach(option => {
+          const input = option.querySelector(".time-match-mode");
+          option.classList.toggle("active", Boolean(input?.checked));
+        });
+      }
+      if (target.id === "range-start" || target.id === "range-end") {
+        document.querySelectorAll(".range-preset-btn").forEach(button => button.classList.remove("active"));
+        document.getElementById("range-start").disabled = false;
+        document.getElementById("range-end").disabled = false;
+      }
     });
 
-    document.getElementById("add-stage-keyword").addEventListener("click", () => {
-      const input = document.getElementById("stage-keyword");
-      const value = input.value.trim();
-      if (!value) return;
-
-      if (!stageOptionsCache.some(item => item.toLowerCase() === value.toLowerCase())) {
-        stageOptionsCache.push(value);
-      }
-      renderStageOptions(stageOptionsCache);
-      const checkbox = Array.from(document.querySelectorAll(".stage-filter"))
-        .find(item => item.value.toLowerCase() === value.toLowerCase());
-      if (checkbox) {
-        checkbox.checked = true;
-      }
-      updateDropdownSummary("stage-summary", ".stage-filter", "未选择阶段", "全部阶段", stageOptionsCache.length);
-      input.value = "";
+    document.querySelectorAll(".range-preset-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        button.classList.toggle("active");
+        syncRangeInputsFromSelectedDays();
+      });
     });
 
     document.getElementById("export-btn").addEventListener("click", async () => {
       if (!lastPayload) return;
       try {
-        const response = await fetch("/api/export", {
+        if (!authReady) throw new Error("请先登录。");
+        const response = await apiFetch(buildAppUrl("api/export"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(lastPayload)
         });
+        if (response.status === 401) {
+          throw new Error("请先登录。");
+        }
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
           throw new Error(data.detail || "导出失败");
@@ -891,13 +1805,25 @@
 
     (async () => {
       try {
-        await loadServers();
-        renderServers();
-        updateDropdownSummary("status-summary", ".status-filter", "未选择状态", "全部状态", 3);
-        await refreshStageOptions();
-        renderCacheInfo(await loadCacheInfo());
+        const authStatus = await loadAuthStatus();
+        updateAuthView(
+          Boolean(authStatus?.hasAccount),
+          authStatus?.authenticated ? (authStatus?.username || "") : "",
+          Boolean(authStatus?.isAdmin)
+        );
+        if (authStatus?.authenticated) {
+          hideAuthOverlay();
+          if (authStatus?.forcePasswordChange) {
+            showPasswordOverlay(true);
+            return;
+          }
+          await bootstrapAfterLogin();
+        } else {
+          showAuthOverlay();
+        }
       } catch (error) {
-        setServerStatus(error.message);
+        setAuthStatus(error.message);
+        showAuthOverlay();
       }
     })();
   </script>

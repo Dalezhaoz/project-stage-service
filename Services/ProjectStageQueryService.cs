@@ -6,6 +6,36 @@ namespace ProjectStageService.Services;
 
 public sealed class ProjectStageQueryService
 {
+    public async Task<List<ServerCountUpdate>> QueryServerCountsAsync(
+        StageServerConfig server,
+        IReadOnlyCollection<BoardCountTarget> targets,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        if (!server.Enabled || targets.Count == 0 || (!includeRegistrationCount && !includeAdmissionTicketCount))
+        {
+            return [];
+        }
+
+        var groupedTargets = targets
+            .Where(item =>
+                !string.IsNullOrWhiteSpace(item.DatabaseName) &&
+                !string.IsNullOrWhiteSpace(item.ExamCode) &&
+                string.Equals(item.ServerName, server.Name, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(item => item.DatabaseName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (groupedTargets.Count == 0)
+        {
+            return [];
+        }
+
+        return IsMySql(server)
+            ? await QueryMySqlServerCountsAsync(server, groupedTargets, includeRegistrationCount, includeAdmissionTicketCount, cancellationToken)
+            : await QuerySqlServerServerCountsAsync(server, groupedTargets, includeRegistrationCount, includeAdmissionTicketCount, cancellationToken);
+    }
+
     public async Task<object> TestConnectionAsync(StageServerConfig server, CancellationToken cancellationToken)
     {
         var databaseNames = await LoadDatabaseNamesAsync(server, cancellationToken);
@@ -54,7 +84,9 @@ public sealed class ProjectStageQueryService
             DatabaseKeyword = request.DatabaseKeyword,
             ExamCodeKeyword = request.ExamCodeKeyword,
             RangeStart = request.RangeStart,
-            RangeEnd = request.RangeEnd
+            RangeEnd = request.RangeEnd,
+            DayOffsets = request.DayOffsets,
+            TimeMatchMode = request.TimeMatchMode
         };
 
         foreach (var server in enabledServers)
@@ -67,7 +99,15 @@ public sealed class ProjectStageQueryService
                     continue;
                 }
 
-                var records = await QueryDatabaseAsync(server, databaseName, DateTime.Now, stageFilterRequest, cancellationToken);
+                var records = await QueryDatabaseAsync(
+                    server,
+                    databaseName,
+                    DateTime.Now,
+                    stageFilterRequest,
+                    includeRegistrationCount: false,
+                    includeAdmissionTicketCount: false,
+                    targets: null,
+                    cancellationToken: cancellationToken);
                 foreach (var stageName in records.Select(item => item.StageName))
                 {
                     if (!string.IsNullOrWhiteSpace(stageName))
@@ -81,7 +121,24 @@ public sealed class ProjectStageQueryService
         return stageNames.OrderBy(item => item, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public async Task<ProjectStageSummary> QueryAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken)
+    public Task<ProjectStageSummary> QueryAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken) =>
+        QueryAsync(request, includeRegistrationCount: false, includeAdmissionTicketCount: false, cancellationToken: cancellationToken);
+
+    public async Task<ProjectStageSummary> QueryAsync(
+        ProjectStageQueryRequest request,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        return await QueryAsync(request, includeRegistrationCount, includeAdmissionTicketCount, null, cancellationToken);
+    }
+
+    public async Task<ProjectStageSummary> QueryAsync(
+        ProjectStageQueryRequest request,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        IReadOnlyCollection<BoardCountTarget>? targets,
+        CancellationToken cancellationToken)
     {
         var enabledServers = request.Servers.Where(item => item.Enabled).ToList();
         if (enabledServers.Count == 0)
@@ -108,7 +165,15 @@ public sealed class ProjectStageQueryService
                 }
 
                 summary.MatchedDatabases += 1;
-                var records = await QueryDatabaseAsync(server, databaseName, now, request, cancellationToken);
+                var records = await QueryDatabaseAsync(
+                    server,
+                    databaseName,
+                    now,
+                    request,
+                    includeRegistrationCount,
+                    includeAdmissionTicketCount,
+                    targets,
+                    cancellationToken: cancellationToken);
                 summary.Records.AddRange(records);
             }
         }
@@ -134,6 +199,8 @@ public sealed class ProjectStageQueryService
                     ProjectName = stages.FirstOrDefault()?.ProjectName ?? string.Empty,
                     StartTime = stages.Min(item => item.StartTime),
                     EndTime = stages.Max(item => item.EndTime),
+                    RegistrationCount = stages.FirstOrDefault()?.RegistrationCount ?? 0,
+                    AdmissionTicketCount = stages.FirstOrDefault()?.AdmissionTicketCount ?? 0,
                     Statuses = stages
                         .Select(item => item.Status)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -308,11 +375,14 @@ public sealed class ProjectStageQueryService
         string databaseName,
         DateTime now,
         ProjectStageQueryRequest request,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        IReadOnlyCollection<BoardCountTarget>? targets,
         CancellationToken cancellationToken)
     {
         return IsMySql(server)
-            ? await QueryMySqlDatabaseAsync(server, databaseName, now, request, cancellationToken)
-            : await QuerySqlServerDatabaseAsync(server, databaseName, now, request, cancellationToken);
+            ? await QueryMySqlDatabaseAsync(server, databaseName, now, request, includeRegistrationCount, includeAdmissionTicketCount, targets, cancellationToken)
+            : await QuerySqlServerDatabaseAsync(server, databaseName, now, request, includeRegistrationCount, includeAdmissionTicketCount, targets, cancellationToken);
     }
 
     private static async Task<List<ProjectStageRecord>> QuerySqlServerDatabaseAsync(
@@ -320,6 +390,9 @@ public sealed class ProjectStageQueryService
         string databaseName,
         DateTime now,
         ProjectStageQueryRequest request,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        IReadOnlyCollection<BoardCountTarget>? targets,
         CancellationToken cancellationToken)
     {
         var escaped = EscapeDbName(databaseName);
@@ -345,7 +418,25 @@ public sealed class ProjectStageQueryService
             ORDER BY C.KDate ASC
             """;
 
-        return await ReadSqlServerRecordsAsync(command, server.Name, databaseName, now, request, cancellationToken);
+        var rows = await ReadSqlServerRowsAsync(command, cancellationToken);
+        var filteredRows = rows
+            .Where(item => MatchesRow(server.Name, databaseName, item, now, request))
+            .Where(item => MatchesTarget(server.Name, databaseName, item.ExamCode, targets))
+            .ToList();
+
+        var examStats = includeRegistrationCount || includeAdmissionTicketCount
+            ? await LoadSqlServerExamStatsAsync(
+                connection,
+                databaseName,
+                filteredRows.Select(item => item.ExamCode),
+                includeRegistrationCount,
+                includeAdmissionTicketCount,
+                cancellationToken)
+            : [];
+
+        return filteredRows
+            .Select(item => BuildRecord(server.Name, databaseName, item, now, examStats))
+            .ToList();
     }
 
     private static async Task<List<ProjectStageRecord>> QueryMySqlDatabaseAsync(
@@ -353,6 +444,9 @@ public sealed class ProjectStageQueryService
         string databaseName,
         DateTime now,
         ProjectStageQueryRequest request,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        IReadOnlyCollection<BoardCountTarget>? targets,
         CancellationToken cancellationToken)
     {
         await using var connection = new MySqlConnection(BuildMySqlConnectionString(server, databaseName));
@@ -372,18 +466,31 @@ public sealed class ProjectStageQueryService
             ORDER BY b.start_date ASC
             """;
 
-        return await ReadMySqlRecordsAsync(command, server.Name, databaseName, now, request, cancellationToken);
+        var rows = await ReadMySqlRowsAsync(command, cancellationToken);
+        var filteredRows = rows
+            .Where(item => MatchesRow(server.Name, databaseName, item, now, request))
+            .Where(item => MatchesTarget(server.Name, databaseName, item.ExamCode, targets))
+            .ToList();
+
+        var examStats = includeRegistrationCount || includeAdmissionTicketCount
+            ? await LoadMySqlExamStatsAsync(
+                connection,
+                filteredRows.Select(item => item.ExamCode),
+                includeRegistrationCount,
+                includeAdmissionTicketCount,
+                cancellationToken)
+            : [];
+
+        return filteredRows
+            .Select(item => BuildRecord(server.Name, databaseName, item, now, examStats))
+            .ToList();
     }
 
-    private static async Task<List<ProjectStageRecord>> ReadSqlServerRecordsAsync(
+    private static async Task<List<StageQueryRow>> ReadSqlServerRowsAsync(
         SqlCommand command,
-        string serverName,
-        string databaseName,
-        DateTime now,
-        ProjectStageQueryRequest request,
         CancellationToken cancellationToken)
     {
-        var records = new List<ProjectStageRecord>();
+        var rows = new List<StageQueryRow>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -395,27 +502,22 @@ public sealed class ProjectStageQueryService
                 continue;
             }
 
-            var startTime = reader.GetDateTime(3);
-            var endTime = reader.GetDateTime(4);
-            var record = BuildRecord(serverName, databaseName, examCode, projectName, stageName, startTime, endTime, now);
-            if (AllowRecord(record, request))
-            {
-                records.Add(record);
-            }
+            rows.Add(new StageQueryRow(
+                examCode,
+                projectName,
+                stageName,
+                reader.GetDateTime(3),
+                reader.GetDateTime(4)));
         }
 
-        return records;
+        return rows;
     }
 
-    private static async Task<List<ProjectStageRecord>> ReadMySqlRecordsAsync(
+    private static async Task<List<StageQueryRow>> ReadMySqlRowsAsync(
         MySqlCommand command,
-        string serverName,
-        string databaseName,
-        DateTime now,
-        ProjectStageQueryRequest request,
         CancellationToken cancellationToken)
     {
-        var records = new List<ProjectStageRecord>();
+        var rows = new List<StageQueryRow>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -427,39 +529,311 @@ public sealed class ProjectStageQueryService
                 continue;
             }
 
-            var startTime = reader.GetDateTime(3);
-            var endTime = reader.GetDateTime(4);
-            var record = BuildRecord(serverName, databaseName, examCode, projectName, stageName, startTime, endTime, now);
-            if (AllowRecord(record, request))
-            {
-                records.Add(record);
-            }
+            rows.Add(new StageQueryRow(
+                examCode,
+                projectName,
+                stageName,
+                reader.GetDateTime(3),
+                reader.GetDateTime(4)));
         }
 
-        return records;
+        return rows;
     }
 
     private static ProjectStageRecord BuildRecord(
         string serverName,
         string databaseName,
-        string examCode,
-        string projectName,
-        string stageName,
-        DateTime startTime,
-        DateTime endTime,
-        DateTime now)
+        StageQueryRow row,
+        DateTime now,
+        Dictionary<string, ExamStats> examStats)
     {
+        examStats.TryGetValue(row.ExamCode, out var stats);
+
         return new ProjectStageRecord
         {
             ServerName = serverName,
             DatabaseName = databaseName,
-            ExamCode = examCode,
-            ProjectName = projectName,
-            StageName = stageName,
-            StartTime = startTime,
-            EndTime = endTime,
-            Status = GetStatus(now, startTime, endTime)
+            ExamCode = row.ExamCode,
+            ProjectName = row.ProjectName,
+            StageName = row.StageName,
+            StartTime = row.StartTime,
+            EndTime = row.EndTime,
+            Status = GetStatus(now, row.StartTime, row.EndTime),
+            RegistrationCount = stats?.RegistrationCount ?? 0,
+            AdmissionTicketCount = stats?.AdmissionTicketCount ?? 0
         };
+    }
+
+    private static bool MatchesRow(
+        string serverName,
+        string databaseName,
+        StageQueryRow row,
+        DateTime now,
+        ProjectStageQueryRequest request)
+    {
+        var record = new ProjectStageRecord
+        {
+            ServerName = serverName,
+            DatabaseName = databaseName,
+            ExamCode = row.ExamCode,
+            ProjectName = row.ProjectName,
+            StageName = row.StageName,
+            StartTime = row.StartTime,
+            EndTime = row.EndTime,
+            Status = GetStatus(now, row.StartTime, row.EndTime)
+        };
+
+        return AllowRecord(record, request);
+    }
+
+    private static bool MatchesTarget(
+        string serverName,
+        string databaseName,
+        string examCode,
+        IReadOnlyCollection<BoardCountTarget>? targets)
+    {
+        if (targets is null || targets.Count == 0)
+        {
+            return true;
+        }
+
+        return targets.Any(item =>
+            string.Equals(item.ServerName, serverName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(item.DatabaseName, databaseName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(item.ExamCode, examCode, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<Dictionary<string, ExamStats>> LoadSqlServerExamStatsAsync(
+        SqlConnection connection,
+        string databaseName,
+        IEnumerable<string> examCodes,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, ExamStats>(StringComparer.OrdinalIgnoreCase);
+        var escapedDatabaseName = EscapeDbName(databaseName);
+        var existingTableNames = await LoadSqlServerTableNamesAsync(connection, databaseName, cancellationToken);
+
+        foreach (var examCode in examCodes
+                     .Where(item => !string.IsNullOrWhiteSpace(item))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var registrationTableName = $"考生表{examCode}";
+            var admissionTableName = $"考场表{examCode}";
+            var registrationTable = EscapeSqlIdentifier(registrationTableName);
+            var admissionTable = EscapeSqlIdentifier(admissionTableName);
+
+            result[examCode] = new ExamStats(
+                includeRegistrationCount && existingTableNames.Contains(registrationTableName)
+                    ? await CountSqlServerTableRowsAsync(connection, escapedDatabaseName, registrationTable, cancellationToken)
+                    : 0,
+                includeAdmissionTicketCount && existingTableNames.Contains(admissionTableName)
+                    ? await CountSqlServerTableRowsAsync(connection, escapedDatabaseName, admissionTable, cancellationToken)
+                    : 0);
+        }
+
+        return result;
+    }
+
+    private static async Task<List<ServerCountUpdate>> QuerySqlServerServerCountsAsync(
+        StageServerConfig server,
+        IReadOnlyCollection<IGrouping<string, BoardCountTarget>> groupedTargets,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<ServerCountUpdate>();
+
+        foreach (var databaseGroup in groupedTargets)
+        {
+            var databaseName = databaseGroup.Key;
+            await using var connection = new SqlConnection(BuildSqlServerConnectionString(server, databaseName));
+            await connection.OpenAsync(cancellationToken);
+
+            var existingTableNames = await LoadSqlServerTableNamesAsync(connection, databaseName, cancellationToken);
+            foreach (var target in databaseGroup
+                         .GroupBy(item => item.ExamCode, StringComparer.OrdinalIgnoreCase)
+                         .Select(group => group.First()))
+            {
+                var registrationTableName = $"考生表{target.ExamCode}";
+                var admissionTableName = $"考场表{target.ExamCode}";
+
+                var registrationCount = includeRegistrationCount && existingTableNames.Contains(registrationTableName)
+                    ? await CountSqlServerTableRowsAsync(connection, EscapeDbName(databaseName), EscapeSqlIdentifier(registrationTableName), cancellationToken)
+                    : includeRegistrationCount
+                        ? (int?)0
+                        : null;
+
+                var admissionTicketCount = includeAdmissionTicketCount && existingTableNames.Contains(admissionTableName)
+                    ? await CountSqlServerTableRowsAsync(connection, EscapeDbName(databaseName), EscapeSqlIdentifier(admissionTableName), cancellationToken)
+                    : includeAdmissionTicketCount
+                        ? (int?)0
+                        : null;
+
+                result.Add(new ServerCountUpdate
+                {
+                    ServerName = server.Name,
+                    DatabaseName = databaseName,
+                    ExamCode = target.ExamCode,
+                    RegistrationCount = registrationCount,
+                    AdmissionTicketCount = admissionTicketCount
+                });
+            }
+        }
+
+        return result;
+    }
+
+    private static async Task<Dictionary<string, ExamStats>> LoadMySqlExamStatsAsync(
+        MySqlConnection connection,
+        IEnumerable<string> examCodes,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, ExamStats>(StringComparer.OrdinalIgnoreCase);
+        var existingTableNames = await LoadMySqlTableNamesAsync(connection, cancellationToken);
+
+        foreach (var examCode in examCodes
+                     .Where(item => !string.IsNullOrWhiteSpace(item))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var registrationTableName = $"tb_ks_a001_{examCode}";
+            var admissionTableName = $"tb_ks_kc_{examCode}";
+            result[examCode] = new ExamStats(
+                includeRegistrationCount && existingTableNames.Contains(registrationTableName)
+                    ? await CountMySqlTableRowsAsync(connection, registrationTableName, cancellationToken)
+                    : 0,
+                includeAdmissionTicketCount && existingTableNames.Contains(admissionTableName)
+                    ? await CountMySqlTableRowsAsync(connection, admissionTableName, cancellationToken)
+                    : 0);
+        }
+
+        return result;
+    }
+
+    private static async Task<List<ServerCountUpdate>> QueryMySqlServerCountsAsync(
+        StageServerConfig server,
+        IReadOnlyCollection<IGrouping<string, BoardCountTarget>> groupedTargets,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<ServerCountUpdate>();
+
+        foreach (var databaseGroup in groupedTargets)
+        {
+            var databaseName = databaseGroup.Key;
+            await using var connection = new MySqlConnection(BuildMySqlConnectionString(server, databaseName));
+            await connection.OpenAsync(cancellationToken);
+
+            var existingTableNames = await LoadMySqlTableNamesAsync(connection, cancellationToken);
+            foreach (var target in databaseGroup
+                         .GroupBy(item => item.ExamCode, StringComparer.OrdinalIgnoreCase)
+                         .Select(group => group.First()))
+            {
+                var registrationTableName = $"tb_ks_a001_{target.ExamCode}";
+                var admissionTableName = $"tb_ks_kc_{target.ExamCode}";
+
+                var registrationCount = includeRegistrationCount && existingTableNames.Contains(registrationTableName)
+                    ? await CountMySqlTableRowsAsync(connection, registrationTableName, cancellationToken)
+                    : includeRegistrationCount
+                        ? (int?)0
+                        : null;
+
+                var admissionTicketCount = includeAdmissionTicketCount && existingTableNames.Contains(admissionTableName)
+                    ? await CountMySqlTableRowsAsync(connection, admissionTableName, cancellationToken)
+                    : includeAdmissionTicketCount
+                        ? (int?)0
+                        : null;
+
+                result.Add(new ServerCountUpdate
+                {
+                    ServerName = server.Name,
+                    DatabaseName = databaseName,
+                    ExamCode = target.ExamCode,
+                    RegistrationCount = registrationCount,
+                    AdmissionTicketCount = admissionTicketCount
+                });
+            }
+        }
+
+        return result;
+    }
+
+    private static async Task<HashSet<string>> LoadSqlServerTableNamesAsync(
+        SqlConnection connection,
+        string databaseName,
+        CancellationToken cancellationToken)
+    {
+        var escapedDatabaseName = EscapeDbName(databaseName);
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT name
+            FROM [{escapedDatabaseName}].sys.tables
+            """;
+
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (!reader.IsDBNull(0))
+            {
+                result.Add(reader.GetString(0));
+            }
+        }
+
+        return result;
+    }
+
+    private static async Task<HashSet<string>> LoadMySqlTableNamesAsync(
+        MySqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+            """;
+
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (!reader.IsDBNull(0))
+            {
+                result.Add(reader.GetString(0));
+            }
+        }
+
+        return result;
+    }
+
+    private static async Task<int> CountSqlServerTableRowsAsync(
+        SqlConnection connection,
+        string escapedDatabaseName,
+        string escapedTableName,
+        CancellationToken cancellationToken)
+    {
+        await using var countCommand = connection.CreateCommand();
+        countCommand.CommandText = $"""
+            SELECT COUNT(*)
+            FROM [{escapedDatabaseName}].[dbo].[{escapedTableName}]
+            """;
+
+        return Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private static async Task<int> CountMySqlTableRowsAsync(
+        MySqlConnection connection,
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        await using var countCommand = connection.CreateCommand();
+        countCommand.CommandText = $"SELECT COUNT(*) FROM `{EscapeMySqlIdentifier(tableName)}`";
+        return Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
     }
 
     private static bool AllowRecord(ProjectStageRecord record, ProjectStageQueryRequest request)
@@ -507,7 +881,25 @@ public sealed class ProjectStageQueryService
         {
             var rangeStart = request.RangeStart ?? DateTime.MinValue;
             var rangeEnd = request.RangeEnd ?? DateTime.MaxValue;
-            if (record.EndTime < rangeStart || record.StartTime > rangeEnd)
+            if (!MatchesTimeRange(record, rangeStart, rangeEnd, request.TimeMatchMode))
+            {
+                return false;
+            }
+        }
+
+        if (request.DayOffsets.Count > 0)
+        {
+            var today = DateTime.Today;
+            var matched = request.DayOffsets
+                .Distinct()
+                .Any(offset =>
+                {
+                    var dayStart = today.AddDays(offset);
+                    var dayEnd = dayStart.AddDays(1).AddTicks(-1);
+                    return MatchesTimeRange(record, dayStart, dayEnd, request.TimeMatchMode);
+                });
+
+            if (!matched)
             {
                 return false;
             }
@@ -551,6 +943,10 @@ public sealed class ProjectStageQueryService
 
     private static string EscapeDbName(string databaseName) => databaseName.Replace("]", "]]");
 
+    private static string EscapeSqlIdentifier(string value) => value.Replace("]", "]]");
+
+    private static string EscapeMySqlIdentifier(string value) => value.Replace("`", "``");
+
     private static string GetStatus(DateTime now, DateTime startTime, DateTime endTime)
     {
         if (now < startTime)
@@ -575,4 +971,25 @@ public sealed class ProjectStageQueryService
 
         return source.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool MatchesTimeRange(ProjectStageRecord record, DateTime rangeStart, DateTime rangeEnd, string timeMatchMode)
+    {
+        return timeMatchMode switch
+        {
+            "start" => record.StartTime >= rangeStart && record.StartTime <= rangeEnd,
+            "end" => record.EndTime >= rangeStart && record.EndTime <= rangeEnd,
+            _ => record.EndTime >= rangeStart && record.StartTime <= rangeEnd
+        };
+    }
+
+    private sealed record StageQueryRow(
+        string ExamCode,
+        string ProjectName,
+        string StageName,
+        DateTime StartTime,
+        DateTime EndTime);
+
+    private sealed record ExamStats(
+        int RegistrationCount,
+        int AdmissionTicketCount);
 }

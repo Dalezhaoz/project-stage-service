@@ -9,9 +9,7 @@ public sealed class ProjectStageCacheStore
 
     public ProjectStageCacheStore()
     {
-        var baseDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ProjectStageService");
+        var baseDir = AppDataPath.GetBaseDirectory();
         Directory.CreateDirectory(baseDir);
         _dbPath = Path.Combine(baseDir, "stage_cache.db");
     }
@@ -42,7 +40,9 @@ public sealed class ProjectStageCacheStore
                 stage_name TEXT NOT NULL,
                 start_time TEXT NOT NULL,
                 end_time TEXT NOT NULL,
-                status TEXT NOT NULL
+                status TEXT NOT NULL,
+                registration_count INTEGER NOT NULL DEFAULT 0,
+                admission_ticket_count INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE INDEX IF NOT EXISTS idx_stage_record_server ON stage_record(server_name);
@@ -52,6 +52,9 @@ public sealed class ProjectStageCacheStore
             CREATE INDEX IF NOT EXISTS idx_stage_record_time ON stage_record(start_time, end_time);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await EnsureColumnAsync(connection, "stage_record", "registration_count", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+        await EnsureColumnAsync(connection, "stage_record", "admission_ticket_count", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
     }
 
     public async Task<ProjectStageCacheInfo> GetCacheInfoAsync(CancellationToken cancellationToken)
@@ -130,9 +133,9 @@ public sealed class ProjectStageCacheStore
             insertRecord.Transaction = transaction;
             insertRecord.CommandText = """
                 INSERT INTO stage_record (
-                    server_name, database_name, exam_code, project_name, stage_name, start_time, end_time, status
+                    server_name, database_name, exam_code, project_name, stage_name, start_time, end_time, status, registration_count, admission_ticket_count
                 )
-                VALUES ($server_name, $database_name, $exam_code, $project_name, $stage_name, $start_time, $end_time, $status);
+                VALUES ($server_name, $database_name, $exam_code, $project_name, $stage_name, $start_time, $end_time, $status, $registration_count, $admission_ticket_count);
                 """;
 
             var serverName = insertRecord.Parameters.Add("$server_name", SqliteType.Text);
@@ -143,6 +146,8 @@ public sealed class ProjectStageCacheStore
             var startTime = insertRecord.Parameters.Add("$start_time", SqliteType.Text);
             var endTime = insertRecord.Parameters.Add("$end_time", SqliteType.Text);
             var status = insertRecord.Parameters.Add("$status", SqliteType.Text);
+            var registrationCount = insertRecord.Parameters.Add("$registration_count", SqliteType.Integer);
+            var admissionTicketCount = insertRecord.Parameters.Add("$admission_ticket_count", SqliteType.Integer);
 
             foreach (var record in summary.Records)
             {
@@ -154,6 +159,8 @@ public sealed class ProjectStageCacheStore
                 startTime.Value = record.StartTime.ToString("O");
                 endTime.Value = record.EndTime.ToString("O");
                 status.Value = record.Status;
+                registrationCount.Value = record.RegistrationCount;
+                admissionTicketCount.Value = record.AdmissionTicketCount;
                 await insertRecord.ExecuteNonQueryAsync(cancellationToken);
             }
         }
@@ -174,7 +181,9 @@ public sealed class ProjectStageCacheStore
             DatabaseKeyword = request.DatabaseKeyword,
             ExamCodeKeyword = request.ExamCodeKeyword,
             RangeStart = request.RangeStart,
-            RangeEnd = request.RangeEnd
+            RangeEnd = request.RangeEnd,
+            DayOffsets = request.DayOffsets,
+            TimeMatchMode = request.TimeMatchMode
         };
 
         return ApplyServerFilter(records, request.Servers)
@@ -223,6 +232,8 @@ public sealed class ProjectStageCacheStore
                     ProjectName = stages.FirstOrDefault()?.ProjectName ?? string.Empty,
                     StartTime = stages.Min(item => item.StartTime),
                     EndTime = stages.Max(item => item.EndTime),
+                    RegistrationCount = stages.FirstOrDefault()?.RegistrationCount ?? 0,
+                    AdmissionTicketCount = stages.FirstOrDefault()?.AdmissionTicketCount ?? 0,
                     Statuses = stages
                         .Select(item => item.Status)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -240,13 +251,92 @@ public sealed class ProjectStageCacheStore
         return summary;
     }
 
+    public async Task<List<BoardCountTarget>> LoadCountTargetsAsync(string serverName, CancellationToken cancellationToken)
+    {
+        await using var connection = OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT DISTINCT server_name, database_name, exam_code
+            FROM stage_record
+            WHERE server_name = $server_name
+              AND exam_code IS NOT NULL
+              AND TRIM(exam_code) <> ''
+              AND status IN ('正在进行', '即将开始')
+            ORDER BY database_name, exam_code
+            """;
+        command.Parameters.AddWithValue("$server_name", serverName);
+
+        var targets = new List<BoardCountTarget>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            targets.Add(new BoardCountTarget
+            {
+                ServerName = reader.GetString(0),
+                DatabaseName = reader.GetString(1),
+                ExamCode = reader.GetString(2)
+            });
+        }
+
+        return targets;
+    }
+
+    public async Task SaveServerCountsAsync(
+        string serverName,
+        IReadOnlyCollection<ServerCountUpdate> updates,
+        CancellationToken cancellationToken)
+    {
+        if (updates.Count == 0)
+        {
+            return;
+        }
+
+        await using var connection = OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            UPDATE stage_record
+            SET
+                registration_count = COALESCE($registration_count, registration_count),
+                admission_ticket_count = COALESCE($admission_ticket_count, admission_ticket_count)
+            WHERE server_name = $server_name
+              AND database_name = $database_name
+              AND exam_code = $exam_code
+            """;
+
+        var serverNameParameter = command.Parameters.Add("$server_name", SqliteType.Text);
+        var databaseNameParameter = command.Parameters.Add("$database_name", SqliteType.Text);
+        var examCodeParameter = command.Parameters.Add("$exam_code", SqliteType.Text);
+        var registrationCountParameter = command.Parameters.Add("$registration_count", SqliteType.Integer);
+        var admissionTicketCountParameter = command.Parameters.Add("$admission_ticket_count", SqliteType.Integer);
+
+        foreach (var update in updates)
+        {
+            serverNameParameter.Value = serverName;
+            databaseNameParameter.Value = update.DatabaseName;
+            examCodeParameter.Value = update.ExamCode;
+            registrationCountParameter.Value = update.RegistrationCount.HasValue
+                ? update.RegistrationCount.Value
+                : DBNull.Value;
+            admissionTicketCountParameter.Value = update.AdmissionTicketCount.HasValue
+                ? update.AdmissionTicketCount.Value
+                : DBNull.Value;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     private async Task<List<ProjectStageRecord>> LoadRecordsAsync(CancellationToken cancellationToken)
     {
         await using var connection = OpenConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT server_name, database_name, exam_code, project_name, stage_name, start_time, end_time, status
+            SELECT server_name, database_name, exam_code, project_name, stage_name, start_time, end_time, status, registration_count, admission_ticket_count
             FROM stage_record
             ORDER BY server_name, database_name, exam_code, start_time, end_time
             """;
@@ -264,7 +354,9 @@ public sealed class ProjectStageCacheStore
                 StageName = reader.GetString(4),
                 StartTime = DateTime.Parse(reader.GetString(5)),
                 EndTime = DateTime.Parse(reader.GetString(6)),
-                Status = reader.GetString(7)
+                Status = reader.GetString(7),
+                RegistrationCount = reader.GetInt32(8),
+                AdmissionTicketCount = reader.GetInt32(9)
             });
         }
 
@@ -338,7 +430,25 @@ public sealed class ProjectStageCacheStore
         {
             var rangeStart = request.RangeStart ?? DateTime.MinValue;
             var rangeEnd = request.RangeEnd ?? DateTime.MaxValue;
-            if (record.EndTime < rangeStart || record.StartTime > rangeEnd)
+            if (!MatchesTimeRange(record, rangeStart, rangeEnd, request.TimeMatchMode))
+            {
+                return false;
+            }
+        }
+
+        if (request.DayOffsets.Count > 0)
+        {
+            var today = DateTime.Today;
+            var matched = request.DayOffsets
+                .Distinct()
+                .Any(offset =>
+                {
+                    var dayStart = today.AddDays(offset);
+                    var dayEnd = dayStart.AddDays(1).AddTicks(-1);
+                    return MatchesTimeRange(record, dayStart, dayEnd, request.TimeMatchMode);
+                });
+
+            if (!matched)
             {
                 return false;
             }
@@ -357,5 +467,48 @@ public sealed class ProjectStageCacheStore
         return source.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool MatchesTimeRange(ProjectStageRecord record, DateTime rangeStart, DateTime rangeEnd, string timeMatchMode)
+    {
+        return timeMatchMode switch
+        {
+            "start" => record.StartTime >= rangeStart && record.StartTime <= rangeEnd,
+            "end" => record.EndTime >= rangeStart && record.EndTime <= rangeEnd,
+            _ => record.EndTime >= rangeStart && record.StartTime <= rangeEnd
+        };
+    }
+
     private SqliteConnection OpenConnection() => new($"Data Source={_dbPath}");
+
+    private static async Task EnsureColumnAsync(
+        SqliteConnection connection,
+        string tableName,
+        string columnName,
+        string columnDefinition,
+        CancellationToken cancellationToken)
+    {
+        await using var existsCommand = connection.CreateCommand();
+        existsCommand.CommandText = $"PRAGMA table_info({tableName});";
+
+        var exists = false;
+        await using (var reader = await existsCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        if (exists)
+        {
+            return;
+        }
+
+        await using var alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
+        await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
 }
