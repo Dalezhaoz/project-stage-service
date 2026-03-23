@@ -918,7 +918,7 @@ public sealed class ProjectStageQueryService
             Password = server.Password,
             TrustServerCertificate = true,
             Encrypt = false,
-            ConnectTimeout = 20
+            ConnectTimeout = 60
         };
         return builder.ConnectionString;
     }
