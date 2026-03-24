@@ -61,6 +61,11 @@ public sealed class ProjectStageCacheStore
     {
         await using var connection = OpenConnection();
         await connection.OpenAsync(cancellationToken);
+        return await GetCacheInfoAsync(connection, cancellationToken);
+    }
+
+    private static async Task<ProjectStageCacheInfo> GetCacheInfoAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT refreshed_at, enabled_servers, visited_databases, matched_databases, record_count
@@ -170,7 +175,6 @@ public sealed class ProjectStageCacheStore
 
     public async Task<List<string>> QueryStageNamesAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken)
     {
-        var records = await LoadRecordsAsync(cancellationToken);
         var stageFilterRequest = new ProjectStageQueryRequest
         {
             Servers = request.Servers,
@@ -186,8 +190,11 @@ public sealed class ProjectStageCacheStore
             TimeMatchMode = request.TimeMatchMode
         };
 
-        return ApplyServerFilter(records, request.Servers)
-            .Where(item => AllowRecord(item, stageFilterRequest))
+        await using var connection = OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+        var records = await LoadFilteredRecordsAsync(connection, stageFilterRequest, cancellationToken);
+
+        return records
             .Select(item => item.StageName)
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -197,11 +204,11 @@ public sealed class ProjectStageCacheStore
 
     public async Task<ProjectStageSummary> QueryAsync(ProjectStageQueryRequest request, CancellationToken cancellationToken)
     {
-        var cacheInfo = await GetCacheInfoAsync(cancellationToken);
-        var records = await LoadRecordsAsync(cancellationToken);
-        var filtered = ApplyServerFilter(records, request.Servers)
-            .Where(item => AllowRecord(item, request))
-            .ToList();
+        await using var connection = OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var cacheInfo = await GetCacheInfoAsync(connection, cancellationToken);
+        var filtered = await LoadFilteredRecordsAsync(connection, request, cancellationToken);
 
         var summary = new ProjectStageSummary
         {
@@ -330,14 +337,146 @@ public sealed class ProjectStageCacheStore
         await transaction.CommitAsync(cancellationToken);
     }
 
-    private async Task<List<ProjectStageRecord>> LoadRecordsAsync(CancellationToken cancellationToken)
+    private static async Task<List<ProjectStageRecord>> LoadFilteredRecordsAsync(
+        SqliteConnection connection,
+        ProjectStageQueryRequest request,
+        CancellationToken cancellationToken)
     {
-        await using var connection = OpenConnection();
-        await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = """
+        var conditions = new List<string>();
+        var paramIndex = 0;
+
+        // Server filter (enabled servers)
+        var enabledNames = request.Servers
+            .Where(item => item.Enabled && !string.IsNullOrWhiteSpace(item.Name))
+            .Select(item => item.Name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (enabledNames.Count > 0)
+        {
+            var placeholders = new List<string>();
+            foreach (var name in enabledNames)
+            {
+                var p = $"$sv{paramIndex++}";
+                placeholders.Add(p);
+                command.Parameters.AddWithValue(p, name);
+            }
+            conditions.Add($"server_name COLLATE NOCASE IN ({string.Join(", ", placeholders)})");
+        }
+
+        // ServerNames filter
+        if (request.ServerNames.Count > 0)
+        {
+            var placeholders = new List<string>();
+            foreach (var name in request.ServerNames.Where(item => !string.IsNullOrWhiteSpace(item)))
+            {
+                var p = $"$sn{paramIndex++}";
+                placeholders.Add(p);
+                command.Parameters.AddWithValue(p, name.Trim());
+            }
+            if (placeholders.Count > 0)
+            {
+                conditions.Add($"server_name COLLATE NOCASE IN ({string.Join(", ", placeholders)})");
+            }
+        }
+
+        // Status filter
+        if (request.StatusFilters.Count > 0)
+        {
+            var placeholders = new List<string>();
+            foreach (var status in request.StatusFilters)
+            {
+                var p = $"$st{paramIndex++}";
+                placeholders.Add(p);
+                command.Parameters.AddWithValue(p, status);
+            }
+            conditions.Add($"status COLLATE NOCASE IN ({string.Join(", ", placeholders)})");
+        }
+
+        // Keyword filters (LIKE)
+        if (!string.IsNullOrWhiteSpace(request.ServerKeyword))
+        {
+            var p = $"$kw{paramIndex++}";
+            conditions.Add($"server_name LIKE {p}");
+            command.Parameters.AddWithValue(p, $"%{request.ServerKeyword.Trim()}%");
+        }
+        if (!string.IsNullOrWhiteSpace(request.DatabaseKeyword))
+        {
+            var p = $"$kw{paramIndex++}";
+            conditions.Add($"database_name LIKE {p}");
+            command.Parameters.AddWithValue(p, $"%{request.DatabaseKeyword.Trim()}%");
+        }
+        if (!string.IsNullOrWhiteSpace(request.ExamCodeKeyword))
+        {
+            var p = $"$kw{paramIndex++}";
+            conditions.Add($"exam_code LIKE {p}");
+            command.Parameters.AddWithValue(p, $"%{request.ExamCodeKeyword.Trim()}%");
+        }
+        if (!string.IsNullOrWhiteSpace(request.ProjectKeyword))
+        {
+            var p = $"$kw{paramIndex++}";
+            conditions.Add($"project_name LIKE {p}");
+            command.Parameters.AddWithValue(p, $"%{request.ProjectKeyword.Trim()}%");
+        }
+        if (!string.IsNullOrWhiteSpace(request.StageKeyword))
+        {
+            var p = $"$kw{paramIndex++}";
+            conditions.Add($"stage_name LIKE {p}");
+            command.Parameters.AddWithValue(p, $"%{request.StageKeyword.Trim()}%");
+        }
+
+        // StageNames filter (OR of LIKE)
+        if (request.StageNames.Count > 0)
+        {
+            var stageConditions = new List<string>();
+            foreach (var name in request.StageNames.Where(item => !string.IsNullOrWhiteSpace(item)))
+            {
+                var p = $"$sgn{paramIndex++}";
+                stageConditions.Add($"stage_name LIKE {p}");
+                command.Parameters.AddWithValue(p, $"%{name.Trim()}%");
+            }
+            if (stageConditions.Count > 0)
+            {
+                conditions.Add($"({string.Join(" OR ", stageConditions)})");
+            }
+        }
+
+        // Time range filter
+        if (request.RangeStart.HasValue || request.RangeEnd.HasValue)
+        {
+            var rangeStart = request.RangeStart ?? DateTime.MinValue;
+            var rangeEnd = request.RangeEnd ?? DateTime.MaxValue;
+            AddTimeRangeCondition(conditions, command, ref paramIndex, rangeStart, rangeEnd, request.TimeMatchMode, "tr");
+        }
+
+        // DayOffsets filter
+        if (request.DayOffsets.Count > 0)
+        {
+            var today = DateTime.Today;
+            var dayConditions = new List<string>();
+            foreach (var offset in request.DayOffsets.Distinct())
+            {
+                var dayStart = today.AddDays(offset);
+                var dayEnd = dayStart.AddDays(1).AddTicks(-1);
+                var subConditions = new List<string>();
+                AddTimeRangeCondition(subConditions, command, ref paramIndex, dayStart, dayEnd, request.TimeMatchMode, $"do{offset}");
+                if (subConditions.Count > 0)
+                {
+                    dayConditions.Add($"({string.Join(" AND ", subConditions)})");
+                }
+            }
+            if (dayConditions.Count > 0)
+            {
+                conditions.Add($"({string.Join(" OR ", dayConditions)})");
+            }
+        }
+
+        var whereClause = conditions.Count > 0 ? $"WHERE {string.Join(" AND ", conditions)}" : "";
+        command.CommandText = $"""
             SELECT server_name, database_name, exam_code, project_name, stage_name, start_time, end_time, status, registration_count, admission_ticket_count
             FROM stage_record
+            {whereClause}
             ORDER BY server_name, database_name, exam_code, start_time, end_time
             """;
 
@@ -363,118 +502,33 @@ public sealed class ProjectStageCacheStore
         return records;
     }
 
-    private static IEnumerable<ProjectStageRecord> ApplyServerFilter(IEnumerable<ProjectStageRecord> records, List<StageServerConfig> servers)
+    private static void AddTimeRangeCondition(
+        List<string> conditions,
+        SqliteCommand command,
+        ref int paramIndex,
+        DateTime rangeStart,
+        DateTime rangeEnd,
+        string timeMatchMode,
+        string prefix)
     {
-        var enabledNames = servers
-            .Where(item => item.Enabled && !string.IsNullOrWhiteSpace(item.Name))
-            .Select(item => item.Name.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var pStart = $"${prefix}s{paramIndex}";
+        var pEnd = $"${prefix}e{paramIndex}";
+        paramIndex++;
+        command.Parameters.AddWithValue(pStart, rangeStart.ToString("O"));
+        command.Parameters.AddWithValue(pEnd, rangeEnd.ToString("O"));
 
-        if (enabledNames.Count == 0)
+        switch (timeMatchMode)
         {
-            return records;
+            case "start":
+                conditions.Add($"start_time >= {pStart} AND start_time <= {pEnd}");
+                break;
+            case "end":
+                conditions.Add($"end_time >= {pStart} AND end_time <= {pEnd}");
+                break;
+            default:
+                conditions.Add($"end_time >= {pStart} AND start_time <= {pEnd}");
+                break;
         }
-
-        return records.Where(item => enabledNames.Contains(item.ServerName, StringComparer.OrdinalIgnoreCase));
-    }
-
-    private static bool AllowRecord(ProjectStageRecord record, ProjectStageQueryRequest request)
-    {
-        if (request.ServerNames.Count > 0 &&
-            !request.ServerNames.Any(item => string.Equals(item?.Trim(), record.ServerName, StringComparison.OrdinalIgnoreCase)))
-        {
-            return false;
-        }
-
-        if (!ContainsIgnoreCase(record.ServerName, request.ServerKeyword))
-        {
-            return false;
-        }
-
-        if (!ContainsIgnoreCase(record.DatabaseName, request.DatabaseKeyword))
-        {
-            return false;
-        }
-
-        if (!ContainsIgnoreCase(record.ExamCode, request.ExamCodeKeyword))
-        {
-            return false;
-        }
-
-        if (!ContainsIgnoreCase(record.ProjectName, request.ProjectKeyword))
-        {
-            return false;
-        }
-
-        if (!ContainsIgnoreCase(record.StageName, request.StageKeyword))
-        {
-            return false;
-        }
-
-        if (request.StageNames.Count > 0 &&
-            !request.StageNames.Any(item =>
-                !string.IsNullOrWhiteSpace(item) &&
-                record.StageName.Contains(item.Trim(), StringComparison.OrdinalIgnoreCase)))
-        {
-            return false;
-        }
-
-        if (request.StatusFilters.Count > 0 &&
-            !request.StatusFilters.Any(item => string.Equals(item, record.Status, StringComparison.OrdinalIgnoreCase)))
-        {
-            return false;
-        }
-
-        if (request.RangeStart.HasValue || request.RangeEnd.HasValue)
-        {
-            var rangeStart = request.RangeStart ?? DateTime.MinValue;
-            var rangeEnd = request.RangeEnd ?? DateTime.MaxValue;
-            if (!MatchesTimeRange(record, rangeStart, rangeEnd, request.TimeMatchMode))
-            {
-                return false;
-            }
-        }
-
-        if (request.DayOffsets.Count > 0)
-        {
-            var today = DateTime.Today;
-            var matched = request.DayOffsets
-                .Distinct()
-                .Any(offset =>
-                {
-                    var dayStart = today.AddDays(offset);
-                    var dayEnd = dayStart.AddDays(1).AddTicks(-1);
-                    return MatchesTimeRange(record, dayStart, dayEnd, request.TimeMatchMode);
-                });
-
-            if (!matched)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool ContainsIgnoreCase(string source, string keyword)
-    {
-        if (string.IsNullOrWhiteSpace(keyword))
-        {
-            return true;
-        }
-
-        return source.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchesTimeRange(ProjectStageRecord record, DateTime rangeStart, DateTime rangeEnd, string timeMatchMode)
-    {
-        return timeMatchMode switch
-        {
-            "start" => record.StartTime >= rangeStart && record.StartTime <= rangeEnd,
-            "end" => record.EndTime >= rangeStart && record.EndTime <= rangeEnd,
-            _ => record.EndTime >= rangeStart && record.StartTime <= rangeEnd
-        };
     }
 
     private SqliteConnection OpenConnection() => new($"Data Source={_dbPath}");

@@ -152,30 +152,17 @@ public sealed class ProjectStageQueryService
             EnabledServers = enabledServers.Count
         };
 
-        foreach (var server in enabledServers)
+        // 并行处理所有服务器
+        var serverTasks = enabledServers.Select(server =>
+            ProcessServerAsync(server, now, request, includeRegistrationCount, includeAdmissionTicketCount, targets, cancellationToken));
+
+        var serverResults = await Task.WhenAll(serverTasks);
+
+        foreach (var result in serverResults)
         {
-            var databaseNames = await LoadDatabaseNamesAsync(server, cancellationToken);
-            summary.VisitedDatabases += databaseNames.Count;
-
-            foreach (var databaseName in databaseNames)
-            {
-                if (!await HasBusinessTablesAsync(server, databaseName, cancellationToken))
-                {
-                    continue;
-                }
-
-                summary.MatchedDatabases += 1;
-                var records = await QueryDatabaseAsync(
-                    server,
-                    databaseName,
-                    now,
-                    request,
-                    includeRegistrationCount,
-                    includeAdmissionTicketCount,
-                    targets,
-                    cancellationToken: cancellationToken);
-                summary.Records.AddRange(records);
-            }
+            summary.VisitedDatabases += result.VisitedDatabases;
+            summary.MatchedDatabases += result.MatchedDatabases;
+            summary.Records.AddRange(result.Records);
         }
 
         summary.EndedCount = summary.Records.Count(item => item.Status == "已经结束");
@@ -215,6 +202,139 @@ public sealed class ProjectStageQueryService
             .ThenBy(item => item.ExamCode, StringComparer.OrdinalIgnoreCase)
             .ToList();
         return summary;
+    }
+
+    private static async Task<ServerQueryResult> ProcessServerAsync(
+        StageServerConfig server,
+        DateTime now,
+        ProjectStageQueryRequest request,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        IReadOnlyCollection<BoardCountTarget>? targets,
+        CancellationToken cancellationToken)
+    {
+        var (visitedCount, matchingDatabases) = await LoadMatchingDatabasesAsync(server, cancellationToken);
+
+        const int maxConcurrency = 8;
+        using var semaphore = new SemaphoreSlim(maxConcurrency);
+
+        var tasks = matchingDatabases.Select(async databaseName =>
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                return await QueryDatabaseAsync(
+                    server, databaseName, now, request,
+                    includeRegistrationCount, includeAdmissionTicketCount,
+                    targets, cancellationToken);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return new ServerQueryResult(visitedCount, matchingDatabases.Count, results.SelectMany(r => r).ToList());
+    }
+
+    private static Task<(int VisitedCount, List<string> MatchingNames)> LoadMatchingDatabasesAsync(
+        StageServerConfig server, CancellationToken cancellationToken)
+    {
+        return IsMySql(server)
+            ? LoadMySqlMatchingDatabasesAsync(server, cancellationToken)
+            : LoadSqlServerMatchingDatabasesAsync(server, cancellationToken);
+    }
+
+    private static async Task<(int, List<string>)> LoadMySqlMatchingDatabasesAsync(
+        StageServerConfig server, CancellationToken cancellationToken)
+    {
+        await using var connection = new MySqlConnection(BuildMySqlConnectionString(server, null));
+        await connection.OpenAsync(cancellationToken);
+
+        // 获取所有库名（用于 VisitedDatabases 计数）
+        await using var allCmd = connection.CreateCommand();
+        allCmd.CommandText = """
+            SELECT schema_name
+            FROM information_schema.schemata
+            WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+            ORDER BY schema_name
+            """;
+        var allDbs = new List<string>();
+        await using (var reader = await allCmd.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                allDbs.Add(reader.GetString(0));
+
+        if (allDbs.Count == 0) return (0, []);
+
+        // 一次批量查询替代 N 次逐库检查
+        await using var matchCmd = connection.CreateCommand();
+        matchCmd.CommandText = """
+            SELECT table_schema
+            FROM information_schema.tables
+            WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+              AND table_name IN ('mgt_exam_organize', 'mgt_exam_step')
+            GROUP BY table_schema
+            HAVING COUNT(DISTINCT table_name) = 2
+            """;
+        var matchingSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var reader = await matchCmd.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                matchingSet.Add(reader.GetString(0));
+
+        return (allDbs.Count, allDbs.Where(db => matchingSet.Contains(db)).ToList());
+    }
+
+    private static async Task<(int, List<string>)> LoadSqlServerMatchingDatabasesAsync(
+        StageServerConfig server, CancellationToken cancellationToken)
+    {
+        await using var listConnection = new SqlConnection(BuildSqlServerConnectionString(server, "master"));
+        await listConnection.OpenAsync(cancellationToken);
+
+        await using var allCmd = listConnection.CreateCommand();
+        allCmd.CommandText = """
+            SELECT name
+            FROM sys.databases
+            WHERE state_desc = 'ONLINE'
+              AND name NOT IN ('master', 'model', 'msdb', 'tempdb')
+            ORDER BY name
+            """;
+        var allDbs = new List<string>();
+        await using (var reader = await allCmd.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                allDbs.Add(reader.GetString(0));
+
+        if (allDbs.Count == 0) return (0, []);
+
+        // 并发 15 同时检查各库是否包含业务表
+        const int checkConcurrency = 15;
+        using var semaphore = new SemaphoreSlim(checkConcurrency);
+
+        var checkTasks = allDbs.Select(async dbName =>
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                var escaped = EscapeDbName(dbName);
+                await using var conn = new SqlConnection(BuildSqlServerConnectionString(server, "master"));
+                await conn.OpenAsync(cancellationToken);
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"""
+                    SELECT COUNT(*) FROM [{escaped}].sys.tables
+                    WHERE name IN ('EI_ExamTreeDesc', 'web_SR_CodeItem', 'WEB_SR_SetTime')
+                    """;
+                var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
+                return count == 3 ? dbName : null;
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        var checkResults = await Task.WhenAll(checkTasks);
+        var matching = checkResults.Where(db => db is not null).Cast<string>().ToList();
+        return (allDbs.Count, matching);
     }
 
     private static async Task<List<string>> LoadDatabaseNamesAsync(StageServerConfig server, CancellationToken cancellationToken)
@@ -992,4 +1112,9 @@ public sealed class ProjectStageQueryService
     private sealed record ExamStats(
         int RegistrationCount,
         int AdmissionTicketCount);
+
+    private sealed record ServerQueryResult(
+        int VisitedDatabases,
+        int MatchedDatabases,
+        List<ProjectStageRecord> Records);
 }
