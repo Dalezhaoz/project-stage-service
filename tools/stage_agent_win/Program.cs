@@ -153,35 +153,84 @@ async Task<List<StageRecord>> QueryDatabase(SourceConfig source, string dbName, 
     var records = new List<StageRecord>();
     var now = DateTime.Now;
 
-    using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
-    using var rdr = await cmd.ExecuteReaderAsync();
-    while (await rdr.ReadAsync())
+    using (var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 })
+    using (var rdr = await cmd.ExecuteReaderAsync())
     {
-        var examCode = rdr.IsDBNull(0) ? "" : rdr.GetValue(0).ToString()?.Trim() ?? "";
-        var projectName = rdr.IsDBNull(1) ? "" : rdr.GetString(1).Trim();
-        var stageName = rdr.IsDBNull(2) ? "" : rdr.GetString(2).Trim();
-        if (string.IsNullOrEmpty(examCode) || string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(stageName))
-            continue;
-
-        var startTime = rdr.GetDateTime(3);
-        var endTime = rdr.GetDateTime(4);
-        var status = now < startTime ? "即将开始" : now > endTime ? "已经结束" : "正在进行";
-
-        records.Add(new StageRecord
+        while (await rdr.ReadAsync())
         {
-            ServerName = serverName,
-            DatabaseName = dbName,
-            DatabaseType = "SQL Server",
-            ExamCode = examCode,
-            ProjectName = projectName,
-            StageName = stageName,
-            StartTime = startTime,
-            EndTime = endTime,
-            Status = status
-        });
+            var examCode = rdr.IsDBNull(0) ? "" : rdr.GetValue(0).ToString()?.Trim() ?? "";
+            var projectName = rdr.IsDBNull(1) ? "" : rdr.GetString(1).Trim();
+            var stageName = rdr.IsDBNull(2) ? "" : rdr.GetString(2).Trim();
+            if (string.IsNullOrEmpty(examCode) || string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(stageName))
+                continue;
+
+            var startTime = rdr.GetDateTime(3);
+            var endTime = rdr.GetDateTime(4);
+            var status = now < startTime ? "即将开始" : now > endTime ? "已经结束" : "正在进行";
+
+            records.Add(new StageRecord
+            {
+                ServerName = serverName,
+                DatabaseName = dbName,
+                DatabaseType = "SQL Server",
+                ExamCode = examCode,
+                ProjectName = projectName,
+                StageName = stageName,
+                StartTime = startTime,
+                EndTime = endTime,
+                Status = status
+            });
+        }
+    }
+
+    // 查所有表名
+    var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    using (var cmd = new SqlCommand($"SELECT name FROM [{escaped}].sys.tables", conn))
+    using (var rdr = await cmd.ExecuteReaderAsync())
+    {
+        while (await rdr.ReadAsync()) existingTables.Add(rdr.GetString(0));
+    }
+
+    // 按 exam_code 统计报名人数和准考证人数
+    var examCodes = records.Select(r => r.ExamCode).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    var counts = new Dictionary<string, (int reg, int adm)>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var ec in examCodes)
+    {
+        var regTable = $"考生表{ec}";
+        var admTable = $"考场表{ec}";
+        var regCount = existingTables.Contains(regTable)
+            ? await CountTableRows(conn, escaped, regTable) : 0;
+        var admCount = existingTables.Contains(admTable)
+            ? await CountTableRows(conn, escaped, admTable) : 0;
+        counts[ec] = (regCount, admCount);
+    }
+
+    foreach (var r in records)
+    {
+        if (counts.TryGetValue(r.ExamCode, out var c))
+        {
+            r.RegistrationCount = c.reg;
+            r.AdmissionTicketCount = c.adm;
+        }
     }
 
     return records;
+}
+
+async Task<int> CountTableRows(SqlConnection conn, string escapedDb, string tableName)
+{
+    try
+    {
+        var escapedTable = tableName.Replace("]", "]]");
+        using var cmd = new SqlCommand($"SELECT COUNT(*) FROM [{escapedDb}].[dbo].[{escapedTable}]", conn)
+            { CommandTimeout = 120 };
+        return (int)(await cmd.ExecuteScalarAsync() ?? 0);
+    }
+    catch
+    {
+        return 0;
+    }
 }
 
 // ─── 写入中心表 ──────────────────────────────────────────────
@@ -219,7 +268,7 @@ async Task WriteToCentral(TargetConfig target, string serverName, List<StageReco
                   (source_server_name, source_database_name, source_database_type, exam_code,
                    project_name, stage_name, stage_start_time, stage_end_time, stage_status,
                    registration_count, admission_ticket_count, synced_at)
-                  VALUES (@sn, @db, @dt, @ec, @pn, @st, @s, @e, @ss, 0, 0, @sa)", conn);
+                  VALUES (@sn, @db, @dt, @ec, @pn, @st, @s, @e, @ss, @rc, @ac, @sa)", conn);
             insCmd.Parameters.AddWithValue("@sn", r.ServerName);
             insCmd.Parameters.AddWithValue("@db", r.DatabaseName);
             insCmd.Parameters.AddWithValue("@dt", r.DatabaseType);
@@ -229,6 +278,8 @@ async Task WriteToCentral(TargetConfig target, string serverName, List<StageReco
             insCmd.Parameters.AddWithValue("@s", r.StartTime);
             insCmd.Parameters.AddWithValue("@e", r.EndTime);
             insCmd.Parameters.AddWithValue("@ss", r.Status);
+            insCmd.Parameters.AddWithValue("@rc", r.RegistrationCount);
+            insCmd.Parameters.AddWithValue("@ac", r.AdmissionTicketCount);
             insCmd.Parameters.AddWithValue("@sa", syncedAt);
             await insCmd.ExecuteNonQueryAsync();
         }
@@ -279,4 +330,6 @@ class StageRecord
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public string Status { get; set; } = "";
+    public int RegistrationCount { get; set; }
+    public int AdmissionTicketCount { get; set; }
 }

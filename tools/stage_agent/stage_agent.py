@@ -141,9 +141,40 @@ def query_mysql_database(source, db_name, server_name):
                 ORDER BY b.start_date ASC
             """)
             rows = cur.fetchall()
-        return _build_records(rows, now, server_name, db_name, "MySQL")
+
+            # 查所有表名用于判断报名表/考场表是否存在
+            cur.execute("SHOW TABLES")
+            existing_tables = {r[0] for r in cur.fetchall()}
+
+        records = _build_records(rows, now, server_name, db_name, "MySQL")
+
+        # 按 exam_code 统计报名人数和准考证人数
+        exam_codes = {r["exam_code"] for r in records}
+        counts = {}
+        with conn.cursor() as cur:
+            for ec in exam_codes:
+                reg_table = f"tb_ks_a001_{ec}"
+                adm_table = f"tb_ks_kc_{ec}"
+                reg_count = _count_mysql_table(cur, reg_table) if reg_table in existing_tables else 0
+                adm_count = _count_mysql_table(cur, adm_table) if adm_table in existing_tables else 0
+                counts[ec] = (reg_count, adm_count)
+
+        for r in records:
+            c = counts.get(r["exam_code"], (0, 0))
+            r["registration_count"] = c[0]
+            r["admission_ticket_count"] = c[1]
+
+        return records
     finally:
         conn.close()
+
+
+def _count_mysql_table(cursor, table_name):
+    try:
+        cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+        return cursor.fetchone()[0]
+    except Exception:
+        return 0
 
 
 # ─── SQL Server 源 ───────────────────────────────────────────
@@ -200,9 +231,41 @@ def query_sqlserver_database(source, db_name, server_name):
                 ORDER BY C.KDate ASC
             """)
             rows = cur.fetchall()
-        return _build_records(rows, now, server_name, db_name, "SQL Server")
+
+            # 查所有表名
+            cur.execute(f"SELECT name FROM [{escaped}].sys.tables")
+            existing_tables = {r[0] for r in cur.fetchall()}
+
+        records = _build_records(rows, now, server_name, db_name, "SQL Server")
+
+        # 按 exam_code 统计报名人数和准考证人数
+        exam_codes = {r["exam_code"] for r in records}
+        counts = {}
+        with conn.cursor() as cur:
+            for ec in exam_codes:
+                reg_table = f"考生表{ec}"
+                adm_table = f"考场表{ec}"
+                reg_count = _count_sqlserver_table(cur, escaped, reg_table) if reg_table in existing_tables else 0
+                adm_count = _count_sqlserver_table(cur, escaped, adm_table) if adm_table in existing_tables else 0
+                counts[ec] = (reg_count, adm_count)
+
+        for r in records:
+            c = counts.get(r["exam_code"], (0, 0))
+            r["registration_count"] = c[0]
+            r["admission_ticket_count"] = c[1]
+
+        return records
     finally:
         conn.close()
+
+
+def _count_sqlserver_table(cursor, escaped_db, table_name):
+    try:
+        escaped_table = table_name.replace("]", "]]")
+        cursor.execute(f"SELECT COUNT(*) FROM [{escaped_db}].[dbo].[{escaped_table}]")
+        return cursor.fetchone()[0]
+    except Exception:
+        return 0
 
 
 # ─── 公共 ────────────────────────────────────────────────────
@@ -222,6 +285,7 @@ def _build_records(rows, now, server_name, db_name, db_type):
             "database_type": db_type, "exam_code": exam_code,
             "project_name": project_name, "stage_name": stage_name,
             "start_time": start_time, "end_time": end_time, "status": status,
+            "registration_count": 0, "admission_ticket_count": 0,
         })
     return records
 
@@ -264,7 +328,7 @@ def write_to_central(target, server_name, records):
                         "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                         (r["server_name"], r["database_name"], r["database_type"], r["exam_code"],
                          r["project_name"], r["stage_name"], r["start_time"], r["end_time"], r["status"],
-                         0, 0, synced_at),
+                         r.get("registration_count", 0), r.get("admission_ticket_count", 0), synced_at),
                     )
         conn.commit()
     finally:
