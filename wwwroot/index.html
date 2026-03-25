@@ -157,7 +157,7 @@
     /* ---- Filters ---- */
     .filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
     .filter-row {
-      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      display: flex; gap: 8px; align-items: center;
       padding: 8px 12px; background: #fafbfc; border: 1px solid var(--line);
       border-radius: var(--radius);
     }
@@ -168,6 +168,8 @@
       font-size: 13px; min-width: 130px; background: #fff;
     }
     .filter-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+    .filter-inputs-row { flex: 1; display: flex; gap: 4px; }
+    .filter-inputs-row .filter-input { flex: 1; min-width: 0; }
     .filter-label { font-size: 11px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: .02em; }
 
     /* Dropdown */
@@ -478,9 +480,9 @@
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
-              <input id="range-start" type="date" title="开始日期" class="filter-input" style="min-width:130px;">
+              <input id="range-start" type="date" title="开始日期" class="filter-input" style="width:130px;">
               <span style="color:var(--muted);font-size:12px;">至</span>
-              <input id="range-end" type="date" title="结束日期" class="filter-input" style="min-width:130px;">
+              <input id="range-end" type="date" title="结束日期" class="filter-input" style="width:130px;">
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
@@ -501,13 +503,14 @@
           <div class="filter-row">
             <div class="filter-group" id="server-filter-tags"></div>
             <div class="filter-sep"></div>
-            <div class="filter-group">
+            <div class="filter-group filter-inputs-row">
               <input id="project-keyword" placeholder="项目关键字" class="filter-input">
               <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input">
               <input id="database-keyword" placeholder="数据库关键字" class="filter-input">
-              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input" style="max-width:100px;">
+              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input">
             </div>
-            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <div class="filter-sep"></div>
+            <div class="filter-group">
               <button id="query-btn">开始查询</button>
               <button id="export-btn" class="secondary" disabled>导出</button>
             </div>
