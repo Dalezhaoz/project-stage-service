@@ -1279,9 +1279,9 @@
     function renderBoard(groups) {
       const board = document.getElementById("board-panel");
       const columns = [
-        { key: "正在进行", title: "正在进行", showRegistration: true, showAdmission: false },
-        { key: "即将开始", title: "即将开始", showRegistration: false, showAdmission: true },
-        { key: "已结束", title: "已结束", showRegistration: true, showAdmission: true }
+        { key: "正在进行", title: "正在进行" },
+        { key: "即将开始", title: "即将开始" },
+        { key: "已结束", title: "已结束" }
       ];
 
       if (!groups.length) {
@@ -1302,10 +1302,7 @@
           <section class="board-column">
             <div class="board-head">
               <div class="board-head-top"><span>${column.title}</span><span class="board-count">${items.length}</span></div>
-              <div class="board-head-actions">
-                ${column.showRegistration ? `<button class="board-head-btn" type="button" data-board-action="registration" data-board-status="${column.key}">统计报名人数</button>` : ""}
-                ${column.showAdmission ? `<button class="board-head-btn" type="button" data-board-action="admission" data-board-status="${column.key}">统计准考证人数</button>` : ""}
-              </div>
+              <div class="board-head-actions"></div>
             </div>
             <div class="board-list">
               ${items.length ? items.map(item => `
@@ -1329,18 +1326,14 @@
                     `}
                   </div>
                   <div class="board-card-stats">
-                    ${column.showRegistration ? `
-                      <div class="board-stat">
-                        <div class="board-stat-label">报名人数</div>
-                        <div class="board-stat-value">${item.registrationCount ?? 0}</div>
-                      </div>
-                    ` : ""}
-                    ${column.showAdmission ? `
-                      <div class="board-stat">
-                        <div class="board-stat-label">准考证人数</div>
-                        <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
-                      </div>
-                    ` : ""}
+                    <div class="board-stat">
+                      <div class="board-stat-label">报名人数</div>
+                      <div class="board-stat-value">${item.registrationCount ?? 0}</div>
+                    </div>
+                    <div class="board-stat">
+                      <div class="board-stat-label">准考证人数</div>
+                      <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
+                    </div>
                   </div>
                   <div class="board-card-stages">
                     ${(item.stages || []).map(stage => `<span class="board-stage-tag">${escapeHtml(stage.stageName)}</span>`).join("")}

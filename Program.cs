@@ -317,16 +317,18 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, CancellationT
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/board-counts", async (BoardCountRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
+app.MapPost("/api/board-counts", async (BoardCountRequest request, CancellationToken cancellationToken) =>
 {
     try
     {
-        var summary = await queryService.QueryAsync(
-            request.Query,
-            request.IncludeRegistrationCount,
-            request.IncludeAdmissionTicketCount,
-            request.Targets,
-            cancellationToken);
+        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
+        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
+        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+
+        if (!summaryStoreConfig.Enabled)
+            throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
+
+        var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request.Query, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
