@@ -12,4 +12,10 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="tools/**" />
+    <Content Remove="tools/**" />
+    <None Remove="tools/**" />
+  </ItemGroup>
 </Project>
