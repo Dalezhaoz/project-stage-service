@@ -306,7 +306,7 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, CancellationT
         var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
 
         if (!summaryStoreConfig.Enabled)
-            throw new InvalidOperationException("请先在"中心库"中配置并启用中心表。");
+            throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
         return Results.Ok(summary);
@@ -344,7 +344,7 @@ app.MapPost("/api/stages", async (ProjectStageQueryRequest request, Cancellation
         var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
 
         if (!summaryStoreConfig.Enabled)
-            throw new InvalidOperationException("请先在"中心库"中配置并启用中心表。");
+            throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var stageNames = await summaryStoreService.QueryStageNamesAsync(summaryStoreConfig, request, cancellationToken);
         return Results.Ok(stageNames);
@@ -364,7 +364,7 @@ app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStage
         var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
 
         if (!summaryStoreConfig.Enabled)
-            throw new InvalidOperationException("请先在"中心库"中配置并启用中心表。");
+            throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
         var content = exportService.Export(summary);
