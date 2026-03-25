@@ -13,6 +13,8 @@ using Microsoft.Data.SqlClient;
 ///   StageAgent.exe 5200         指定端口
 /// </summary>
 
+var JsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
 var port = args.Length > 0 && int.TryParse(args[0], out var p) ? p : 5100;
 var prefix = $"http://+:{port}/";
 
@@ -238,10 +240,6 @@ string BuildSourceConnStr(SourceConfig source, string database) =>
     $"User Id={source.Username};Password={source.Password};TrustServerCertificate=True;Connection Timeout=60;";
 
 void Log(string msg) => Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {msg}");
-
-// ─── JSON 配置 ───────────────────────────────────────────────
-
-var JsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
 // ─── 数据模型 ────────────────────────────────────────────────
 
