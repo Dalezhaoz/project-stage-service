@@ -1334,9 +1334,9 @@
                 </div>
               </div>
               <div class="board-head-filters">
-                <button class="board-col-filter-btn active" data-col-filter="all" data-col-status="${column.key}">全部</button>
                 <button class="board-col-filter-btn" data-col-filter="registration" data-col-status="${column.key}">有报名</button>
                 <button class="board-col-filter-btn" data-col-filter="admission" data-col-status="${column.key}">有准考证</button>
+                <button class="board-col-filter-btn" data-col-filter="other" data-col-status="${column.key}">其他</button>
               </div>
             </div>
             <div class="board-list">
@@ -1814,22 +1814,33 @@
     document.getElementById("board-panel").addEventListener("click", (event) => {
       const btn = event.target.closest(".board-col-filter-btn");
       if (!btn) return;
-      const filter = btn.dataset.colFilter;
-      const status = btn.dataset.colStatus;
       const column = btn.closest(".board-column");
       if (!column) return;
+      const status = btn.dataset.colStatus;
 
-      // 切换按钮高亮
-      column.querySelectorAll(".board-col-filter-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
+      // toggle 当前按钮
+      btn.classList.toggle("active");
+
+      // 收集该列所有选中的筛选条件
+      const activeFilters = new Set();
+      column.querySelectorAll(".board-col-filter-btn.active").forEach(b => activeFilters.add(b.dataset.colFilter));
 
       // 筛选该列的卡片
       const allItems = allBoardGroups.filter(g => getGroupPrimaryStatus(g) === status);
-      let filtered = allItems;
-      if (filter === "registration") {
-        filtered = allItems.filter(g => (g.registrationCount || 0) > 0);
-      } else if (filter === "admission") {
-        filtered = allItems.filter(g => (g.admissionTicketCount || 0) > 0);
+      let filtered;
+      if (activeFilters.size === 0) {
+        // 没有选中任何筛选 → 显示全部
+        filtered = allItems;
+      } else {
+        filtered = allItems.filter(g => {
+          const hasReg = (g.registrationCount || 0) > 0;
+          const hasAdm = (g.admissionTicketCount || 0) > 0;
+          const isOther = !hasReg && !hasAdm;
+          if (activeFilters.has("registration") && hasReg) return true;
+          if (activeFilters.has("admission") && hasAdm) return true;
+          if (activeFilters.has("other") && isOther) return true;
+          return false;
+        });
       }
 
       // 更新计数
