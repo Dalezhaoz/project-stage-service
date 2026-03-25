@@ -934,7 +934,9 @@
     }
 
     function setQueryStatus(text) {
-      document.getElementById("query-status").textContent = text;
+      const el = document.getElementById("query-status");
+      el.style.whiteSpace = "pre-wrap";
+      el.textContent = text;
     }
 
     function renderCacheInfo(info) {
@@ -1611,7 +1613,18 @@
         document.getElementById("refresh-btn").disabled = true;
         const result = await postJson(buildAppUrl("api/refresh"), { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
-        setQueryStatus(`更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`);
+        let msg = `更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`;
+        if (result.agentResults && result.agentResults.length > 0) {
+          msg += "\n\nAgent 同步结果：";
+          for (const ar of result.agentResults) {
+            if (ar.success) {
+              msg += `\n  ${ar.serverName}：成功，${ar.databases} 个库，${ar.records} 条记录`;
+            } else {
+              msg += `\n  ${ar.serverName}：失败 - ${ar.error || "未知错误"}`;
+            }
+          }
+        }
+        setQueryStatus(msg);
         if (lastPayload) {
           const queryResult = await postJson(buildAppUrl("api/query"), lastPayload);
           renderSummary(queryResult);

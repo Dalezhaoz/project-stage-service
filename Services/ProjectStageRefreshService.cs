@@ -59,16 +59,19 @@ public sealed class ProjectStageRefreshService
             var summaryStoreConfig = await _summaryStoreConfigStore.LoadAsync(cancellationToken);
 
             // 并行调用所有 Agent
-            var agentTotalRecords = 0;
+            var agentResultList = new List<AgentRefreshResult>();
             if (agentServers.Count > 0 && summaryStoreConfig.Enabled)
             {
                 var agentTasks = agentServers.Select(server => CallAgentAsync(server, summaryStoreConfig, cancellationToken));
-                var agentResults = await Task.WhenAll(agentTasks);
-                agentTotalRecords = agentResults.Sum();
+                agentResultList.AddRange(await Task.WhenAll(agentTasks));
             }
             else if (agentServers.Count > 0)
             {
                 _logger.LogWarning("有 {Count} 台服务器配置了 Agent 端口，但中心库未启用，已跳过 Agent 同步。", agentServers.Count);
+                agentResultList.AddRange(agentServers.Select(s => new AgentRefreshResult
+                {
+                    ServerName = s.Name, Success = false, Error = "中心库未启用，已跳过"
+                }));
             }
 
             // 直连查询（没有 Agent 的服务器，走原有逻辑）
@@ -98,6 +101,7 @@ public sealed class ProjectStageRefreshService
                 await _summaryStoreService.SyncSnapshotAsync(summaryStoreConfig, summary, cancellationToken);
             }
 
+            var agentTotalRecords = agentResultList.Where(r => r.Success).Sum(r => r.Records);
             var totalRecords = summary.Records.Count + agentTotalRecords;
             var refreshedAt = DateTime.Now;
             _logger.LogInformation(
@@ -110,7 +114,8 @@ public sealed class ProjectStageRefreshService
                 EnabledServers = sourceServers.Count,
                 VisitedDatabases = summary.VisitedDatabases,
                 MatchedDatabases = summary.MatchedDatabases,
-                RecordCount = totalRecords
+                RecordCount = totalRecords,
+                AgentResults = agentResultList
             };
         }
         finally
@@ -119,7 +124,7 @@ public sealed class ProjectStageRefreshService
         }
     }
 
-    private async Task<int> CallAgentAsync(StageServerConfig server, SummaryStoreConfig summaryStoreConfig, CancellationToken cancellationToken)
+    private async Task<AgentRefreshResult> CallAgentAsync(StageServerConfig server, SummaryStoreConfig summaryStoreConfig, CancellationToken cancellationToken)
     {
         var url = $"http://{server.Host}:{server.AgentPort}/sync";
         _logger.LogInformation("Calling agent at {Url} for server {Name}.", url, server.Name);
@@ -156,18 +161,29 @@ public sealed class ProjectStageRefreshService
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError("Agent {Name} returned {Code}: {Body}", server.Name, (int)response.StatusCode, responseBody);
-                return 0;
+                return new AgentRefreshResult
+                {
+                    ServerName = server.Name, Success = false,
+                    Error = $"HTTP {(int)response.StatusCode}: {responseBody}"
+                };
             }
 
             var result = JsonSerializer.Deserialize<AgentSyncResult>(responseBody, JsonOptions);
             _logger.LogInformation("Agent {Name} synced {Records} records from {Databases} databases.",
                 server.Name, result?.Records ?? 0, result?.Databases ?? 0);
-            return result?.Records ?? 0;
+            return new AgentRefreshResult
+            {
+                ServerName = server.Name, Success = true,
+                Databases = result?.Databases ?? 0, Records = result?.Records ?? 0
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to call agent for server {Name} at {Url}.", server.Name, url);
-            return 0;
+            return new AgentRefreshResult
+            {
+                ServerName = server.Name, Success = false, Error = ex.Message
+            };
         }
     }
 

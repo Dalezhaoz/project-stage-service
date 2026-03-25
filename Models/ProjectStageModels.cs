@@ -166,4 +166,14 @@ public sealed class ProjectStageRefreshResult
     public int VisitedDatabases { get; set; }
     public int MatchedDatabases { get; set; }
     public int RecordCount { get; set; }
+    public List<AgentRefreshResult> AgentResults { get; set; } = [];
+}
+
+public sealed class AgentRefreshResult
+{
+    public string ServerName { get; set; } = "";
+    public bool Success { get; set; }
+    public int Databases { get; set; }
+    public int Records { get; set; }
+    public string? Error { get; set; }
 }
