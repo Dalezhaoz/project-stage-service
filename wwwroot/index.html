@@ -213,16 +213,6 @@
     }
     .mini-selector { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 
-    /* Range presets */
-    .range-preset-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .range-preset-btn {
-      border: 1px solid var(--line); background: #fff; color: #374151; box-shadow: none;
-      padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
-    }
-    .range-preset-btn:hover { background: #f3f4f6; }
-    .range-preset-btn.active {
-      border-color: var(--primary-border); background: var(--primary-light); color: var(--primary);
-    }
     .range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .filter-helper { color: var(--muted); font-size: 12px; }
 
@@ -488,20 +478,9 @@
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
-              <button type="button" class="range-preset-btn" data-day-offset="0">今天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="1">+1天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="2">+2天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="3">+3天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="4">+4天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="5">+5天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="6">+6天</button>
-              <button type="button" class="range-preset-btn" data-day-offset="7">+7天</button>
-            </div>
-            <div class="filter-sep"></div>
-            <div class="filter-group">
-              <input id="range-start" type="date" title="开始日期">
+              <input id="range-start" type="date" title="开始日期" class="filter-input" style="min-width:130px;">
               <span style="color:var(--muted);font-size:12px;">至</span>
-              <input id="range-end" type="date" title="结束日期">
+              <input id="range-end" type="date" title="结束日期" class="filter-input" style="min-width:130px;">
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
@@ -520,22 +499,13 @@
             </div>
           </div>
           <div class="filter-row">
-            <div class="filter-group">
-              <input id="project-keyword" placeholder="项目关键字" class="filter-input">
-              <input id="stage-keyword" placeholder="阶段关键字，多个用 / 分隔" class="filter-input" style="min-width:200px;">
-            </div>
+            <div class="filter-group" id="server-filter-tags"></div>
             <div class="filter-sep"></div>
             <div class="filter-group">
-              <details class="multi-dropdown">
-                <summary><span id="server-summary">全部服务器</span></summary>
-                <div class="dropdown-panel">
-                  <div id="server-filter-options" class="dropdown-list">
-                    <div class="server-empty">还没有可选服务器。</div>
-                  </div>
-                </div>
-              </details>
+              <input id="project-keyword" placeholder="项目关键字" class="filter-input">
+              <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input">
               <input id="database-keyword" placeholder="数据库关键字" class="filter-input">
-              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input" style="max-width:120px;">
+              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input" style="max-width:100px;">
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
               <button id="query-btn">开始查询</button>
@@ -766,43 +736,14 @@
       return `${year}-${month}-${day}`;
     }
 
-    function getSelectedDayOffsets() {
-      return Array.from(document.querySelectorAll(".range-preset-btn.active"))
-        .map(button => Number(button.dataset.dayOffset))
-        .filter(offset => !Number.isNaN(offset))
-        .sort((a, b) => a - b);
-    }
-
-    function syncRangeInputsFromSelectedDays() {
-      const startInput = document.getElementById("range-start");
-      const endInput = document.getElementById("range-end");
-      const offsets = getSelectedDayOffsets();
-      if (!offsets.length) {
-        startInput.disabled = false;
-        endInput.disabled = false;
-        startInput.value = "";
-        endInput.value = "";
-        return;
-      }
-
-      const today = new Date();
-      const firstOffset = offsets[0];
-      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + firstOffset, 0, 0, 0);
-      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + firstOffset, 23, 59, 0);
-      startInput.disabled = true;
-      endInput.disabled = true;
-      startInput.value = toLocalDateValue(start);
-      endInput.value = toLocalDateValue(end);
-    }
 
     function buildAdmissionCountQueryPayload() {
-      const payload = {
+      return {
         ...lastPayload,
         statusFilters: ["即将开始"],
         stageNames: ["准考证"],
-        dayOffsets: [0, 1, 2, 3, 4, 5, 6, 7]
+        dayOffsets: []
       };
-      return payload;
     }
 
     function updateDropdownSummary(summaryId, selector, emptyText, allText, totalCount = null) {
@@ -863,7 +804,7 @@
     }
 
     function renderServerFilterOptions() {
-      const container = document.getElementById("server-filter-options");
+      const container = document.getElementById("server-filter-tags");
       if (!container) return;
 
       const selected = new Set(collectCheckedValues(".server-filter"));
@@ -874,15 +815,18 @@
         .sort((a, b) => a.localeCompare(b, "zh-CN"));
 
       if (!options.length) {
-        container.innerHTML = '<div class="server-empty">还没有可选服务器。</div>';
-        updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", 0);
+        container.innerHTML = '<span style="color:var(--muted);font-size:12px;">无服务器</span>';
         return;
       }
 
+      // 默认全选
+      const allSelected = selected.size === 0;
       container.innerHTML = options.map(name => `
-        <label><input type="checkbox" class="server-filter" value="${escapeHtml(name)}" ${selected.has(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
+        <label class="tag-option ${allSelected || selected.has(name) ? "active" : ""}">
+          <input type="checkbox" class="server-filter" value="${escapeHtml(name)}" ${allSelected || selected.has(name) ? "checked" : ""}>
+          <span>${escapeHtml(name)}</span>
+        </label>
       `).join("");
-      updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", options.length);
     }
 
     function renderServers() {
@@ -951,8 +895,6 @@
       const typedStageNames = parseStageKeywords(document.getElementById("stage-keyword").value);
       const stageNames = [...typedStageNames]
         .filter((item, index, list) => list.findIndex(value => value.toLowerCase() === item.toLowerCase()) === index);
-      const dayOffsets = getSelectedDayOffsets();
-
       return {
         servers: enabledServers(),
         statusFilters: collectCheckedValues(".status-filter"),
@@ -964,9 +906,9 @@
         serverKeyword: "",
         databaseKeyword: document.getElementById("database-keyword").value.trim(),
         examCodeKeyword: document.getElementById("exam-code-keyword").value.trim(),
-        dayOffsets,
-        rangeStart: dayOffsets.length > 0 ? null : (document.getElementById("range-start").value || null),
-        rangeEnd: dayOffsets.length > 0 ? null : (document.getElementById("range-end").value || null)
+        dayOffsets: [],
+        rangeStart: document.getElementById("range-start").value || null,
+        rangeEnd: document.getElementById("range-end").value || null
       };
     }
 
@@ -1818,18 +1760,6 @@
           option.classList.toggle("active", Boolean(input?.checked));
         });
       }
-      if (target.id === "range-start" || target.id === "range-end") {
-        document.querySelectorAll(".range-preset-btn").forEach(button => button.classList.remove("active"));
-        document.getElementById("range-start").disabled = false;
-        document.getElementById("range-end").disabled = false;
-      }
-    });
-
-    document.querySelectorAll(".range-preset-btn").forEach(button => {
-      button.addEventListener("click", () => {
-        button.classList.toggle("active");
-        syncRangeInputsFromSelectedDays();
-      });
     });
 
     document.getElementById("export-btn").addEventListener("click", async () => {
