@@ -1334,9 +1334,9 @@
                 </div>
               </div>
               <div class="board-head-filters">
-                <button class="board-col-filter-btn" data-col-filter="registration" data-col-status="${column.key}">有报名</button>
-                <button class="board-col-filter-btn" data-col-filter="admission" data-col-status="${column.key}">有准考证</button>
-                <button class="board-col-filter-btn" data-col-filter="other" data-col-status="${column.key}">其他</button>
+                <button class="board-col-filter-btn active" data-col-filter="registration" data-col-status="${column.key}">有报名</button>
+                <button class="board-col-filter-btn active" data-col-filter="admission" data-col-status="${column.key}">有准考证</button>
+                <button class="board-col-filter-btn active" data-col-filter="other" data-col-status="${column.key}">其他</button>
               </div>
             </div>
             <div class="board-list">
@@ -1824,12 +1824,13 @@
       // 收集该列所有选中的筛选条件
       const activeFilters = new Set();
       column.querySelectorAll(".board-col-filter-btn.active").forEach(b => activeFilters.add(b.dataset.colFilter));
+      const allSelected = activeFilters.size === 3;
 
       // 筛选该列的卡片
       const allItems = allBoardGroups.filter(g => getGroupPrimaryStatus(g) === status);
       let filtered;
-      if (activeFilters.size === 0) {
-        // 没有选中任何筛选 → 显示全部
+      if (allSelected || activeFilters.size === 0) {
+        // 全选或全不选 → 显示全部
         filtered = allItems;
       } else {
         filtered = allItems.filter(g => {
