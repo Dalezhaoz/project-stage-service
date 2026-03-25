@@ -299,6 +299,7 @@
       align-items: center; justify-content: center; border-radius: 999px;
       background: #f3f4f6; font-size: 12px; font-weight: 700; color: #374151;
     }
+    .board-head-summary { font-size: 12px; color: #6b7280; margin-top: 4px; }
     .board-head-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .board-head-btn {
       border: 1px solid var(--line); background: #fff; color: #374151;
@@ -1298,11 +1299,13 @@
 
       board.innerHTML = columns.map(column => {
         const items = groups.filter(group => getGroupPrimaryStatus(group) === column.key);
+        const totalReg = items.reduce((sum, item) => sum + (item.registrationCount || 0), 0);
+        const totalAdm = items.reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
         return `
           <section class="board-column">
             <div class="board-head">
               <div class="board-head-top"><span>${column.title}</span><span class="board-count">${items.length}</span></div>
-              <div class="board-head-actions"></div>
+              <div class="board-head-summary">报名 ${totalReg} 人 | 准考证 ${totalAdm} 人</div>
             </div>
             <div class="board-list">
               ${items.length ? items.map(item => `
