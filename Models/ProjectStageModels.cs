@@ -58,6 +58,14 @@ public sealed class SummaryStoreConfig
     public bool Enabled { get; set; }
 }
 
+public sealed class ScheduleConfig
+{
+    public bool StageRefreshEnabled { get; set; }
+    public List<string> StageRefreshTimes { get; set; } = ["04:00"];
+    public bool CountRefreshEnabled { get; set; }
+    public List<string> CountRefreshTimes { get; set; } = ["06:00"];
+}
+
 public sealed class SummaryStoreTestRequest
 {
     public SummaryStoreConfig Config { get; set; } = new();

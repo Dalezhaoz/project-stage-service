@@ -462,6 +462,7 @@
       <div class="topbar-left">
         <button id="open-server-modal" class="secondary">管理服务器</button>
         <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
+        <button id="open-schedule-modal" class="secondary" style="display:none;">定时任务</button>
         <button id="refresh-btn">更新数据</button>
       </div>
       <div class="topbar-right">
@@ -683,6 +684,37 @@
         <div class="hint">启用后，更新数据会同步写入中心 SQL Server，查询优先读中心表。</div>
         <div class="hint" id="summary-store-enabled-text">当前状态：未启用</div>
         <div class="auth-status" id="summary-store-status"></div>
+      </div>
+    </div>
+
+    <!-- Schedule Config Overlay -->
+    <div class="overlay" id="schedule-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2>定时任务配置</h2>
+          <button id="close-schedule-modal" class="close-btn">关闭</button>
+        </div>
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-stage-enabled">
+            <span>启用阶段数据自动更新</span>
+          </label>
+        </div>
+        <label style="margin-top:12px;">更新时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
+        <textarea id="schedule-stage-times" rows="3" placeholder="04:00&#10;12:00&#10;20:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-count-enabled">
+            <span>启用报名人数自动更新</span>
+          </label>
+        </div>
+        <label style="margin-top:12px;">更新时间点</label>
+        <textarea id="schedule-count-times" rows="3" placeholder="06:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <div class="auth-actions" style="margin-top:16px;">
+          <button id="save-schedule-btn">保存配置</button>
+        </div>
+        <div class="auth-status" id="schedule-status"></div>
       </div>
     </div>
 
@@ -1011,6 +1043,7 @@
       document.getElementById("open-user-modal").style.display = username && isAdmin ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin ? "inline-flex" : "none";
+      document.getElementById("open-schedule-modal").style.display = username && isAdmin ? "inline-flex" : "none";
     }
 
     function showAuthOverlay() {
@@ -1094,6 +1127,39 @@
     function hideSummaryStoreOverlay() {
       document.getElementById("summary-store-overlay").classList.remove("show");
       setSummaryStoreStatus("");
+    }
+
+    function setScheduleStatus(text) {
+      document.getElementById("schedule-status").textContent = text;
+    }
+
+    async function loadScheduleConfig() {
+      const response = await apiFetch(buildAppUrl("api/schedule"));
+      const config = await response.json();
+      document.getElementById("schedule-stage-enabled").checked = Boolean(config.stageRefreshEnabled);
+      document.getElementById("schedule-stage-times").value = (config.stageRefreshTimes || ["04:00"]).join("\n");
+      document.getElementById("schedule-count-enabled").checked = Boolean(config.countRefreshEnabled);
+      document.getElementById("schedule-count-times").value = (config.countRefreshTimes || ["06:00"]).join("\n");
+    }
+
+    function buildSchedulePayload() {
+      return {
+        stageRefreshEnabled: document.getElementById("schedule-stage-enabled").checked,
+        stageRefreshTimes: document.getElementById("schedule-stage-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        countRefreshEnabled: document.getElementById("schedule-count-enabled").checked,
+        countRefreshTimes: document.getElementById("schedule-count-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+      };
+    }
+
+    async function showScheduleOverlay() {
+      document.getElementById("schedule-overlay").classList.add("show");
+      setScheduleStatus("");
+      await loadScheduleConfig();
+    }
+
+    function hideScheduleOverlay() {
+      document.getElementById("schedule-overlay").classList.remove("show");
+      setScheduleStatus("");
     }
 
     async function apiFetch(url, options = {}) {
@@ -1351,6 +1417,29 @@
         await showSummaryStoreOverlay();
       } catch (error) {
         setQueryStatus(error.message);
+      }
+    });
+    document.getElementById("open-schedule-modal").addEventListener("click", async () => {
+      if (!currentIsAdmin) return;
+      try {
+        await showScheduleOverlay();
+      } catch (error) {
+        setQueryStatus(error.message);
+      }
+    });
+    document.getElementById("close-schedule-modal").addEventListener("click", hideScheduleOverlay);
+    document.getElementById("schedule-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("schedule-overlay")) {
+        hideScheduleOverlay();
+      }
+    });
+    document.getElementById("save-schedule-btn").addEventListener("click", async () => {
+      try {
+        setScheduleStatus("正在保存...");
+        await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
+        setScheduleStatus("定时任务配置已保存，立即生效。");
+      } catch (error) {
+        setScheduleStatus(error.message);
       }
     });
     document.getElementById("open-password-modal").addEventListener("click", () => showPasswordOverlay(false));

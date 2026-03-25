@@ -38,6 +38,7 @@ builder.Services.AddSingleton<ProjectStageCountRefreshService>();
 builder.Services.AddSingleton<LocalAuthService>();
 builder.Services.AddSingleton<SummaryStoreConfigStore>();
 builder.Services.AddSingleton<SummaryStoreService>();
+builder.Services.AddSingleton<ScheduleConfigStore>();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
 
@@ -241,6 +242,17 @@ app.MapPost("/api/summary-store/test", async (SummaryStoreTestRequest request, S
     }
 }).RequireAuthorization("AdminOnly");
 
+app.MapGet("/api/schedule", async (ScheduleConfigStore store, CancellationToken cancellationToken) =>
+{
+    return Results.Ok(await store.LoadAsync(cancellationToken));
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/schedule", async (ScheduleConfig config, ScheduleConfigStore store, CancellationToken cancellationToken) =>
+{
+    await store.SaveAsync(config, cancellationToken);
+    return Results.Ok(new { saved = true });
+}).RequireAuthorization("AdminOnly");
+
 app.MapGet("/api/servers", async (ServerConfigStore store, CancellationToken cancellationToken) =>
 {
     var servers = await store.LoadAsync(cancellationToken);
@@ -285,7 +297,7 @@ app.MapPost("/api/refresh", async (ProjectStageRefreshRequest request, ProjectSt
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageCacheStore cacheStore, CancellationToken cancellationToken) =>
+app.MapPost("/api/query", async (ProjectStageQueryRequest request, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -293,9 +305,10 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, ProjectStageC
         var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
         var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
 
-        var summary = summaryStoreConfig.Enabled
-            ? await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken)
-            : await cacheStore.QueryAsync(request, cancellationToken);
+        if (!summaryStoreConfig.Enabled)
+            throw new InvalidOperationException("请先在"中心库"中配置并启用中心表。");
+
+        var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -322,7 +335,7 @@ app.MapPost("/api/board-counts", async (BoardCountRequest request, ProjectStageQ
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStageCacheStore cacheStore, CancellationToken cancellationToken) =>
+app.MapPost("/api/stages", async (ProjectStageQueryRequest request, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -330,9 +343,10 @@ app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStage
         var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
         var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
 
-        var stageNames = summaryStoreConfig.Enabled
-            ? await summaryStoreService.QueryStageNamesAsync(summaryStoreConfig, request, cancellationToken)
-            : await cacheStore.QueryStageNamesAsync(request, cancellationToken);
+        if (!summaryStoreConfig.Enabled)
+            throw new InvalidOperationException("请先在"中心库"中配置并启用中心表。");
+
+        var stageNames = await summaryStoreService.QueryStageNamesAsync(summaryStoreConfig, request, cancellationToken);
         return Results.Ok(stageNames);
     }
     catch (Exception ex)
@@ -341,7 +355,7 @@ app.MapPost("/api/stages", async (ProjectStageQueryRequest request, ProjectStage
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStageCacheStore cacheStore, ProjectStageExportService exportService, CancellationToken cancellationToken) =>
+app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStageExportService exportService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -349,9 +363,10 @@ app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStage
         var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
         var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
 
-        var summary = summaryStoreConfig.Enabled
-            ? await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken)
-            : await cacheStore.QueryAsync(request, cancellationToken);
+        if (!summaryStoreConfig.Enabled)
+            throw new InvalidOperationException("请先在"中心库"中配置并启用中心表。");
+
+        var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
         var content = exportService.Export(summary);
         return Results.File(
             content,
