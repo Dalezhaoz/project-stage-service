@@ -710,6 +710,8 @@
             <input id="server-user">
             <label style="margin-top:12px;">密码</label>
             <input id="server-password" type="password">
+            <label style="margin-top:12px;">Agent 端口 <span style="font-weight:normal;color:var(--muted);">（留空或 0 表示不使用 Agent）</span></label>
+            <input id="server-agent-port" type="number" value="0" placeholder="例如：5100">
             <div class="actions">
               <button id="save-server">新增/更新</button>
               <button id="clear-server" class="ghost">清空表单</button>
@@ -868,6 +870,7 @@
       document.getElementById("server-port").value = server?.port || "1433";
       document.getElementById("server-user").value = server?.username || "";
       document.getElementById("server-password").value = server?.password || "";
+      document.getElementById("server-agent-port").value = server?.agentPort || 0;
     }
 
     function renderServerFilterOptions() {
@@ -1503,6 +1506,7 @@
         port: Number(document.getElementById("server-port").value.trim() || "1433"),
         username: document.getElementById("server-user").value.trim(),
         password: document.getElementById("server-password").value.trim(),
+        agentPort: Number(document.getElementById("server-agent-port").value || "0"),
         enabled: true
       };
 
@@ -1590,6 +1594,7 @@
             port: Number(document.getElementById("server-port").value.trim() || "1433"),
             username: document.getElementById("server-user").value.trim(),
             password: document.getElementById("server-password").value.trim(),
+            agentPort: Number(document.getElementById("server-agent-port").value || "0"),
             enabled: true
           }
         });
