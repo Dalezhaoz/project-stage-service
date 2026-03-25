@@ -155,24 +155,19 @@
     .server-controls button { flex: 1; font-size: 13px; padding: 6px; }
 
     /* ---- Filters ---- */
-    .filters { margin-bottom: 12px; }
-    .field-card {
-      border: 1px solid var(--line); border-radius: var(--radius);
-      padding: 16px; background: #fafbfc;
+    .filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .filter-row {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 8px 12px; background: #fafbfc; border: 1px solid var(--line);
+      border-radius: var(--radius);
     }
-    .field-title { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #1f2937; }
-    .filter-grid {
-      display: grid; grid-template-columns: repeat(16, minmax(0, 1fr));
-      gap: 8px 10px; align-items: end;
+    .filter-group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .filter-sep { width: 1px; height: 24px; background: var(--line); flex-shrink: 0; }
+    .filter-input {
+      padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+      font-size: 13px; min-width: 130px; background: #fff;
     }
-    .filter-item { display: grid; gap: 4px; align-content: start; }
-    .filter-item.status { grid-column: span 4; }
-    .filter-item.stage { grid-column: span 5; }
-    .filter-item.time { grid-column: span 7; }
-    .filter-item.project { grid-column: span 5; }
-    .filter-item.server { grid-column: span 4; }
-    .filter-item.database { grid-column: span 4; }
-    .filter-item.exam { grid-column: span 3; }
+    .filter-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
     .filter-label { font-size: 11px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: .02em; }
 
     /* Dropdown */
@@ -229,25 +224,6 @@
       border-color: var(--primary-border); background: var(--primary-light); color: var(--primary);
     }
     .range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .inline-toggle-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
-    .inline-toggle-btn {
-      border: 1px solid var(--line); background: #fff; color: #374151; box-shadow: none;
-      padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
-    }
-    .inline-toggle-btn:hover { background: #f3f4f6; }
-    .inline-toggle-btn.active {
-      border-color: var(--primary-border); background: var(--primary-light); color: var(--primary);
-    }
-    .toggle-panel { display: none; margin-top: 8px; }
-    .toggle-panel.show { display: block; }
-
-    /* Filter actions row */
-    .filter-actions {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; flex-wrap: wrap; margin-top: 12px;
-    }
-    .filter-actions .actions { margin-top: 0; }
-    .filter-actions .query-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .filter-helper { color: var(--muted); font-size: 12px; }
 
     /* ---- Status Bar ---- */
@@ -494,114 +470,81 @@
 
     <div class="layout">
       <div class="card">
-        <div class="title">筛选条件</div>
-        <div class="filters">
-          <div class="field-card">
-            <div class="filter-grid">
-              <div class="filter-item status">
-                <div class="filter-label">状态</div>
-                <div class="tag-selector">
-                  <label class="tag-option">
-                    <input type="checkbox" class="status-filter" value="已经结束">
-                    <span>已结束</span>
-                  </label>
-                  <label class="tag-option active">
-                    <input type="checkbox" class="status-filter" value="正在进行" checked>
-                    <span>正在进行</span>
-                  </label>
-                  <label class="tag-option active">
-                    <input type="checkbox" class="status-filter" value="即将开始" checked>
-                    <span>即将开始</span>
-                  </label>
-                </div>
-              </div>
-              <div class="filter-item stage">
-                <div class="filter-label">阶段筛选</div>
-                <input id="stage-keyword" placeholder="输入阶段关键字，多个用 / 分隔">
-              </div>
-              <div class="filter-item time">
-                <div class="filter-label">时间范围</div>
-                <div class="mini-selector">
-                  <label class="mini-option active">
-                    <input type="radio" name="time-match-mode" class="time-match-mode" value="overlap" checked>
-                    <span>时间段都看</span>
-                  </label>
-                  <label class="mini-option">
-                    <input type="radio" name="time-match-mode" class="time-match-mode" value="start">
-                    <span>只看开始</span>
-                  </label>
-                  <label class="mini-option">
-                    <input type="radio" name="time-match-mode" class="time-match-mode" value="end">
-                    <span>只看结束</span>
-                  </label>
-                </div>
-                <div class="range-preset-row">
-                  <button type="button" class="range-preset-btn" data-day-offset="0">今天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="1">未来1天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="2">未来2天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="3">未来3天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="4">未来4天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="5">未来5天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="6">未来6天</button>
-                  <button type="button" class="range-preset-btn" data-day-offset="7">未来7天</button>
-                </div>
-                <div class="inline-toggle-row">
-                  <button type="button" id="toggle-custom-range" class="inline-toggle-btn">自定义时间</button>
-                </div>
-                <div class="toggle-panel" id="custom-range-panel">
-                  <div class="range-grid">
-                    <input id="range-start" type="datetime-local">
-                    <input id="range-end" type="datetime-local">
-                  </div>
-                </div>
-              </div>
-              <div class="filter-item project">
-                <div class="filter-label">项目关键字</div>
-                <input id="project-keyword" placeholder="项目关键字">
-              </div>
-              <div class="filter-item project" style="grid-column: span 11;">
-                <div class="inline-toggle-row">
-                  <button type="button" id="toggle-advanced-filter" class="inline-toggle-btn">高级筛选</button>
-                </div>
-                <div class="toggle-panel" id="advanced-filter-panel">
-                  <div class="filter-grid" style="grid-template-columns: repeat(11, minmax(0, 1fr));">
-                    <div class="filter-item" style="grid-column: span 4;">
-                      <div class="filter-label">服务器</div>
-                      <details class="multi-dropdown">
-                        <summary><span id="server-summary">全部服务器</span></summary>
-                        <div class="dropdown-panel">
-                          <div id="server-filter-options" class="dropdown-list">
-                            <div class="server-empty">还没有可选服务器。</div>
-                          </div>
-                        </div>
-                      </details>
-                    </div>
-                    <div class="filter-item" style="grid-column: span 4;">
-                      <div class="filter-label">数据库关键字</div>
-                      <input id="database-keyword" placeholder="数据库关键字">
-                    </div>
-                    <div class="filter-item" style="grid-column: span 3;">
-                      <div class="filter-label">考试代码</div>
-                      <input id="exam-code-keyword" placeholder="考试代码">
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div class="filter-bar">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label class="tag-option active">
+                <input type="checkbox" class="status-filter" value="正在进行" checked>
+                <span>正在进行</span>
+              </label>
+              <label class="tag-option active">
+                <input type="checkbox" class="status-filter" value="即将开始" checked>
+                <span>即将开始</span>
+              </label>
+              <label class="tag-option">
+                <input type="checkbox" class="status-filter" value="已经结束">
+                <span>已结束</span>
+              </label>
+            </div>
+            <div class="filter-sep"></div>
+            <div class="filter-group">
+              <button type="button" class="range-preset-btn" data-day-offset="0">今天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="1">+1天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="2">+2天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="3">+3天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="4">+4天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="5">+5天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="6">+6天</button>
+              <button type="button" class="range-preset-btn" data-day-offset="7">+7天</button>
+            </div>
+            <div class="filter-sep"></div>
+            <div class="filter-group">
+              <input id="range-start" type="date" title="开始日期">
+              <span style="color:var(--muted);font-size:12px;">至</span>
+              <input id="range-end" type="date" title="结束日期">
+            </div>
+            <div class="filter-sep"></div>
+            <div class="filter-group">
+              <label class="mini-option active">
+                <input type="radio" name="time-match-mode" class="time-match-mode" value="overlap" checked>
+                <span>时间段都看</span>
+              </label>
+              <label class="mini-option">
+                <input type="radio" name="time-match-mode" class="time-match-mode" value="start">
+                <span>只看开始</span>
+              </label>
+              <label class="mini-option">
+                <input type="radio" name="time-match-mode" class="time-match-mode" value="end">
+                <span>只看结束</span>
+              </label>
             </div>
           </div>
-        </div>
-        <div class="filter-actions">
-          <div class="filter-helper">结果会自动忽略不包含业务表的数据库，只汇总符合条件的项目阶段。</div>
-          <div class="query-actions">
-            <button id="query-btn">开始查询</button>
-            <button id="export-btn" class="secondary" disabled>导出 Excel</button>
+          <div class="filter-row">
+            <div class="filter-group">
+              <input id="project-keyword" placeholder="项目关键字" class="filter-input">
+              <input id="stage-keyword" placeholder="阶段关键字，多个用 / 分隔" class="filter-input" style="min-width:200px;">
+            </div>
+            <div class="filter-sep"></div>
+            <div class="filter-group">
+              <details class="multi-dropdown">
+                <summary><span id="server-summary">全部服务器</span></summary>
+                <div class="dropdown-panel">
+                  <div id="server-filter-options" class="dropdown-list">
+                    <div class="server-empty">还没有可选服务器。</div>
+                  </div>
+                </div>
+              </details>
+              <input id="database-keyword" placeholder="数据库关键字" class="filter-input">
+              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input" style="max-width:120px;">
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+              <button id="query-btn">开始查询</button>
+              <button id="export-btn" class="secondary" disabled>导出</button>
+            </div>
           </div>
         </div>
         <div class="status" id="query-status">未开始查询</div>
         <div class="summary" id="summary-panel"></div>
-        <div class="view-switch">
-          <span class="filter-helper">时间按钮支持复选，查询会按所选自然日逐日命中项目阶段。</span>
-        </div>
         <div class="board" id="board-panel"></div>
       </div>
     </div>
@@ -816,13 +759,11 @@
         .filter(Boolean);
     }
 
-    function toLocalDateTimeValue(date) {
+    function toLocalDateValue(date) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
+      return `${year}-${month}-${day}`;
     }
 
     function getSelectedDayOffsets() {
@@ -850,8 +791,8 @@
       const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + firstOffset, 23, 59, 0);
       startInput.disabled = true;
       endInput.disabled = true;
-      startInput.value = toLocalDateTimeValue(start);
-      endInput.value = toLocalDateTimeValue(end);
+      startInput.value = toLocalDateValue(start);
+      endInput.value = toLocalDateValue(end);
     }
 
     function buildAdmissionCountQueryPayload() {
@@ -1399,18 +1340,6 @@
       const button = document.getElementById("toggle-config-panel");
       const visible = panel.classList.toggle("show");
       button.textContent = visible ? "收起配置" : "配置";
-    });
-    document.getElementById("toggle-custom-range").addEventListener("click", () => {
-      const panel = document.getElementById("custom-range-panel");
-      const button = document.getElementById("toggle-custom-range");
-      const visible = panel.classList.toggle("show");
-      button.classList.toggle("active", visible);
-    });
-    document.getElementById("toggle-advanced-filter").addEventListener("click", () => {
-      const panel = document.getElementById("advanced-filter-panel");
-      const button = document.getElementById("toggle-advanced-filter");
-      const visible = panel.classList.toggle("show");
-      button.classList.toggle("active", visible);
     });
     document.getElementById("open-server-modal").addEventListener("click", showServerModal);
     document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
