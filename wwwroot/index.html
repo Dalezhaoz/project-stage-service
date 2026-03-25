@@ -1755,7 +1755,7 @@
         target.closest(".tag-option")?.classList.toggle("active", target.checked);
       }
       if (target.classList.contains("server-filter")) {
-        updateDropdownSummary("server-summary", ".server-filter", "全部服务器", "全部服务器", document.querySelectorAll(".server-filter").length);
+        target.closest(".tag-option")?.classList.toggle("active", target.checked);
       }
       if (target.classList.contains("time-match-mode")) {
         document.querySelectorAll(".mini-option").forEach(option => {
