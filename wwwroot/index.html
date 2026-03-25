@@ -299,7 +299,21 @@
       align-items: center; justify-content: center; border-radius: 999px;
       background: #f3f4f6; font-size: 12px; font-weight: 700; color: #374151;
     }
-    .board-head-summary { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .board-head-summary { display: flex; gap: 16px; margin-top: 8px; }
+    .board-head-stat {
+      display: flex; flex-direction: column; align-items: center;
+      background: #f0f4ff; border-radius: 8px; padding: 6px 12px; min-width: 80px;
+    }
+    .board-head-stat-value { font-size: 20px; font-weight: 800; color: var(--primary); line-height: 1.2; }
+    .board-head-stat-label { font-size: 11px; color: #6b7280; }
+    .board-head-filters { display: flex; gap: 6px; margin-top: 8px; }
+    .board-col-filter-btn {
+      border: 1px solid var(--line); background: #fff; color: #374151;
+      padding: 4px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+      transition: all .15s;
+    }
+    .board-col-filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .board-col-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
     .board-head-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .board-head-btn {
       border: 1px solid var(--line); background: #fff; color: #374151;
@@ -1277,7 +1291,11 @@
         }));
     }
 
+    let allBoardGroups = [];
+    let currentBoardFilter = "all";
+
     function renderBoard(groups) {
+      allBoardGroups = groups;
       const board = document.getElementById("board-panel");
       const columns = [
         { key: "正在进行", title: "正在进行" },
@@ -1302,10 +1320,24 @@
         const totalReg = items.reduce((sum, item) => sum + (item.registrationCount || 0), 0);
         const totalAdm = items.reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
         return `
-          <section class="board-column">
+          <section class="board-column" data-column-key="${column.key}">
             <div class="board-head">
               <div class="board-head-top"><span>${column.title}</span><span class="board-count">${items.length}</span></div>
-              <div class="board-head-summary">报名 ${totalReg} 人 | 准考证 ${totalAdm} 人</div>
+              <div class="board-head-summary">
+                <div class="board-head-stat">
+                  <div class="board-head-stat-value">${totalReg.toLocaleString()}</div>
+                  <div class="board-head-stat-label">报名人数</div>
+                </div>
+                <div class="board-head-stat">
+                  <div class="board-head-stat-value">${totalAdm.toLocaleString()}</div>
+                  <div class="board-head-stat-label">准考证人数</div>
+                </div>
+              </div>
+              <div class="board-head-filters">
+                <button class="board-col-filter-btn active" data-col-filter="all" data-col-status="${column.key}">全部</button>
+                <button class="board-col-filter-btn" data-col-filter="registration" data-col-status="${column.key}">有报名</button>
+                <button class="board-col-filter-btn" data-col-filter="admission" data-col-status="${column.key}">有准考证</button>
+              </div>
             </div>
             <div class="board-list">
               ${items.length ? items.map(item => `
@@ -1779,24 +1811,54 @@
       }
     }
 
-    document.getElementById("board-panel").addEventListener("click", async (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const action = target.dataset.boardAction;
-      const status = target.dataset.boardStatus;
-      if (!action || !status) return;
+    document.getElementById("board-panel").addEventListener("click", (event) => {
+      const btn = event.target.closest(".board-col-filter-btn");
+      if (!btn) return;
+      const filter = btn.dataset.colFilter;
+      const status = btn.dataset.colStatus;
+      const column = btn.closest(".board-column");
+      if (!column) return;
 
-      const button = target;
-      button.setAttribute("disabled", "disabled");
-      try {
-        if (action === "registration") {
-          await loadBoardCounts(true, false, status);
-        } else if (action === "admission") {
-          await loadBoardCounts(false, true, status);
-        }
-      } finally {
-        button.removeAttribute("disabled");
+      // 切换按钮高亮
+      column.querySelectorAll(".board-col-filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      // 筛选该列的卡片
+      const allItems = allBoardGroups.filter(g => getGroupPrimaryStatus(g) === status);
+      let filtered = allItems;
+      if (filter === "registration") {
+        filtered = allItems.filter(g => (g.registrationCount || 0) > 0);
+      } else if (filter === "admission") {
+        filtered = allItems.filter(g => (g.admissionTicketCount || 0) > 0);
       }
+
+      // 更新计数
+      column.querySelector(".board-count").textContent = filtered.length;
+
+      // 重新渲染卡片列表
+      const listEl = column.querySelector(".board-list");
+      listEl.innerHTML = filtered.length ? filtered.map(item => `
+        <article class="board-card">
+          <div class="board-card-title">${escapeHtml(item.projectName || "-")}</div>
+          <div class="board-card-meta">
+            <div>${escapeHtml(item.serverName)} / ${escapeHtml(item.databaseName)}</div>
+            <div>考试代码：${escapeHtml(item.examCode || "-")}</div>
+          </div>
+          <div class="board-card-stats">
+            <div class="board-stat">
+              <div class="board-stat-label">报名人数</div>
+              <div class="board-stat-value">${item.registrationCount ?? 0}</div>
+            </div>
+            <div class="board-stat">
+              <div class="board-stat-label">准考证人数</div>
+              <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
+            </div>
+          </div>
+          <div class="board-card-stages">
+            ${(item.stages || []).map(stage => `<span class="board-stage-tag">${escapeHtml(stage.stageName)}</span>`).join("")}
+          </div>
+        </article>
+      `).join("") : '<div class="board-empty">没有项目</div>';
     });
 
     document.addEventListener("change", (event) => {
