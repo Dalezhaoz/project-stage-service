@@ -94,6 +94,15 @@ public sealed class ProjectStageRefreshService
                 summary = new ProjectStageSummary { EnabledServers = 0 };
             }
 
+            // 用实际启用的服务器总数覆盖 summary 中的值（包含 Agent 服务器）
+            summary.EnabledServers = sourceServers.Count;
+
+            // 汇总 Agent 结果到 summary
+            var agentTotalRecords = agentResultList.Where(r => r.Success).Sum(r => r.Records);
+            var agentTotalDatabases = agentResultList.Where(r => r.Success).Sum(r => r.Databases);
+            summary.VisitedDatabases += agentTotalDatabases;
+            summary.MatchedDatabases += agentTotalDatabases;
+
             await _cacheStore.SaveSnapshotAsync(summary, cancellationToken);
 
             if (summaryStoreConfig.Enabled && directServers.Count > 0)
@@ -101,7 +110,6 @@ public sealed class ProjectStageRefreshService
                 await _summaryStoreService.SyncSnapshotAsync(summaryStoreConfig, summary, cancellationToken);
             }
 
-            var agentTotalRecords = agentResultList.Where(r => r.Success).Sum(r => r.Records);
             var totalRecords = summary.Records.Count + agentTotalRecords;
             var refreshedAt = DateTime.Now;
             _logger.LogInformation(

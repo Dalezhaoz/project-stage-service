@@ -963,6 +963,8 @@
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin ? "inline-flex" : "none";
       document.getElementById("open-schedule-modal").style.display = username && isAdmin ? "inline-flex" : "none";
+      // 非 admin 隐藏管理服务器按钮
+      document.getElementById("open-server-modal").style.display = username && isAdmin ? "inline-flex" : "none";
     }
 
     function showAuthOverlay() {
