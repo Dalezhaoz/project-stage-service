@@ -95,9 +95,20 @@ public sealed class DingTalkNotifyService
         var today = DateTime.Today.ToString("yyyy-MM-dd");
         var title = $"今日开始的项目阶段 ({today})";
 
+        var totalRegistration = stages.Sum(s => s.RegistrationCount);
+        var totalAdmission = stages.Sum(s => s.AdmissionTicketCount);
+
         var sb = new StringBuilder();
         sb.AppendLine($"### 📋 今日开始的项目阶段");
-        sb.AppendLine($"> 日期：**{today}**，共 **{stages.Count}** 个阶段  ");
+        sb.Append($"> 日期：**{today}**，共 **{stages.Count}** 个阶段");
+        if (totalRegistration > 0 || totalAdmission > 0)
+        {
+            var totals = new List<string>();
+            if (totalRegistration > 0) totals.Add($"报名 **{totalRegistration:N0}** 人");
+            if (totalAdmission > 0) totals.Add($"准考证 **{totalAdmission:N0}** 人");
+            sb.Append($"，合计 {string.Join("、", totals)}");
+        }
+        sb.AppendLine("  ");
         sb.AppendLine();
 
         // Group by project
