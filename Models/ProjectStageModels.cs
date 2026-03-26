@@ -48,6 +48,11 @@ public sealed class ResetPasswordRequest
     public string Username { get; set; } = "";
 }
 
+public sealed class AllowUserRefreshRequest
+{
+    public bool Allow { get; set; }
+}
+
 public sealed class SummaryStoreConfig
 {
     public string Host { get; set; } = "";

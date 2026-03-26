@@ -73,13 +73,15 @@ app.MapGet("/api/auth/status", async (HttpContext httpContext, LocalAuthService 
 {
     var currentUsername = httpContext.User.Identity?.IsAuthenticated == true ? httpContext.User.Identity?.Name : null;
     var (hasAccount, username, isAdmin, forcePasswordChange) = await authService.GetStatusAsync(currentUsername, cancellationToken);
+    var allowUserRefresh = await authService.GetAllowUserRefreshAsync(cancellationToken);
     return Results.Ok(new
     {
         authenticated = currentUsername is not null,
         hasAccount,
         username,
         isAdmin,
-        forcePasswordChange
+        forcePasswordChange,
+        allowUserRefresh
     });
 });
 
@@ -212,6 +214,12 @@ app.MapPost("/api/auth/logout", async (HttpContext httpContext) =>
     await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+
+app.MapPost("/api/auth/allow-user-refresh", async (AllowUserRefreshRequest request, LocalAuthService authService, CancellationToken cancellationToken) =>
+{
+    await authService.SetAllowUserRefreshAsync(request.Allow, cancellationToken);
+    return Results.Ok(new { allowUserRefresh = request.Allow });
+}).RequireAuthorization("AdminOnly");
 
 app.MapGet("/api/summary-store", async (SummaryStoreConfigStore store, CancellationToken cancellationToken) =>
 {

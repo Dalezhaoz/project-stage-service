@@ -140,8 +140,6 @@
       padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
     }
     .topbar-toggle:hover { background: #e5e7eb; }
-    .topbar-detail { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .topbar-detail.show { display: flex; }
     .server-badge {
       display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
       background: #f9fafb; border: 1px solid var(--line); border-radius: 999px;
@@ -467,13 +465,14 @@
         <button id="refresh-btn">更新数据</button>
       </div>
       <div class="topbar-right">
-        <button id="toggle-topbar-detail" type="button" class="topbar-toggle">显示运行信息</button>
-        <div class="topbar-detail" id="topbar-detail">
-          <div class="server-badge">已配置服务器：<strong id="server-count">0</strong></div>
-          <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
-          <div class="server-badge">缓存记录：<strong id="cache-record-count">0</strong></div>
-          <div class="cache-info" id="cache-info">缓存尚未更新</div>
-        </div>
+        <div class="server-badge">服务器：<strong id="server-count">0</strong></div>
+        <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
+        <div class="server-badge">缓存记录：<strong id="cache-record-count">0</strong></div>
+        <div class="cache-info" id="cache-info">缓存尚未更新</div>
+        <label id="allow-refresh-toggle" class="plain-check" style="display:none;margin-left:4px;">
+          <input type="checkbox" id="allow-user-refresh" checked>
+          <span>允许用户更新</span>
+        </label>
       </div>
     </div>
 
@@ -948,7 +947,7 @@
       document.getElementById("summary-store-status").textContent = text;
     }
 
-    function updateAuthView(hasAccount, username = "", isAdmin = false) {
+    function updateAuthView(hasAccount, username = "", isAdmin = false, allowUserRefresh = true) {
       authMode = hasAccount ? "login" : "setup";
       currentIsAdmin = isAdmin;
       document.getElementById("auth-title").textContent = hasAccount ? "登录验证" : "初始化账号";
@@ -963,8 +962,13 @@
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin ? "inline-flex" : "none";
       document.getElementById("open-schedule-modal").style.display = username && isAdmin ? "inline-flex" : "none";
-      // 非 admin 隐藏管理服务器按钮
       document.getElementById("open-server-modal").style.display = username && isAdmin ? "inline-flex" : "none";
+      // admin 可以控制是否允许普通用户更新数据
+      document.getElementById("allow-refresh-toggle").style.display = username && isAdmin ? "inline-flex" : "none";
+      document.getElementById("allow-user-refresh").checked = allowUserRefresh;
+      // 非 admin 根据 allowUserRefresh 决定是否显示更新按钮
+      const canRefresh = isAdmin || allowUserRefresh;
+      document.getElementById("refresh-btn").style.display = username && canRefresh ? "inline-flex" : "none";
     }
 
     function showAuthOverlay() {
@@ -1307,11 +1311,13 @@
     });
     document.getElementById("open-server-modal").addEventListener("click", showServerModal);
     document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
-    document.getElementById("toggle-topbar-detail").addEventListener("click", () => {
-      const detail = document.getElementById("topbar-detail");
-      const button = document.getElementById("toggle-topbar-detail");
-      const visible = detail.classList.toggle("show");
-      button.textContent = visible ? "收起运行信息" : "显示运行信息";
+    document.getElementById("allow-user-refresh").addEventListener("change", async (event) => {
+      try {
+        await postJson(buildAppUrl("api/auth/allow-user-refresh"), { allow: event.target.checked });
+      } catch (error) {
+        event.target.checked = !event.target.checked;
+        alert("设置失败：" + error.message);
+      }
     });
     document.getElementById("server-overlay").addEventListener("click", (event) => {
       if (event.target === document.getElementById("server-overlay")) {
@@ -1409,7 +1415,7 @@
         }
 
         const authStatus = await loadAuthStatus();
-        updateAuthView(true, username, Boolean(authStatus?.isAdmin));
+        updateAuthView(true, username, Boolean(authStatus?.isAdmin), authStatus?.allowUserRefresh !== false);
         hideAuthOverlay();
         if (authStatus?.forcePasswordChange) {
           showPasswordOverlay(true);
@@ -1620,22 +1626,22 @@
     document.getElementById("refresh-btn").addEventListener("click", async () => {
       try {
         if (!authReady) throw new Error("请先登录。");
-        setQueryStatus("正在更新缓存数据，请稍候...");
+        document.getElementById("cache-info").textContent = "正在更新缓存数据，请稍候...";
         document.getElementById("refresh-btn").disabled = true;
         const result = await postJson(buildAppUrl("api/refresh"), { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
-        let msg = `更新完成：启用服务器 ${result.enabledServers} 台，遍历数据库 ${result.visitedDatabases} 个，匹配业务库 ${result.matchedDatabases} 个，阶段 ${result.recordCount} 条。`;
         if (result.agentResults && result.agentResults.length > 0) {
-          msg += "\n\nAgent 同步结果：";
+          let agentMsg = "";
           for (const ar of result.agentResults) {
             if (ar.success) {
-              msg += `\n  ${ar.serverName}：成功，${ar.databases} 个库，${ar.records} 条记录`;
+              agentMsg += `${ar.serverName}：${ar.databases}库/${ar.records}条 `;
             } else {
-              msg += `\n  ${ar.serverName}：失败 - ${ar.error || "未知错误"}`;
+              agentMsg += `${ar.serverName}：失败 `;
             }
           }
+          const cacheEl = document.getElementById("cache-info");
+          cacheEl.textContent += ` | Agent：${agentMsg.trim()}`;
         }
-        setQueryStatus(msg);
         if (lastPayload) {
           const queryResult = await postJson(buildAppUrl("api/query"), lastPayload);
           renderSummary(queryResult);
@@ -1643,7 +1649,7 @@
           document.getElementById("export-btn").disabled = (queryResult.records || []).length === 0;
         }
       } catch (error) {
-        setQueryStatus(error.message);
+        document.getElementById("cache-info").textContent = error.message;
       } finally {
         document.getElementById("refresh-btn").disabled = false;
       }
@@ -1858,7 +1864,8 @@
         updateAuthView(
           Boolean(authStatus?.hasAccount),
           authStatus?.authenticated ? (authStatus?.username || "") : "",
-          Boolean(authStatus?.isAdmin)
+          Boolean(authStatus?.isAdmin),
+          authStatus?.allowUserRefresh !== false
         );
         if (authStatus?.authenticated) {
           hideAuthOverlay();

@@ -262,9 +262,23 @@ public sealed class LocalAuthService
     public sealed record AuthValidationResult(bool Success, bool IsAdmin, bool ForcePasswordChange);
     public sealed record UserInfo(string Username, bool IsAdmin);
 
+    public async Task<bool> GetAllowUserRefreshAsync(CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        return store.AllowUserRefresh;
+    }
+
+    public async Task SetAllowUserRefreshAsync(bool allow, CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        store.AllowUserRefresh = allow;
+        await SaveStoreAsync(store, cancellationToken);
+    }
+
     private sealed class AuthStore
     {
         public List<AuthUserRecord> Users { get; set; } = [];
+        public bool AllowUserRefresh { get; set; } = true;
     }
 
     private sealed class AuthUserRecord
