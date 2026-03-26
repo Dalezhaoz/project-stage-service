@@ -18,11 +18,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            # Support both Content-Length and chunked transfer encoding
+            transfer_encoding = self.headers.get("Transfer-Encoding", "")
             content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length)
 
-            print(f"[REQ] {self.command} {self.path} Content-Length={content_length}")
-            print(f"[REQ] Body: {body[:500]}")
+            if "chunked" in transfer_encoding.lower():
+                body = self._read_chunked()
+            else:
+                body = self.rfile.read(content_length)
+
+            print(f"[REQ] {self.command} {self.path} len={len(body)} TE={transfer_encoding}")
 
             if not body:
                 self._respond(400, {"error": "请求体为空"})
@@ -64,6 +69,19 @@ class ProxyHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self._respond(500, {"error": str(e)})
             print(f"[ERR] {e}")
+
+    def _read_chunked(self):
+        """Read chunked transfer encoding body."""
+        data = b""
+        while True:
+            line = self.rfile.readline().strip()
+            chunk_size = int(line, 16)
+            if chunk_size == 0:
+                self.rfile.readline()  # trailing CRLF
+                break
+            data += self.rfile.read(chunk_size)
+            self.rfile.readline()  # trailing CRLF after chunk
+        return data
 
     def _respond(self, code, data):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
