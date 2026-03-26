@@ -41,6 +41,7 @@ builder.Services.AddSingleton<SummaryStoreConfigStore>();
 builder.Services.AddSingleton<SummaryStoreService>();
 builder.Services.AddSingleton<ScheduleConfigStore>();
 builder.Services.AddSingleton<DingTalkNotifyService>();
+builder.Services.AddSingleton<ProjectMetadataService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
@@ -412,6 +413,59 @@ app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStage
             content,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "项目阶段汇总.xlsx");
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapGet("/api/project-metadata", async (HttpContext httpContext, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var role = httpContext.User.FindFirst("role")?.Value ?? "external";
+        if (role == "admin" || role == "internal")
+        {
+            return Results.Ok(await metadataService.GetAllAsync(cancellationToken));
+        }
+
+        var username = httpContext.User.Identity?.Name ?? "";
+        return Results.Ok(await metadataService.GetByMaintainerAsync(username, cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMetadataRecord request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var role = httpContext.User.FindFirst("role")?.Value ?? "external";
+        var username = httpContext.User.Identity?.Name ?? "";
+
+        if (role == "admin" || role == "internal")
+        {
+            await metadataService.SaveAsync(request.ServerName, request.ExamCode, request.Maintainer, request.AppServers, cancellationToken);
+            return Results.Ok(new { saved = true });
+        }
+
+        // External users can only update app_servers for their assigned projects
+        var existing = await metadataService.GetByMaintainerAsync(username, cancellationToken);
+        var match = existing.FirstOrDefault(m =>
+            string.Equals(m.ServerName, request.ServerName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(m.ExamCode, request.ExamCode, StringComparison.OrdinalIgnoreCase));
+
+        if (match is null)
+        {
+            return Results.Forbid();
+        }
+
+        // External can only change app_servers, keep existing maintainer
+        await metadataService.SaveAsync(request.ServerName, request.ExamCode, match.Maintainer, request.AppServers, cancellationToken);
+        return Results.Ok(new { saved = true });
     }
     catch (Exception ex)
     {
