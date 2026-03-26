@@ -185,6 +185,7 @@ def find_sqlserver_databases(source):
         server=source["host"], port=source.get("port", 1433),
         user=source["username"], password=source["password"],
         database="master", login_timeout=60, charset="utf8",
+        tds_version="7.0",
     )
     try:
         with conn.cursor() as cur:
@@ -218,6 +219,7 @@ def query_sqlserver_database(source, db_name, server_name):
         server=source["host"], port=source.get("port", 1433),
         user=source["username"], password=source["password"],
         database=db_name, login_timeout=60, charset="utf8",
+        tds_version="7.0",
     )
     try:
         now = datetime.now()
@@ -298,6 +300,7 @@ def write_to_central(target, server_name, records):
         server=target["host"], port=target.get("port", 1433),
         user=target["username"], password=target["password"],
         database=target["databaseName"], login_timeout=20, charset="utf8",
+        tds_version="7.0",
     )
     try:
         # 按 database_name 分组
