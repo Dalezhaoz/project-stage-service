@@ -141,7 +141,7 @@ public sealed class DingTalkNotifyService
         string markdownText,
         CancellationToken cancellationToken)
     {
-        var url = config.WebhookUrl;
+        var targetUrl = config.WebhookUrl;
 
         // Sign if secret is provided
         if (!string.IsNullOrWhiteSpace(config.Secret))
@@ -151,11 +151,11 @@ public sealed class DingTalkNotifyService
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(config.Secret));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(stringToSign));
             var sign = Uri.EscapeDataString(Convert.ToBase64String(hash));
-            var separator = url.Contains('?') ? "&" : "?";
-            url = $"{url}{separator}timestamp={timestamp}&sign={sign}";
+            var separator = targetUrl.Contains('?') ? "&" : "?";
+            targetUrl = $"{targetUrl}{separator}timestamp={timestamp}&sign={sign}";
         }
 
-        var payload = new
+        var dingTalkMessage = new
         {
             msgtype = "markdown",
             markdown = new
@@ -166,7 +166,23 @@ public sealed class DingTalkNotifyService
         };
 
         var client = _httpClientFactory.CreateClient();
-        var response = await client.PostAsJsonAsync(url, payload, cancellationToken);
+        HttpResponseMessage response;
+
+        // If proxy is configured, send via proxy; otherwise send directly
+        if (!string.IsNullOrWhiteSpace(config.ProxyUrl))
+        {
+            var proxyPayload = new
+            {
+                targetUrl,
+                message = dingTalkMessage
+            };
+            response = await client.PostAsJsonAsync(config.ProxyUrl.TrimEnd('/'), proxyPayload, cancellationToken);
+        }
+        else
+        {
+            response = await client.PostAsJsonAsync(targetUrl, dingTalkMessage, cancellationToken);
+        }
+
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)

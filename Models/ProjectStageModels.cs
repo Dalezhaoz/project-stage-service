@@ -78,6 +78,7 @@ public sealed class DingTalkConfig
 {
     public string WebhookUrl { get; set; } = "";
     public string Secret { get; set; } = "";
+    public string ProxyUrl { get; set; } = "";
 }
 
 public sealed class SummaryStoreTestRequest

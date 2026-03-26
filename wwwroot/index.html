@@ -670,6 +670,8 @@
         <input id="dingtalk-webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx">
         <label style="margin-top:12px;">签名密钥（Secret）</label>
         <input id="dingtalk-secret" placeholder="SEC...">
+        <label style="margin-top:12px;">转发代理地址 <span style="font-weight:normal;color:var(--muted);">（服务器无法访问外网时填写）</span></label>
+        <input id="dingtalk-proxy" placeholder="例如：http://10.10.11.38:9100">
         <label style="margin-top:12px;">推送时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
         <textarea id="dingtalk-notify-times" rows="2" placeholder="08:00" style="font-family:inherit;resize:vertical;"></textarea>
         <div class="auth-actions" style="margin-top:16px;">
@@ -1083,6 +1085,7 @@
       document.getElementById("schedule-dingtalk-enabled").checked = Boolean(config.dingTalkEnabled);
       document.getElementById("dingtalk-webhook").value = config.dingTalkConfig?.webhookUrl || "";
       document.getElementById("dingtalk-secret").value = config.dingTalkConfig?.secret || "";
+      document.getElementById("dingtalk-proxy").value = config.dingTalkConfig?.proxyUrl || "";
       document.getElementById("dingtalk-notify-times").value = (config.dingTalkNotifyTimes || ["08:00"]).join("\n");
     }
 
@@ -1097,6 +1100,7 @@
         dingTalkConfig: {
           webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
           secret: document.getElementById("dingtalk-secret").value.trim(),
+          proxyUrl: document.getElementById("dingtalk-proxy").value.trim(),
         },
       };
     }
