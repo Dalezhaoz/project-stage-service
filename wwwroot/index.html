@@ -1185,7 +1185,9 @@
         <span class="metric-sep">|</span>
         <div class="metric"><div>报名人数</div><b>${totalRegistrationCount}</b></div>
         <span class="metric-sep">|</span>
-        <div class="metric"><div>准考证人数</div><b>${totalAdmissionTicketCount}</b></div>`;
+        <div class="metric"><div>准考证人数</div><b>${totalAdmissionTicketCount}</b></div>
+        <span class="metric-sep">|</span>
+        <div class="metric"><div>成绩预估</div><b>${totalAdmissionTicketCount}</b></div>`;
     }
 
     function formatDateTime(value) {
@@ -1271,6 +1273,10 @@
                   <div class="board-head-stat-value">${totalAdm.toLocaleString()}</div>
                   <div class="board-head-stat-label">准考证人数</div>
                 </div>
+                <div class="board-head-stat">
+                  <div class="board-head-stat-value">${totalAdm.toLocaleString()}</div>
+                  <div class="board-head-stat-label">成绩预估</div>
+                </div>
               </div>
               <div class="board-head-filters">
                 <button class="board-col-filter-btn active" data-col-filter="registration" data-col-status="${column.key}">有报名</button>
@@ -1299,13 +1305,17 @@
                       </div>
                     `}
                   </div>
-                  <div class="board-card-stats">
+                  <div class="board-card-stats" style="grid-template-columns:repeat(3,1fr);">
                     <div class="board-stat">
                       <div class="board-stat-label">报名人数</div>
                       <div class="board-stat-value">${item.registrationCount ?? 0}</div>
                     </div>
                     <div class="board-stat">
                       <div class="board-stat-label">准考证人数</div>
+                      <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
+                    </div>
+                    <div class="board-stat">
+                      <div class="board-stat-label">成绩预估</div>
                       <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
                     </div>
                   </div>
@@ -1810,13 +1820,17 @@
               </div>
             `}
           </div>
-          <div class="board-card-stats">
+          <div class="board-card-stats" style="grid-template-columns:repeat(3,1fr);">
             <div class="board-stat">
               <div class="board-stat-label">报名人数</div>
               <div class="board-stat-value">${item.registrationCount ?? 0}</div>
             </div>
             <div class="board-stat">
               <div class="board-stat-label">准考证人数</div>
+              <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
+            </div>
+            <div class="board-stat">
+              <div class="board-stat-label">成绩预估</div>
               <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
             </div>
           </div>
