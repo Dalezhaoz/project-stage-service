@@ -1175,6 +1175,7 @@
       const endedGroups = groups.filter(item => getGroupPrimaryStatus(item) === "已结束");
       const totalRegistrationCount = groups.reduce((sum, item) => sum + (item.registrationCount || 0), 0);
       const totalAdmissionTicketCount = groups.reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
+      const totalScoreEstimate = groups.filter(item => (item.stages || []).some(s => String(s.stageName || "").includes("成绩"))).reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
 
       document.getElementById("summary-panel").innerHTML = `
         <div class="metric"><div>正在进行</div><b>${ongoingGroups.length}</b></div>
@@ -1187,7 +1188,7 @@
         <span class="metric-sep">|</span>
         <div class="metric"><div>准考证人数</div><b>${totalAdmissionTicketCount}</b></div>
         <span class="metric-sep">|</span>
-        <div class="metric"><div>成绩预估</div><b>${totalAdmissionTicketCount}</b></div>`;
+        <div class="metric"><div>成绩预估</div><b>${totalScoreEstimate}</b></div>`;
     }
 
     function formatDateTime(value) {
@@ -1260,6 +1261,7 @@
         const items = groups.filter(group => getGroupPrimaryStatus(group) === column.key);
         const totalReg = items.reduce((sum, item) => sum + (item.registrationCount || 0), 0);
         const totalAdm = items.reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
+        const totalScore = items.filter(item => (item.stages || []).some(s => String(s.stageName || "").includes("成绩"))).reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
         return `
           <section class="board-column" data-column-key="${column.key}">
             <div class="board-head">
@@ -1274,13 +1276,14 @@
                   <div class="board-head-stat-label">准考证人数</div>
                 </div>
                 <div class="board-head-stat">
-                  <div class="board-head-stat-value">${totalAdm.toLocaleString()}</div>
+                  <div class="board-head-stat-value">${totalScore.toLocaleString()}</div>
                   <div class="board-head-stat-label">成绩预估</div>
                 </div>
               </div>
               <div class="board-head-filters">
                 <button class="board-col-filter-btn active" data-col-filter="registration" data-col-status="${column.key}">有报名</button>
                 <button class="board-col-filter-btn active" data-col-filter="admission" data-col-status="${column.key}">有准考证</button>
+                <button class="board-col-filter-btn active" data-col-filter="score" data-col-status="${column.key}">有成绩</button>
                 <button class="board-col-filter-btn active" data-col-filter="other" data-col-status="${column.key}">其他</button>
               </div>
             </div>
@@ -1787,9 +1790,11 @@
           const stageNames = (g.stages || []).map(s => String(s.stageName || "").trim().toLowerCase());
           const hasReg = stageNames.some(n => n.includes("报名"));
           const hasAdm = stageNames.some(n => n.includes("准考证"));
-          const isOther = !hasReg && !hasAdm;
+          const hasScore = stageNames.some(n => n.includes("成绩"));
+          const isOther = !hasReg && !hasAdm && !hasScore;
           if (activeFilters.has("registration") && hasReg) return true;
           if (activeFilters.has("admission") && hasAdm) return true;
+          if (activeFilters.has("score") && hasScore) return true;
           if (activeFilters.has("other") && isOther) return true;
           return false;
         });
