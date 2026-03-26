@@ -132,10 +132,13 @@ public sealed class DingTalkNotifyService
                 sb.AppendLine($"- **{stage.StageName}** {startStr} 至 {endStr}");
 
                 var counts = new List<string>();
+                var isScoreStage = stage.StageName.Contains("成绩", StringComparison.OrdinalIgnoreCase);
                 if (stage.RegistrationCount > 0)
                     counts.Add($"报名 {stage.RegistrationCount} 人");
                 if (stage.AdmissionTicketCount > 0)
                     counts.Add($"准考证 {stage.AdmissionTicketCount} 人");
+                if (isScoreStage && stage.AdmissionTicketCount > 0)
+                    counts.Add($"预估查询 {stage.AdmissionTicketCount} 人");
                 if (counts.Count > 0)
                     sb.AppendLine($"  - {string.Join("，", counts)}");
             }
