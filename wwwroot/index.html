@@ -659,9 +659,24 @@
         </div>
         <label style="margin-top:12px;">更新时间点</label>
         <textarea id="schedule-count-times" rows="3" placeholder="06:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-dingtalk-enabled">
+            <span>启用钉钉每日提醒</span>
+          </label>
+        </div>
+        <label style="margin-top:12px;">Webhook 地址</label>
+        <input id="dingtalk-webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx">
+        <label style="margin-top:12px;">签名密钥（Secret）</label>
+        <input id="dingtalk-secret" placeholder="SEC...">
+        <label style="margin-top:12px;">推送时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
+        <textarea id="dingtalk-notify-times" rows="2" placeholder="08:00" style="font-family:inherit;resize:vertical;"></textarea>
         <div class="auth-actions" style="margin-top:16px;">
           <button id="save-schedule-btn">保存配置</button>
+          <button id="test-dingtalk-btn" class="secondary">测试钉钉推送</button>
         </div>
+        <div class="hint">启用后，每天在设定时间自动推送当日开始的项目阶段到钉钉群。</div>
         <div class="auth-status" id="schedule-status"></div>
       </div>
     </div>
@@ -1065,6 +1080,10 @@
       document.getElementById("schedule-stage-times").value = (config.stageRefreshTimes || ["04:00"]).join("\n");
       document.getElementById("schedule-count-enabled").checked = Boolean(config.countRefreshEnabled);
       document.getElementById("schedule-count-times").value = (config.countRefreshTimes || ["06:00"]).join("\n");
+      document.getElementById("schedule-dingtalk-enabled").checked = Boolean(config.dingTalkEnabled);
+      document.getElementById("dingtalk-webhook").value = config.dingTalkConfig?.webhookUrl || "";
+      document.getElementById("dingtalk-secret").value = config.dingTalkConfig?.secret || "";
+      document.getElementById("dingtalk-notify-times").value = (config.dingTalkNotifyTimes || ["08:00"]).join("\n");
     }
 
     function buildSchedulePayload() {
@@ -1073,6 +1092,12 @@
         stageRefreshTimes: document.getElementById("schedule-stage-times").value.split("\n").map(s => s.trim()).filter(Boolean),
         countRefreshEnabled: document.getElementById("schedule-count-enabled").checked,
         countRefreshTimes: document.getElementById("schedule-count-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        dingTalkEnabled: document.getElementById("schedule-dingtalk-enabled").checked,
+        dingTalkNotifyTimes: document.getElementById("dingtalk-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        dingTalkConfig: {
+          webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
+          secret: document.getElementById("dingtalk-secret").value.trim(),
+        },
       };
     }
 
@@ -1366,6 +1391,17 @@
         setScheduleStatus("正在保存...");
         await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
         setScheduleStatus("定时任务配置已保存，立即生效。");
+      } catch (error) {
+        setScheduleStatus(error.message);
+      }
+    });
+    document.getElementById("test-dingtalk-btn").addEventListener("click", async () => {
+      try {
+        setScheduleStatus("正在发送测试消息...");
+        // 先保存配置再测试
+        await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
+        await postJson(buildAppUrl("api/dingtalk/test"), {});
+        setScheduleStatus("钉钉测试消息已发送，请查看群消息。");
       } catch (error) {
         setScheduleStatus(error.message);
       }

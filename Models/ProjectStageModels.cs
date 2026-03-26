@@ -69,6 +69,15 @@ public sealed class ScheduleConfig
     public List<string> StageRefreshTimes { get; set; } = ["04:00"];
     public bool CountRefreshEnabled { get; set; }
     public List<string> CountRefreshTimes { get; set; } = ["06:00"];
+    public bool DingTalkEnabled { get; set; }
+    public List<string> DingTalkNotifyTimes { get; set; } = ["08:00"];
+    public DingTalkConfig? DingTalkConfig { get; set; }
+}
+
+public sealed class DingTalkConfig
+{
+    public string WebhookUrl { get; set; } = "";
+    public string Secret { get; set; } = "";
 }
 
 public sealed class SummaryStoreTestRequest

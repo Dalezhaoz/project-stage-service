@@ -39,8 +39,11 @@ builder.Services.AddSingleton<LocalAuthService>();
 builder.Services.AddSingleton<SummaryStoreConfigStore>();
 builder.Services.AddSingleton<SummaryStoreService>();
 builder.Services.AddSingleton<ScheduleConfigStore>();
+builder.Services.AddSingleton<DingTalkNotifyService>();
+builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
+builder.Services.AddHostedService<DingTalkNotifyHostedService>();
 
 var app = builder.Build();
 
@@ -259,6 +262,31 @@ app.MapPost("/api/schedule", async (ScheduleConfig config, ScheduleConfigStore s
 {
     await store.SaveAsync(config, cancellationToken);
     return Results.Ok(new { saved = true });
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/dingtalk/test", async (DingTalkNotifyService notifyService, SummaryStoreConfigStore summaryStoreConfigStore, ScheduleConfigStore scheduleConfigStore, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var scheduleConfig = await scheduleConfigStore.LoadAsync(cancellationToken);
+        if (scheduleConfig.DingTalkConfig is null || string.IsNullOrWhiteSpace(scheduleConfig.DingTalkConfig.WebhookUrl))
+        {
+            return Results.BadRequest(new { detail = "请先配置钉钉 Webhook 地址。" });
+        }
+
+        var summaryConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+        if (!summaryConfig.Enabled)
+        {
+            return Results.BadRequest(new { detail = "请先启用中心库。" });
+        }
+
+        await notifyService.SendDailyReportAsync(summaryConfig, scheduleConfig.DingTalkConfig, cancellationToken);
+        return Results.Ok(new { sent = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
 }).RequireAuthorization("AdminOnly");
 
 app.MapGet("/api/servers", async (ServerConfigStore store, CancellationToken cancellationToken) =>
