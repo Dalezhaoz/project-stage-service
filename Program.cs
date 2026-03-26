@@ -27,7 +27,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("is_admin", "true"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+    options.AddPolicy("InternalOrAbove", policy => policy.RequireClaim("role", "admin", "internal"));
 });
 builder.Services.AddSingleton<ProjectStageQueryService>();
 builder.Services.AddSingleton<ProjectStageExportService>();
@@ -75,14 +76,15 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/api/auth/status", async (HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     var currentUsername = httpContext.User.Identity?.IsAuthenticated == true ? httpContext.User.Identity?.Name : null;
-    var (hasAccount, username, isAdmin, forcePasswordChange) = await authService.GetStatusAsync(currentUsername, cancellationToken);
+    var (hasAccount, username, role, forcePasswordChange) = await authService.GetStatusAsync(currentUsername, cancellationToken);
     var allowUserRefresh = await authService.GetAllowUserRefreshAsync(cancellationToken);
     return Results.Ok(new
     {
         authenticated = currentUsername is not null,
         hasAccount,
         username,
-        isAdmin,
+        role,
+        isAdmin = role == "admin",
         forcePasswordChange,
         allowUserRefresh
     });
@@ -102,7 +104,7 @@ app.MapPost("/api/auth/setup", async (SetupAuthRequest request, HttpContext http
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, request.Username.Trim()),
-            new("is_admin", "true"),
+            new("role", "admin"),
             new("force_password_change", "false")
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -135,7 +137,7 @@ app.MapPost("/api/auth/login", async (LoginRequest request, HttpContext httpCont
     var claims = new List<Claim>
     {
         new(ClaimTypes.Name, request.Username.Trim()),
-        new("is_admin", result.IsAdmin ? "true" : "false"),
+        new("role", result.Role),
         new("force_password_change", result.ForcePasswordChange ? "true" : "false")
     };
     var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -150,8 +152,8 @@ app.MapPost("/api/auth/users", async (CreateUserRequest request, LocalAuthServic
 {
     try
     {
-        await authService.CreateUserAsync(request.Username, cancellationToken);
-        return Results.Ok(new { username = request.Username.Trim(), defaultPassword = LocalAuthService.DefaultPassword });
+        await authService.CreateUserAsync(request.Username, request.Role, cancellationToken);
+        return Results.Ok(new { username = request.Username.Trim(), role = request.Role, defaultPassword = LocalAuthService.DefaultPassword });
     }
     catch (Exception ex)
     {
@@ -180,11 +182,11 @@ app.MapPost("/api/auth/change-password", async (ChangePasswordRequest request, H
     try
     {
         await authService.ChangePasswordAsync(username, request.CurrentPassword, request.NewPassword, cancellationToken);
-        var isAdmin = await authService.IsAdminAsync(username, cancellationToken);
+        var role = await authService.GetRoleAsync(username, cancellationToken);
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, username),
-            new("is_admin", isAdmin ? "true" : "false"),
+            new("role", role),
             new("force_password_change", "false")
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

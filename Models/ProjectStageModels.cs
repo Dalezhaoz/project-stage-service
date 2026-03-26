@@ -36,6 +36,7 @@ public sealed class SetupAuthRequest
 public sealed class CreateUserRequest
 {
     public string Username { get; set; } = "";
+    public string Role { get; set; } = "external";
 }
 
 public sealed class ChangePasswordRequest

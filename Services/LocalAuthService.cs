@@ -7,6 +7,12 @@ namespace ProjectStageService.Services;
 public sealed class LocalAuthService
 {
     public const string DefaultPassword = "11111111";
+    public const string RoleAdmin = "admin";
+    public const string RoleInternal = "internal";
+    public const string RoleExternal = "external";
+
+    private static readonly HashSet<string> ValidRoles = [RoleAdmin, RoleInternal, RoleExternal];
+
     private readonly string _authPath;
 
     public LocalAuthService()
@@ -16,11 +22,11 @@ public sealed class LocalAuthService
         _authPath = Path.Combine(baseDir, "auth.dat");
     }
 
-    public async Task<(bool HasAccount, string? Username, bool IsAdmin, bool ForcePasswordChange)> GetStatusAsync(string? currentUsername, CancellationToken cancellationToken)
+    public async Task<(bool HasAccount, string? Username, string Role, bool ForcePasswordChange)> GetStatusAsync(string? currentUsername, CancellationToken cancellationToken)
     {
         var store = await LoadStoreAsync(cancellationToken);
         var user = store.Users.FirstOrDefault(item => string.Equals(item.Username, currentUsername?.Trim(), StringComparison.Ordinal));
-        return (store.Users.Count > 0, currentUsername, user?.IsAdmin ?? false, user?.ForcePasswordChange ?? false);
+        return (store.Users.Count > 0, currentUsername, ResolveRole(user), user?.ForcePasswordChange ?? false);
     }
 
     public async Task SetupAsync(string username, string password, CancellationToken cancellationToken)
@@ -33,13 +39,18 @@ public sealed class LocalAuthService
             throw new InvalidOperationException("登录账号已存在。");
         }
 
-        store.Users.Add(BuildUser(username.Trim(), password, isAdmin: true, forcePasswordChange: false));
+        store.Users.Add(BuildUser(username.Trim(), password, RoleAdmin, forcePasswordChange: false));
         await SaveStoreAsync(store, cancellationToken);
     }
 
-    public async Task CreateUserAsync(string username, CancellationToken cancellationToken)
+    public async Task CreateUserAsync(string username, string role, CancellationToken cancellationToken)
     {
         ValidateUsernameAndPassword(username, DefaultPassword);
+
+        if (!ValidRoles.Contains(role))
+        {
+            throw new InvalidOperationException($"无效的角色：{role}");
+        }
 
         var store = await LoadStoreAsync(cancellationToken);
         if (store.Users.Any(item => string.Equals(item.Username, username.Trim(), StringComparison.OrdinalIgnoreCase)))
@@ -47,17 +58,18 @@ public sealed class LocalAuthService
             throw new InvalidOperationException("用户名已存在。");
         }
 
-        store.Users.Add(BuildUser(username.Trim(), DefaultPassword, isAdmin: false, forcePasswordChange: true));
+        store.Users.Add(BuildUser(username.Trim(), DefaultPassword, role, forcePasswordChange: true));
         await SaveStoreAsync(store, cancellationToken);
     }
 
     public async Task<List<UserInfo>> GetUsersAsync(CancellationToken cancellationToken)
     {
         var store = await LoadStoreAsync(cancellationToken);
+        var roleOrder = new Dictionary<string, int> { [RoleAdmin] = 0, [RoleInternal] = 1, [RoleExternal] = 2 };
         return store.Users
-            .OrderByDescending(item => item.IsAdmin)
+            .OrderBy(item => roleOrder.GetValueOrDefault(ResolveRole(item), 9))
             .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
-            .Select(item => new UserInfo(item.Username, item.IsAdmin))
+            .Select(item => new UserInfo(item.Username, ResolveRole(item)))
             .ToList();
     }
 
@@ -67,7 +79,7 @@ public sealed class LocalAuthService
         var user = store.Users.FirstOrDefault(item => string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal));
         if (user is null)
         {
-            return new AuthValidationResult(false, false, false);
+            return new AuthValidationResult(false, RoleExternal, false);
         }
 
         var salt = Convert.FromBase64String(user.Salt);
@@ -81,16 +93,16 @@ public sealed class LocalAuthService
 
         return new AuthValidationResult(
             CryptographicOperations.FixedTimeEquals(expectedHash, actualHash),
-            user.IsAdmin,
+            ResolveRole(user),
             user.ForcePasswordChange);
     }
 
-    public async Task<bool> IsAdminAsync(string username, CancellationToken cancellationToken)
+    public async Task<string> GetRoleAsync(string username, CancellationToken cancellationToken)
     {
         var store = await LoadStoreAsync(cancellationToken);
-        return store.Users.Any(item =>
-            string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal) &&
-            item.IsAdmin);
+        var user = store.Users.FirstOrDefault(item =>
+            string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal));
+        return ResolveRole(user);
     }
 
     public async Task ChangePasswordAsync(
@@ -138,6 +150,19 @@ public sealed class LocalAuthService
         await SaveStoreAsync(store, cancellationToken);
     }
 
+    public async Task<bool> GetAllowUserRefreshAsync(CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        return store.AllowUserRefresh;
+    }
+
+    public async Task SetAllowUserRefreshAsync(bool allow, CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        store.AllowUserRefresh = allow;
+        await SaveStoreAsync(store, cancellationToken);
+    }
+
     private async Task<AuthStore> LoadStoreAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(_authPath))
@@ -182,7 +207,8 @@ public sealed class LocalAuthService
                     Salt = legacy.Salt,
                     PasswordHash = legacy.PasswordHash,
                     Iterations = legacy.Iterations,
-                    IsAdmin = true
+                    IsAdmin = true,
+                    Role = RoleAdmin
                 }
             ]
         };
@@ -196,7 +222,7 @@ public sealed class LocalAuthService
         await File.WriteAllBytesAsync(_authPath, encrypted, cancellationToken);
     }
 
-    private static AuthUserRecord BuildUser(string username, string password, bool isAdmin, bool forcePasswordChange)
+    private static AuthUserRecord BuildUser(string username, string password, string role, bool forcePasswordChange)
     {
         var salt = RandomNumberGenerator.GetBytes(16);
         const int iterations = 100_000;
@@ -213,17 +239,25 @@ public sealed class LocalAuthService
             Salt = Convert.ToBase64String(salt),
             PasswordHash = Convert.ToBase64String(hash),
             Iterations = iterations,
-            IsAdmin = isAdmin,
+            IsAdmin = role == RoleAdmin,
+            Role = role,
             ForcePasswordChange = forcePasswordChange
         };
     }
 
     private static void ReplacePassword(AuthUserRecord user, string password)
     {
-        var updated = BuildUser(user.Username, password, user.IsAdmin, user.ForcePasswordChange);
+        var updated = BuildUser(user.Username, password, ResolveRole(user), user.ForcePasswordChange);
         user.Salt = updated.Salt;
         user.PasswordHash = updated.PasswordHash;
         user.Iterations = updated.Iterations;
+    }
+
+    private static string ResolveRole(AuthUserRecord? user)
+    {
+        if (user is null) return RoleExternal;
+        if (!string.IsNullOrEmpty(user.Role)) return user.Role;
+        return user.IsAdmin ? RoleAdmin : RoleExternal;
     }
 
     private static void ValidateUsernameAndPassword(string username, string password)
@@ -259,21 +293,8 @@ public sealed class LocalAuthService
         return encrypted;
     }
 
-    public sealed record AuthValidationResult(bool Success, bool IsAdmin, bool ForcePasswordChange);
-    public sealed record UserInfo(string Username, bool IsAdmin);
-
-    public async Task<bool> GetAllowUserRefreshAsync(CancellationToken cancellationToken)
-    {
-        var store = await LoadStoreAsync(cancellationToken);
-        return store.AllowUserRefresh;
-    }
-
-    public async Task SetAllowUserRefreshAsync(bool allow, CancellationToken cancellationToken)
-    {
-        var store = await LoadStoreAsync(cancellationToken);
-        store.AllowUserRefresh = allow;
-        await SaveStoreAsync(store, cancellationToken);
-    }
+    public sealed record AuthValidationResult(bool Success, string Role, bool ForcePasswordChange);
+    public sealed record UserInfo(string Username, string Role);
 
     private sealed class AuthStore
     {
@@ -288,6 +309,7 @@ public sealed class LocalAuthService
         public string PasswordHash { get; set; } = "";
         public int Iterations { get; set; }
         public bool IsAdmin { get; set; }
+        public string Role { get; set; } = "";
         public bool ForcePasswordChange { get; set; }
     }
 

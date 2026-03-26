@@ -569,6 +569,12 @@
         </div>
         <label>用户名</label>
         <input id="new-user-username" autocomplete="username" placeholder="请输入同事账号">
+        <label style="margin-top:12px;">用户组</label>
+        <select id="new-user-role">
+          <option value="external">外部用户</option>
+          <option value="internal">内部用户</option>
+          <option value="admin">超级管理员</option>
+        </select>
         <div class="auth-actions">
           <button id="create-user-btn">创建用户</button>
         </div>
@@ -738,7 +744,10 @@
     let serversCache = [];
     let authMode = "login";
     let authReady = false;
-    let currentIsAdmin = false;
+    let currentRole = "external";
+    function isAdmin() { return currentRole === "admin"; }
+    function isInternal() { return currentRole === "internal"; }
+    function isAdminOrInternal() { return currentRole === "admin" || currentRole === "internal"; }
     let forcePasswordChange = false;
     let summaryStoreConfig = null;
 
@@ -937,13 +946,16 @@
 
     async function showServerModal() {
       document.getElementById("server-overlay").classList.add("show");
-      if (currentIsAdmin) {
+      if (isAdmin()) {
         try {
           const users = await loadUsersForAdmin();
           const select = document.getElementById("server-maintainer");
           const currentValue = select.value;
           select.innerHTML = '<option value="">未指定</option>' +
-            users.map(u => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}${u.isAdmin ? "（管理员）" : ""}</option>`).join("");
+            users.map(u => {
+              const rl = {admin:"管理员",internal:"内部",external:"外部"}[u.role] || u.role;
+              return `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}（${rl}）</option>`;
+            }).join("");
           select.value = currentValue;
         } catch (e) { /* ignore */ }
       }
@@ -990,29 +1002,33 @@
       document.getElementById("summary-store-status").textContent = text;
     }
 
-    function updateAuthView(hasAccount, username = "", isAdmin = false, allowUserRefresh = true) {
+    function updateAuthView(hasAccount, username = "", role = "external", allowUserRefresh = true) {
       authMode = hasAccount ? "login" : "setup";
-      currentIsAdmin = isAdmin;
+      currentRole = role;
+      const roleLabels = { admin: "管理员", internal: "内部用户", external: "外部用户" };
       document.getElementById("auth-title").textContent = hasAccount ? "登录验证" : "初始化账号";
       document.getElementById("auth-submit-btn").textContent = hasAccount ? "登录" : "设置账号并登录";
       document.getElementById("auth-hint").textContent = hasAccount
         ? "请输入登录账号后继续。"
         : "系统首次使用，请先设置一个本地管理员账号。";
       document.getElementById("auth-confirm-wrap").style.display = hasAccount ? "none" : "block";
-      document.getElementById("auth-user").textContent = username ? `当前用户：${username}` : "";
+      document.getElementById("auth-user").textContent = username ? `${username}（${roleLabels[role] || role}）` : "";
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
-      document.getElementById("open-user-modal").style.display = username && isAdmin ? "inline-flex" : "none";
+      document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
-      document.getElementById("open-summary-store-modal").style.display = username && isAdmin ? "inline-flex" : "none";
-      document.getElementById("open-schedule-modal").style.display = username && isAdmin ? "inline-flex" : "none";
-      document.getElementById("open-server-modal").style.display = username && isAdmin ? "inline-flex" : "none";
-      document.getElementById("admin-server-fields").style.display = isAdmin ? "block" : "none";
-      // admin 可以控制是否允许普通用户更新数据
-      document.getElementById("allow-refresh-toggle").style.display = username && isAdmin ? "inline-flex" : "none";
+      document.getElementById("open-summary-store-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
+      document.getElementById("open-schedule-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
+      // admin 和 internal 都可以管理服务器
+      document.getElementById("open-server-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      document.getElementById("admin-server-fields").style.display = isAdminOrInternal() ? "block" : "none";
+      // admin 可以控制是否允许用户更新数据
+      document.getElementById("allow-refresh-toggle").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("allow-user-refresh").checked = allowUserRefresh;
-      // 非 admin 根据 allowUserRefresh 决定是否显示更新按钮
-      const canRefresh = isAdmin || allowUserRefresh;
+      // external 根据 allowUserRefresh 决定是否显示更新按钮
+      const canRefresh = isAdminOrInternal() || allowUserRefresh;
       document.getElementById("refresh-btn").style.display = username && canRefresh ? "inline-flex" : "none";
+      // 配置面板：external 用户不显示
+      document.getElementById("toggle-config-panel").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
     }
 
     function showAuthOverlay() {
@@ -1147,7 +1163,7 @@
       const response = await fetch(url, options);
       if (response.status === 401) {
         authReady = false;
-        updateAuthView(true, "", false);
+        updateAuthView(true, "", "external");
         showAuthOverlay();
       }
       if (response.status === 403) {
@@ -1180,9 +1196,9 @@
         <div class="user-row">
           <div>
             <div class="user-meta">${escapeHtml(user.username)}</div>
-            <div class="user-role">${user.isAdmin ? "管理员" : "普通用户"}</div>
+            <div class="user-role">${{admin:"超级管理员",internal:"内部用户",external:"外部用户"}[user.role] || user.role}</div>
           </div>
-          ${user.isAdmin ? "" : `<button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>`}
+          ${user.role === "admin" ? "" : `<button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>`}
         </div>
       `).join("") || '<div class="server-empty">还没有用户。</div>';
     }
@@ -1400,16 +1416,16 @@
         setQueryStatus(error.message);
       } finally {
         authReady = false;
-        updateAuthView(true, "", false);
+        updateAuthView(true, "", "external");
         showAuthOverlay();
       }
     });
     document.getElementById("open-user-modal").addEventListener("click", () => {
-      if (!currentIsAdmin) return;
+      if (!isAdmin()) return;
       showUserOverlay();
     });
     document.getElementById("open-summary-store-modal").addEventListener("click", async () => {
-      if (!currentIsAdmin) return;
+      if (!isAdmin()) return;
       try {
         await showSummaryStoreOverlay();
       } catch (error) {
@@ -1417,7 +1433,7 @@
       }
     });
     document.getElementById("open-schedule-modal").addEventListener("click", async () => {
-      if (!currentIsAdmin) return;
+      if (!isAdmin()) return;
       try {
         await showScheduleOverlay();
       } catch (error) {
@@ -1495,7 +1511,7 @@
         }
 
         const authStatus = await loadAuthStatus();
-        updateAuthView(true, username, Boolean(authStatus?.isAdmin), authStatus?.allowUserRefresh !== false);
+        updateAuthView(true, username, authStatus?.role || "external", authStatus?.allowUserRefresh !== false);
         hideAuthOverlay();
         if (authStatus?.forcePasswordChange) {
           showPasswordOverlay(true);
@@ -1517,10 +1533,12 @@
 
       try {
         setUserStatus("正在创建用户...");
+        const role = document.getElementById("new-user-role").value;
         const result = await postJson(buildAppUrl("api/auth/users"), {
-          username
+          username, role
         });
-        setUserStatus(`用户 ${result.username} 已创建，初始密码为 ${result.defaultPassword}。`);
+        const roleLabels = { admin: "超级管理员", internal: "内部用户", external: "外部用户" };
+        setUserStatus(`用户 ${result.username}（${roleLabels[role]}）已创建，初始密码为 ${result.defaultPassword}。`);
         document.getElementById("new-user-username").value = "";
         await loadUsersForAdmin();
       } catch (error) {
@@ -1952,7 +1970,7 @@
         updateAuthView(
           Boolean(authStatus?.hasAccount),
           authStatus?.authenticated ? (authStatus?.username || "") : "",
-          Boolean(authStatus?.isAdmin),
+          authStatus?.role || "external",
           authStatus?.allowUserRefresh !== false
         );
         if (authStatus?.authenticated) {
