@@ -54,6 +54,11 @@ public sealed class AllowUserRefreshRequest
     public bool Allow { get; set; }
 }
 
+public sealed class AppServerOptionRequest
+{
+    public List<string> Options { get; set; } = [];
+}
+
 public sealed class SummaryStoreConfig
 {
     public string Host { get; set; } = "";

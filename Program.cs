@@ -165,7 +165,7 @@ app.MapPost("/api/auth/users", async (CreateUserRequest request, LocalAuthServic
 app.MapGet("/api/auth/users", async (LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     return Results.Ok(await authService.GetUsersAsync(cancellationToken));
-}).RequireAuthorization("AdminOnly");
+}).RequireAuthorization("InternalOrAbove");
 
 app.MapPost("/api/auth/change-password", async (ChangePasswordRequest request, HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
@@ -296,13 +296,13 @@ app.MapGet("/api/servers", async (ServerConfigStore store, CancellationToken can
 {
     var servers = await store.LoadAsync(cancellationToken);
     return Results.Ok(servers);
-}).RequireAuthorization();
+}).RequireAuthorization("InternalOrAbove");
 
 app.MapPost("/api/servers", async (List<StageServerConfig> servers, ServerConfigStore store, CancellationToken cancellationToken) =>
 {
     await store.SaveAsync(servers, cancellationToken);
     return Results.Ok(new { saved = servers.Count });
-}).RequireAuthorization();
+}).RequireAuthorization("InternalOrAbove");
 
 app.MapPost("/api/test", async (TestConnectionRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
 {
@@ -315,7 +315,7 @@ app.MapPost("/api/test", async (TestConnectionRequest request, ProjectStageQuery
     {
         return Results.BadRequest(new { detail = ex.Message });
     }
-}).RequireAuthorization();
+}).RequireAuthorization("InternalOrAbove");
 
 app.MapGet("/api/cache-info", async (ProjectStageCacheStore cacheStore, CancellationToken cancellationToken) =>
 {
@@ -323,11 +323,25 @@ app.MapGet("/api/cache-info", async (ProjectStageCacheStore cacheStore, Cancella
     return Results.Ok(cacheInfo);
 }).RequireAuthorization();
 
-app.MapPost("/api/refresh", async (ProjectStageRefreshRequest request, ProjectStageRefreshService refreshService, CancellationToken cancellationToken) =>
+app.MapPost("/api/refresh", async (HttpContext httpContext, ProjectStageRefreshRequest request, ProjectStageRefreshService refreshService, ServerConfigStore serverConfigStore, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
-        var result = await refreshService.RefreshAsync(request.Servers, cancellationToken);
+        var role = GetCurrentRole(httpContext);
+        List<StageServerConfig>? servers = request.Servers;
+
+        if (role == LocalAuthService.RoleExternal)
+        {
+            var allowUserRefresh = await authService.GetAllowUserRefreshAsync(cancellationToken);
+            if (!allowUserRefresh)
+            {
+                return Results.Forbid();
+            }
+
+            servers = await serverConfigStore.LoadAsync(cancellationToken);
+        }
+
+        var result = await refreshService.RefreshAsync(servers, cancellationToken);
         return Results.Ok(result);
     }
     catch (Exception ex)
@@ -336,7 +350,7 @@ app.MapPost("/api/refresh", async (ProjectStageRefreshRequest request, ProjectSt
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/query", async (ProjectStageQueryRequest request, CancellationToken cancellationToken) =>
+app.MapPost("/api/query", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -348,6 +362,7 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, CancellationT
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -356,7 +371,7 @@ app.MapPost("/api/query", async (ProjectStageQueryRequest request, CancellationT
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/board-counts", async (BoardCountRequest request, CancellationToken cancellationToken) =>
+app.MapPost("/api/board-counts", async (HttpContext httpContext, BoardCountRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -368,6 +383,7 @@ app.MapPost("/api/board-counts", async (BoardCountRequest request, CancellationT
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request.Query, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -376,27 +392,7 @@ app.MapPost("/api/board-counts", async (BoardCountRequest request, CancellationT
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/stages", async (ProjectStageQueryRequest request, CancellationToken cancellationToken) =>
-{
-    try
-    {
-        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
-        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
-        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
-
-        if (!summaryStoreConfig.Enabled)
-            throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
-
-        var stageNames = await summaryStoreService.QueryStageNamesAsync(summaryStoreConfig, request, cancellationToken);
-        return Results.Ok(stageNames);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { detail = ex.Message });
-    }
-}).RequireAuthorization();
-
-app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStageExportService exportService, CancellationToken cancellationToken) =>
+app.MapPost("/api/stages", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -408,6 +404,34 @@ app.MapPost("/api/export", async (ProjectStageQueryRequest request, ProjectStage
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
+        var stageNames = summary.Records
+            .Select(item => item.StageName?.Trim() ?? "")
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return Results.Ok(stageNames);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapPost("/api/export", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectStageExportService exportService, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var summaryStoreConfigStore = app.Services.GetRequiredService<SummaryStoreConfigStore>();
+        var summaryStoreService = app.Services.GetRequiredService<SummaryStoreService>();
+        var summaryStoreConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+
+        if (!summaryStoreConfig.Enabled)
+            throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
+
+        var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
         var content = exportService.Export(summary);
         return Results.File(
             content,
@@ -472,5 +496,89 @@ app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMeta
         return Results.BadRequest(new { detail = ex.Message });
     }
 }).RequireAuthorization();
+
+app.MapGet("/api/app-server-options", async (ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await metadataService.GetAppServerOptionsAsync(cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapPost("/api/app-server-options", async (AppServerOptionRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await metadataService.SaveAppServerOptionsAsync(request.Options, cancellationToken);
+        return Results.Ok(new { saved = true, count = request.Options.Count });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
+static string GetCurrentRole(HttpContext httpContext)
+{
+    return httpContext.User.FindFirst("role")?.Value ?? LocalAuthService.RoleExternal;
+}
+
+static async Task<ProjectStageSummary> FilterSummaryForCurrentUserAsync(
+    HttpContext httpContext,
+    ProjectMetadataService metadataService,
+    ProjectStageSummary summary,
+    CancellationToken cancellationToken)
+{
+    var role = GetCurrentRole(httpContext);
+    if (role == LocalAuthService.RoleAdmin || role == LocalAuthService.RoleInternal)
+    {
+        return summary;
+    }
+
+    var username = httpContext.User.Identity?.Name ?? "";
+    if (string.IsNullOrWhiteSpace(username))
+    {
+        return BuildFilteredSummary(summary, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+    }
+
+    var metadata = await metadataService.GetByMaintainerAsync(username, cancellationToken);
+    var allowedKeys = metadata
+        .Select(item => BuildProjectKey(item.ServerName, item.ExamCode))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    return BuildFilteredSummary(summary, allowedKeys);
+}
+
+static ProjectStageSummary BuildFilteredSummary(ProjectStageSummary source, HashSet<string> allowedKeys)
+{
+    var groups = (source.Groups ?? [])
+        .Where(item => allowedKeys.Contains(BuildProjectKey(item.ServerName, item.ExamCode)))
+        .ToList();
+
+    var records = (source.Records ?? [])
+        .Where(item => allowedKeys.Contains(BuildProjectKey(item.ServerName, item.ExamCode)))
+        .ToList();
+
+    return new ProjectStageSummary
+    {
+        Records = records,
+        Groups = groups,
+        EnabledServers = groups.Select(item => item.ServerName).Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        VisitedDatabases = groups.Select(item => $"{item.ServerName}|{item.DatabaseName}").Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        MatchedDatabases = records.Select(item => $"{item.ServerName}|{item.DatabaseName}").Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        EndedCount = groups.Count(item => item.Statuses.Any(status => string.Equals(status, "已结束", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "已经结束", StringComparison.OrdinalIgnoreCase))),
+        OngoingCount = groups.Count(item => item.Statuses.Any(status => string.Equals(status, "正在进行", StringComparison.OrdinalIgnoreCase))),
+        UpcomingCount = groups.Count(item => item.Statuses.Any(status => string.Equals(status, "即将开始", StringComparison.OrdinalIgnoreCase)))
+    };
+}
+
+static string BuildProjectKey(string serverName, string examCode)
+{
+    return $"{serverName}|{examCode}";
+}
 
 app.Run();

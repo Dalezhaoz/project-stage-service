@@ -240,19 +240,108 @@
 
     /* ---- Summary Metrics ---- */
     .summary {
-      display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch;
-      margin: 14px 0; padding: 0; border: none; background: none;
+      display: grid;
+      grid-template-columns: max-content minmax(320px, 1fr);
+      gap: 8px;
+      margin: 10px 0; padding: 0; border: none; background: none;
+      align-items: stretch;
+    }
+    .summary-main {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(98px, 112px));
+      gap: 2px;
+      align-items: stretch;
+      width: fit-content;
+    }
+    .summary-groups {
+      display: grid;
+      gap: 0;
+      min-height: 100%;
+    }
+    .summary-group-list {
+      display: grid;
+      gap: 4px;
+      align-items: stretch;
+      min-height: 100%;
     }
     .metric {
       display: flex; flex-direction: column; align-items: center; gap: 2px;
-      padding: 10px 18px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-      background: #fff; min-width: 90px; box-shadow: var(--shadow-sm);
+      padding: 6px 7px; border: 1px solid var(--line); border-radius: 10px;
+      background: #fff; min-width: 0; min-height: 58px; box-shadow: var(--shadow-sm);
       transition: box-shadow var(--transition);
+      justify-content: center;
     }
     .metric:hover { box-shadow: var(--shadow); }
-    .metric div { color: var(--muted); font-size: 11px; font-weight: 600; order: 2; letter-spacing: .01em; }
-    .metric b { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; order: 1; color: var(--text); }
+    .metric:hover {
+      background: #f7faff;
+      border-color: #cfdcff;
+      box-shadow: 0 8px 18px rgba(59, 91, 219, 0.10);
+    }
+    .metric div { color: var(--muted); font-size: 9px; font-weight: 600; order: 2; letter-spacing: .01em; line-height: 1.15; }
+    .metric b { font-size: 16px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; order: 1; color: var(--text); }
     .metric-sep { display: none; }
+    .metric-server {
+      display: grid;
+      gap: 4px;
+      width: 100%;
+      min-width: 0;
+      padding: 6px 7px;
+      border-radius: 10px;
+      background: #fbfcfe;
+      border: 1px solid #eef2f7;
+      box-shadow: none;
+      justify-items: start;
+      align-content: center;
+      transition: background var(--transition), border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+    .metric-server:hover {
+      background: #f7faff;
+      border-color: #cfdcff;
+      box-shadow: 0 8px 18px rgba(59, 91, 219, 0.10);
+      transform: translateY(-1px);
+    }
+    .metric-server-head {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .metric-server-type {
+      color: #9ca3af;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .metric-server-type {
+      display: none;
+    }
+    .metric-server-stats {
+      display: grid;
+      gap: 3px;
+      width: auto;
+    }
+    .metric-server-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 20px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .metric-server-label {
+      color: #6b7280;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .metric-server-value {
+      color: var(--text);
+      font-weight: 800;
+      font-size: 14px;
+      line-height: 1;
+      white-space: nowrap;
+    }
 
     /* ---- Board (Kanban) ---- */
     .view-switch {
@@ -315,6 +404,44 @@
     .board-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
     .board-card-title { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.4; }
     .board-card-meta { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .board-card-top {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .board-card-summary {
+      min-height: 0;
+      padding: 8px 10px;
+      border: 1px solid #edf0f5;
+      border-radius: 10px;
+      background: #fbfcfe;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+    .board-card-summary-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      align-items: center;
+      font-size: 12px;
+      min-width: 0;
+    }
+    .board-card-summary-value {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-height: 20px;
+      min-width: 0;
+    }
+    .board-card-summary-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
     .board-card-timeline { margin-top: 10px; display: grid; gap: 4px; }
     .board-timeline-item {
       display: grid; grid-template-columns: auto 1fr; gap: 8px;
@@ -342,19 +469,53 @@
       color: #5c6370; font-size: 11px; font-weight: 600;
     }
     .board-empty { color: var(--muted); font-size: 13px; padding: 20px 16px; text-align: center; }
-    .board-card-metadata { margin-top: 8px; display: grid; gap: 4px; }
-    .board-meta-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
-    .board-meta-label { font-weight: 600; white-space: nowrap; }
-    .board-meta-value { color: var(--text); }
-    .board-meta-edit-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 11px; padding: 0 4px; text-decoration: underline; }
-    .board-meta-edit-btn:hover { opacity: 0.7; }
-    .board-meta-inline-edit { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
-    .board-meta-inline-edit input, .board-meta-inline-edit select, .board-meta-inline-edit textarea {
-      font-size: 11px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit;
+    .board-meta-empty {
+      color: #9ca3af; font-size: 12px; font-style: italic;
     }
-    .board-meta-inline-edit textarea { resize: vertical; min-height: 40px; width: 160px; }
-    .board-meta-inline-edit select { min-width: 100px; }
-    .board-meta-inline-edit button { font-size: 11px; padding: 2px 8px; }
+    .board-meta-pill {
+      display: inline-flex; align-items: center;
+      min-height: 22px; padding: 0 9px;
+      border-radius: 999px; background: #f1f5ff;
+      color: #3551c7; font-size: 11px; font-weight: 700;
+      border: 1px solid #dbe4ff;
+    }
+    .board-meta-edit-btn {
+      width: 34px; height: 34px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid #d9e1ff; color: var(--primary);
+      cursor: pointer; font-size: 16px; font-weight: 700; line-height: 1;
+      border-radius: 999px; text-decoration: none;
+      min-width: 0;
+    }
+    .board-meta-edit-btn:hover { background: #eef3ff; }
+    .metadata-modal { width: min(520px, 100%); }
+    .metadata-editor {
+      display: grid;
+      gap: 16px;
+    }
+    .metadata-editor-section {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfe;
+    }
+    .metadata-editor-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #6b7280;
+    }
+    .metadata-editor input, .metadata-editor select {
+      width: 100%;
+      min-height: 38px;
+      font-size: 13px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-family: inherit;
+    }
 
     /* ---- Table ---- */
     table { width: 100%; border-collapse: collapse; }
@@ -409,6 +570,34 @@
     .auth-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .plain-check { display: inline-flex; align-items: center; gap: 6px; color: #374151; font-size: 13px; font-weight: 600; }
     .plain-check input { width: auto; margin: 0; }
+    .config-textarea {
+      width: 100%; min-height: 88px; padding: 10px 12px; resize: vertical;
+      border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff;
+      color: var(--text); font: inherit; line-height: 1.5;
+    }
+    .config-textarea:focus {
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,91,219,.1);
+    }
+    .option-checklist {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      max-width: 100%;
+    }
+    .option-checklist .plain-check {
+      min-height: 34px; padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .option-checklist .plain-check:has(input:checked) {
+      border-color: #9db4ff;
+      background: #eef2ff;
+      color: #3551c7;
+    }
+    .option-checklist .plain-check input {
+      accent-color: #3551c7;
+    }
     .user-list-panel {
       margin-top: 16px; border: 1px solid var(--line); border-radius: var(--radius);
       background: #fafbfc; padding: 12px;
@@ -431,6 +620,13 @@
       .page { padding: 16px; }
       .page-title h1 { font-size: 20px; }
       .modal-grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+      .summary-main { grid-template-columns: repeat(2, minmax(98px, 112px)); width: fit-content; }
+      .summary-group-list { gap: 4px; }
+      .metric-server { width: 100%; }
+      .board-card-top { grid-template-columns: 1fr; align-items: start; }
+      .board-card-summary { grid-template-columns: 1fr; }
+      .board-card-summary-actions { justify-content: flex-start; }
       .filter-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
       .filter-item.status, .filter-item.stage, .filter-item.time,
       .filter-item.project, .filter-item.server,
@@ -439,11 +635,12 @@
       .range-grid { grid-template-columns: 1fr; }
       .summary { gap: 4px; }
       .board { grid-template-columns: 1fr; }
-      .metric { min-width: 80px; padding: 10px 14px; }
+      .metric { min-width: 0; min-height: 56px; padding: 6px 7px; }
     }
     @media (max-width: 640px) {
       .card { padding: 16px; }
       .field-card { padding: 12px; }
+      .summary-main { grid-template-columns: minmax(98px, 112px); width: fit-content; }
       .filter-grid { grid-template-columns: 1fr; }
       .filter-item.status, .filter-item.stage, .filter-item.time,
       .filter-item.project, .filter-item.server,
@@ -474,6 +671,7 @@
       <div class="topbar-left">
         <button id="open-server-modal" class="secondary">管理服务器</button>
         <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
+        <button id="open-app-server-options-modal" class="secondary" style="display:none;">应用服务器</button>
         <button id="open-schedule-modal" class="secondary" style="display:none;">定时任务</button>
         <button id="refresh-btn">更新数据</button>
       </div>
@@ -654,6 +852,53 @@
       </div>
     </div>
 
+    <!-- App Server Options Overlay -->
+    <div class="overlay" id="app-server-options-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2>应用服务器配置</h2>
+          <button id="close-app-server-options-modal" class="close-btn">关闭</button>
+        </div>
+        <label>可选应用服务器</label>
+        <textarea
+          id="app-server-options-input"
+          class="config-textarea"
+          rows="6"
+          placeholder="每行一个应用服务器名称或地址，例如：&#10;app-01&#10;10.10.1.18"></textarea>
+        <div class="hint">这里维护可分配的应用服务器选项。项目卡片里分配服务器时只会从这里选择。</div>
+        <div class="auth-actions">
+          <button id="save-app-server-options-btn">保存配置</button>
+        </div>
+        <div class="auth-status" id="app-server-options-status"></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="metadata-overlay">
+      <div class="modal metadata-modal">
+        <div class="modal-head">
+          <h2>项目配置</h2>
+          <button id="close-metadata-modal" class="close-btn">关闭</button>
+        </div>
+        <div class="hint" id="metadata-project-title"></div>
+        <div class="metadata-editor">
+          <div class="metadata-editor-section" id="metadata-maintainer-section">
+            <div class="metadata-editor-label">负责人</div>
+            <select id="metadata-maintainer-select"></select>
+          </div>
+          <div class="metadata-editor-section">
+            <div class="metadata-editor-label">应用服务器</div>
+            <div class="option-checklist" id="metadata-app-server-options"></div>
+            <div class="hint" id="metadata-app-server-hint"></div>
+          </div>
+        </div>
+        <div class="auth-actions" style="margin-top:16px;">
+          <button id="save-metadata-btn">保存</button>
+          <button id="cancel-metadata-btn" class="ghost">取消</button>
+        </div>
+        <div class="auth-status" id="metadata-status"></div>
+      </div>
+    </div>
+
     <!-- Schedule Config Overlay -->
     <div class="overlay" id="schedule-overlay">
       <div class="modal auth-modal">
@@ -668,8 +913,8 @@
           </label>
         </div>
         <label style="margin-top:12px;">更新时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
-        <textarea id="schedule-stage-times" rows="3" placeholder="04:00&#10;12:00&#10;20:00" style="font-family:inherit;resize:vertical;"></textarea>
-        <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+        <textarea id="schedule-stage-times" rows="3" class="config-textarea" placeholder="04:00&#10;12:00&#10;20:00"></textarea>
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
         <div class="auth-actions">
           <label class="plain-check">
             <input type="checkbox" id="schedule-count-enabled">
@@ -677,7 +922,7 @@
           </label>
         </div>
         <label style="margin-top:12px;">更新时间点</label>
-        <textarea id="schedule-count-times" rows="3" placeholder="06:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <textarea id="schedule-count-times" rows="3" class="config-textarea" placeholder="06:00"></textarea>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
         <div class="auth-actions">
           <label class="plain-check">
@@ -759,6 +1004,9 @@
     let summaryStoreConfig = null;
     let projectMetadataMap = {};
     let allUsersCache = [];
+    let allAppServerOptions = [];
+    let currentUsername = "";
+    let currentMetadataEditKey = "";
 
     function buildAppUrl(path) {
       const normalizedPath = String(path || "").replace(/^\/+/, "");
@@ -787,6 +1035,19 @@
         .split("/")
         .map(item => item.trim())
         .filter(Boolean);
+    }
+
+    function parseAppServerValues(value) {
+      return String(value ?? "")
+        .split(/[\n,，;；、]+/)
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function joinAppServerValues(values) {
+      return parseAppServerValues(Array.isArray(values) ? values.join("\n") : values)
+        .filter((item, index, list) => list.findIndex(candidate => candidate.toLowerCase() === item.toLowerCase()) === index)
+        .join("、");
     }
 
     function toLocalDateValue(date) {
@@ -832,6 +1093,10 @@
 
     async function loadServers() {
       const response = await apiFetch(buildAppUrl("api/servers"));
+      if (response.status === 403) {
+        serversCache = [];
+        return serversCache;
+      }
       if (!response.ok) {
         throw new Error("读取服务器配置失败");
       }
@@ -988,9 +1253,14 @@
       document.getElementById("summary-store-status").textContent = text;
     }
 
+    function setAppServerOptionsStatus(text) {
+      document.getElementById("app-server-options-status").textContent = text;
+    }
+
     function updateAuthView(hasAccount, username = "", role = "external", allowUserRefresh = true) {
       authMode = hasAccount ? "login" : "setup";
       currentRole = role;
+      currentUsername = username || "";
       const roleLabels = { admin: "管理员", internal: "内部用户", external: "外部用户" };
       document.getElementById("auth-title").textContent = hasAccount ? "登录验证" : "初始化账号";
       document.getElementById("auth-submit-btn").textContent = hasAccount ? "登录" : "设置账号并登录";
@@ -1003,6 +1273,7 @@
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
+      document.getElementById("open-app-server-options-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
       document.getElementById("open-schedule-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       // admin 和 internal 都可以管理服务器
       document.getElementById("open-server-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
@@ -1097,6 +1368,89 @@
     function hideSummaryStoreOverlay() {
       document.getElementById("summary-store-overlay").classList.remove("show");
       setSummaryStoreStatus("");
+    }
+
+    async function loadAppServerOptions() {
+      const response = await apiFetch(buildAppUrl("api/app-server-options"));
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "读取应用服务器配置失败");
+      }
+
+      const options = await response.json();
+      allAppServerOptions = (Array.isArray(options) ? options : [])
+        .map(item => String(item?.name ?? "").trim())
+        .filter(Boolean);
+      document.getElementById("app-server-options-input").value = allAppServerOptions.join("\n");
+      return allAppServerOptions;
+    }
+
+    function showAppServerOptionsOverlay() {
+      document.getElementById("app-server-options-overlay").classList.add("show");
+      setAppServerOptionsStatus("");
+    }
+
+    function hideAppServerOptionsOverlay() {
+      document.getElementById("app-server-options-overlay").classList.remove("show");
+      setAppServerOptionsStatus("");
+    }
+
+    function setMetadataStatus(text) {
+      document.getElementById("metadata-status").textContent = text;
+    }
+
+    function hideMetadataOverlay() {
+      document.getElementById("metadata-overlay").classList.remove("show");
+      document.getElementById("metadata-project-title").textContent = "";
+      document.getElementById("metadata-app-server-options").innerHTML = "";
+      document.getElementById("metadata-app-server-hint").textContent = "";
+      currentMetadataEditKey = "";
+      setMetadataStatus("");
+    }
+
+    function showMetadataOverlay(serverName, examCode) {
+      const key = `${serverName}|${examCode}`;
+      const meta = projectMetadataMap[key] || { maintainer: "", appServers: "" };
+      const item = allBoardGroups.find(group => getMetadataKey(group) === key);
+      const canEditAll = isAdminOrInternal();
+      const canEditAppServers = canEditAll || (currentRole === "external" && meta.maintainer === currentUsername);
+
+      currentMetadataEditKey = key;
+      document.getElementById("metadata-project-title").textContent = item?.projectName
+        ? `${item.projectName} · ${serverName} / ${examCode}`
+        : `${serverName} / ${examCode}`;
+
+      const maintainerSection = document.getElementById("metadata-maintainer-section");
+      const maintainerSelect = document.getElementById("metadata-maintainer-select");
+      maintainerSection.style.display = canEditAll ? "grid" : "none";
+      maintainerSelect.innerHTML = '<option value="">未指定</option>' +
+        (Array.isArray(allUsersCache) ? allUsersCache : []).map(u => {
+          const rl = { admin: "管理员", internal: "内部", external: "外部" }[u.role] || u.role;
+          return `<option value="${escapeHtml(u.username)}" ${u.username === meta.maintainer ? "selected" : ""}>${escapeHtml(u.username)}（${rl}）</option>`;
+        }).join("");
+
+      const optionContainer = document.getElementById("metadata-app-server-options");
+      const hint = document.getElementById("metadata-app-server-hint");
+      optionContainer.innerHTML = "";
+      hint.textContent = "";
+
+      if (!canEditAppServers) {
+        hint.textContent = "当前项目未分配给你，不能修改应用服务器。";
+      } else if (!allAppServerOptions.length) {
+        hint.textContent = "还没有可选应用服务器，请先在“应用服务器”里配置。";
+      } else {
+        const selectedValues = new Set(parseAppServerValues(meta.appServers).map(item => item.toLowerCase()));
+        optionContainer.innerHTML = allAppServerOptions.map(name => `
+          <label class="plain-check">
+            <input type="checkbox" value="${escapeHtml(name)}" ${selectedValues.has(name.toLowerCase()) ? "checked" : ""}>
+            <span>${escapeHtml(name)}</span>
+          </label>
+        `).join("");
+      }
+
+      document.getElementById("save-metadata-btn").disabled = !canEditAll && !canEditAppServers;
+      document.getElementById("metadata-overlay").classList.add("show");
+      setMetadataStatus("");
     }
 
     function setScheduleStatus(text) {
@@ -1196,9 +1550,10 @@
       renderServers();
       renderCacheInfo(await loadCacheInfo());
       await loadProjectMetadata();
-      if (isAdmin()) {
+      if (isAdminOrInternal()) {
         try { allUsersCache = await loadUsersForAdmin(); } catch (e) { /* ignore */ }
       }
+      try { await loadAppServerOptions(); } catch (e) { /* ignore */ }
       authReady = true;
     }
 
@@ -1211,19 +1566,93 @@
       const totalRegistrationCount = groups.reduce((sum, item) => sum + (item.registrationCount || 0), 0);
       const totalAdmissionTicketCount = groups.reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
       const totalScoreEstimate = groups.filter(item => (item.stages || []).some(s => String(s.stageName || "").includes("成绩"))).reduce((sum, item) => sum + (item.admissionTicketCount || 0), 0);
+      const databaseServerMetrics = Array.from(
+        groups.reduce((map, item) => {
+          const key = String(item.serverName || "").trim() || "未分组";
+          if (!map.has(key)) {
+            map.set(key, {
+              serverName: key,
+              registrationCount: 0,
+              admissionTicketCount: 0,
+              scoreEstimate: 0,
+              metricType: "数据库服务器"
+            });
+          }
+
+          const current = map.get(key);
+          current.registrationCount += item.registrationCount || 0;
+          current.admissionTicketCount += item.admissionTicketCount || 0;
+          if ((item.stages || []).some(s => String(s.stageName || "").includes("成绩"))) {
+            current.scoreEstimate += item.admissionTicketCount || 0;
+          }
+
+          return map;
+        }, new Map()).values()
+      ).sort((a, b) => a.serverName.localeCompare(b.serverName, "zh-CN"));
+      const appServerMetrics = Array.from(
+        groups.reduce((map, item) => {
+          const metadata = projectMetadataMap[getMetadataKey(item)];
+          const assignedAppServers = parseAppServerValues(metadata?.appServers || "");
+          if (!assignedAppServers.length) {
+            return map;
+          }
+
+          const targets = assignedAppServers;
+          const divisor = targets.length || 1;
+          const registrationShare = Math.floor((item.registrationCount || 0) / divisor);
+          const admissionShare = Math.floor((item.admissionTicketCount || 0) / divisor);
+          const scoreShare = (item.stages || []).some(s => String(s.stageName || "").includes("成绩"))
+            ? Math.floor((item.admissionTicketCount || 0) / divisor)
+            : 0;
+
+          targets.forEach(targetName => {
+            const key = String(targetName || "").trim() || "未分组";
+            if (!map.has(key)) {
+              map.set(key, {
+                serverName: key,
+                registrationCount: 0,
+                admissionTicketCount: 0,
+                scoreEstimate: 0,
+                metricType: "应用服务器"
+              });
+            }
+
+            const current = map.get(key);
+            current.registrationCount += registrationShare;
+            current.admissionTicketCount += admissionShare;
+            current.scoreEstimate += scoreShare;
+          });
+
+          return map;
+        }, new Map()).values()
+      ).sort((a, b) => a.serverName.localeCompare(b.serverName, "zh-CN"));
+      const combinedServerMetrics = [...databaseServerMetrics, ...appServerMetrics];
+      const serverColumnCount = Math.max(combinedServerMetrics.length, 1);
 
       document.getElementById("summary-panel").innerHTML = `
-        <div class="metric"><div>正在进行</div><b>${ongoingGroups.length}</b></div>
-        <span class="metric-sep">|</span>
-        <div class="metric"><div>即将开始</div><b>${upcomingGroups.length}</b></div>
-        <span class="metric-sep">|</span>
-        <div class="metric"><div>已结束</div><b>${endedGroups.length}</b></div>
-        <span class="metric-sep">|</span>
-        <div class="metric"><div>报名人数</div><b>${totalRegistrationCount}</b></div>
-        <span class="metric-sep">|</span>
-        <div class="metric"><div>准考证人数</div><b>${totalAdmissionTicketCount}</b></div>
-        <span class="metric-sep">|</span>
-        <div class="metric"><div>成绩预估</div><b>${totalScoreEstimate}</b></div>`;
+        <div class="summary-main">
+          <div class="metric"><div>正在进行</div><b>${ongoingGroups.length}</b></div>
+          <div class="metric"><div>即将开始</div><b>${upcomingGroups.length}</b></div>
+          <div class="metric"><div>已结束</div><b>${endedGroups.length}</b></div>
+          <div class="metric"><div>报名人数</div><b>${totalRegistrationCount}</b></div>
+          <div class="metric"><div>准考证人数</div><b>${totalAdmissionTicketCount}</b></div>
+          <div class="metric"><div>成绩预估</div><b>${totalScoreEstimate}</b></div>
+        </div>
+        <div class="summary-groups">
+          <div class="summary-group-list" style="grid-template-columns: repeat(${serverColumnCount}, minmax(0, 1fr));">
+            ${combinedServerMetrics.map(item => `
+              <div class="metric metric-server">
+                <div class="metric-server-type">${escapeHtml(item.metricType)}</div>
+                <div class="metric-server-head">${escapeHtml(item.serverName)}</div>
+                    <div class="metric-server-stats">
+                      <div class="metric-server-row"><span class="metric-server-label">报</span><span class="metric-server-value">${item.registrationCount}</span></div>
+                      <div class="metric-server-row"><span class="metric-server-label">准</span><span class="metric-server-value">${item.admissionTicketCount}</span></div>
+                      <div class="metric-server-row"><span class="metric-server-label">成</span><span class="metric-server-value">${item.scoreEstimate}</span></div>
+                    </div>
+                  </div>
+                `).join("")}
+          </div>
+        </div>`;
     }
 
     function formatDateTime(value) {
@@ -1234,6 +1663,29 @@
     function renderStageTimeRange(stage, emptyText = "-") {
       if (!stage) return emptyText;
       return `${formatDateTime(stage.startTime)} 至 ${formatDateTime(stage.endTime)}`;
+    }
+
+    function renderBoardStats(item) {
+      const stats = [
+        { label: "报名人数", value: item.registrationCount ?? 0 },
+        { label: "准考证人数", value: item.admissionTicketCount ?? 0 },
+        { label: "成绩预估", value: item.admissionTicketCount ?? 0 }
+      ].filter(stat => Number(stat.value || 0) > 0);
+
+      if (!stats.length) {
+        return "";
+      }
+
+      return `
+        <div class="board-card-stats" style="grid-template-columns:repeat(${stats.length},1fr);">
+          ${stats.map(stat => `
+            <div class="board-stat">
+              <div class="board-stat-label">${stat.label}</div>
+              <div class="board-stat-value">${stat.value}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
     }
 
     function buildTimelineStages(stages) {
@@ -1289,25 +1741,30 @@
       return `${item.serverName}|${item.examCode}`;
     }
 
-    function renderMetadataSection(item) {
+    function renderAppServerValue(value) {
+      const items = parseAppServerValues(value);
+      if (!items.length) {
+        return '<span class="board-meta-empty">未指定</span>';
+      }
+
+      return items.map(item => `<span class="board-meta-pill">${escapeHtml(item)}</span>`).join("");
+    }
+
+    function renderMetadataSummary(item) {
       const key = getMetadataKey(item);
       const meta = projectMetadataMap[key];
       const maintainer = meta?.maintainer || "";
       const appServers = meta?.appServers || "";
-      const canEditAll = isAdminOrInternal();
-      const canEditAppServers = canEditAll || (currentRole === "external" && maintainer === (document.getElementById("auth-user")?.textContent?.split("（")[0] || ""));
+      const canManageMetadata = isAdminOrInternal() || (currentRole === "external" && maintainer === currentUsername);
 
-      let html = '<div class="board-card-metadata">';
-      html += `<div class="board-meta-row"><span class="board-meta-label">负责人：</span><span class="board-meta-value">${escapeHtml(maintainer || "未指定")}</span>`;
-      if (canEditAll) {
-        html += ` <button class="board-meta-edit-btn" data-meta-action="edit-maintainer" data-server="${escapeHtml(item.serverName)}" data-exam="${escapeHtml(item.examCode)}">编辑</button>`;
+      let html = '<div class="board-card-top">';
+      html += '<div class="board-card-summary">';
+      html += `<div class="board-card-summary-row"><div class="board-card-summary-value">${maintainer ? `<span class="board-meta-pill">${escapeHtml(maintainer)}</span>` : '<span class="board-meta-empty">未指定负责人</span>'}</div></div>`;
+      html += `<div class="board-card-summary-row"><div class="board-card-summary-value">${renderAppServerValue(appServers)}</div></div>`;
+      html += '</div>';
+      if (canManageMetadata) {
+        html += `<div class="board-card-summary-actions"><button class="board-meta-edit-btn" title="配置项目" aria-label="配置项目" data-meta-action="open-metadata" data-server="${escapeHtml(item.serverName)}" data-exam="${escapeHtml(item.examCode)}">⚙</button></div>`;
       }
-      html += `</div>`;
-      html += `<div class="board-meta-row"><span class="board-meta-label">应用服务器：</span><span class="board-meta-value">${escapeHtml(appServers || "未指定")}</span>`;
-      if (canEditAppServers) {
-        html += ` <button class="board-meta-edit-btn" data-meta-action="edit-appservers" data-server="${escapeHtml(item.serverName)}" data-exam="${escapeHtml(item.examCode)}">编辑</button>`;
-      }
-      html += `</div>`;
       html += '</div>';
       return html;
     }
@@ -1318,10 +1775,9 @@
     function renderBoard(groups) {
       // External users only see cards assigned to them
       if (currentRole === "external") {
-        const currentUser = (document.getElementById("auth-user")?.textContent?.split("（")[0] || "").trim();
         groups = groups.filter(item => {
           const meta = projectMetadataMap[getMetadataKey(item)];
-          return meta && meta.maintainer === currentUser;
+          return meta && meta.maintainer === currentUsername;
         });
       }
       allBoardGroups = groups;
@@ -1382,6 +1838,7 @@
                     <div>${escapeHtml(item.serverName)} / ${escapeHtml(item.databaseName)}</div>
                     <div>考试代码：${escapeHtml(item.examCode || "-")}</div>
                   </div>
+                  ${renderMetadataSummary(item)}
                   <div class="board-card-timeline">
                     ${buildTimelineStages(item.stages).map(stage => `
                       <div class="board-timeline-item">
@@ -1395,24 +1852,10 @@
                       </div>
                     `}
                   </div>
-                  <div class="board-card-stats" style="grid-template-columns:repeat(3,1fr);">
-                    <div class="board-stat">
-                      <div class="board-stat-label">报名人数</div>
-                      <div class="board-stat-value">${item.registrationCount ?? 0}</div>
-                    </div>
-                    <div class="board-stat">
-                      <div class="board-stat-label">准考证人数</div>
-                      <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
-                    </div>
-                    <div class="board-stat">
-                      <div class="board-stat-label">成绩预估</div>
-                      <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
-                    </div>
-                  </div>
+                  ${renderBoardStats(item)}
                   <div class="board-card-stages">
                     ${(item.stages || []).map(stage => `<span class="board-stage-tag">${escapeHtml(stage.stageName)}</span>`).join("")}
                   </div>
-                  ${renderMetadataSection(item)}
                 </article>
               `).join("") : '<div class="board-empty">没有项目</div>'}
             </div>
@@ -1477,12 +1920,34 @@
         setQueryStatus(error.message);
       }
     });
+    document.getElementById("open-app-server-options-modal").addEventListener("click", async () => {
+      if (!isAdminOrInternal()) return;
+      try {
+        await loadAppServerOptions();
+        showAppServerOptionsOverlay();
+      } catch (error) {
+        setQueryStatus(error.message);
+      }
+    });
     document.getElementById("open-schedule-modal").addEventListener("click", async () => {
       if (!isAdmin()) return;
       try {
         await showScheduleOverlay();
       } catch (error) {
         setQueryStatus(error.message);
+      }
+    });
+    document.getElementById("close-app-server-options-modal").addEventListener("click", hideAppServerOptionsOverlay);
+    document.getElementById("app-server-options-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("app-server-options-overlay")) {
+        hideAppServerOptionsOverlay();
+      }
+    });
+    document.getElementById("close-metadata-modal").addEventListener("click", hideMetadataOverlay);
+    document.getElementById("cancel-metadata-btn").addEventListener("click", hideMetadataOverlay);
+    document.getElementById("metadata-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("metadata-overlay")) {
+        hideMetadataOverlay();
       }
     });
     document.getElementById("close-schedule-modal").addEventListener("click", hideScheduleOverlay);
@@ -1498,6 +1963,17 @@
         setScheduleStatus("定时任务配置已保存，立即生效。");
       } catch (error) {
         setScheduleStatus(error.message);
+      }
+    });
+    document.getElementById("save-app-server-options-btn").addEventListener("click", async () => {
+      try {
+        setAppServerOptionsStatus("正在保存应用服务器配置...");
+        const options = parseAppServerValues(document.getElementById("app-server-options-input").value);
+        await postJson(buildAppUrl("api/app-server-options"), { options });
+        await loadAppServerOptions();
+        setAppServerOptionsStatus(`应用服务器配置已保存，共 ${allAppServerOptions.length} 项。`);
+      } catch (error) {
+        setAppServerOptionsStatus(error.message);
       }
     });
     document.getElementById("test-dingtalk-btn").addEventListener("click", async () => {
@@ -1904,6 +2380,7 @@
             <div>${escapeHtml(item.serverName)} / ${escapeHtml(item.databaseName)}</div>
             <div>考试代码：${escapeHtml(item.examCode || "-")}</div>
           </div>
+          ${renderMetadataSummary(item)}
           <div class="board-card-timeline">
             ${buildTimelineStages(item.stages).map(stage => `
               <div class="board-timeline-item">
@@ -1917,24 +2394,10 @@
               </div>
             `}
           </div>
-          <div class="board-card-stats" style="grid-template-columns:repeat(3,1fr);">
-            <div class="board-stat">
-              <div class="board-stat-label">报名人数</div>
-              <div class="board-stat-value">${item.registrationCount ?? 0}</div>
-            </div>
-            <div class="board-stat">
-              <div class="board-stat-label">准考证人数</div>
-              <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
-            </div>
-            <div class="board-stat">
-              <div class="board-stat-label">成绩预估</div>
-              <div class="board-stat-value">${item.admissionTicketCount ?? 0}</div>
-            </div>
-          </div>
+          ${renderBoardStats(item)}
           <div class="board-card-stages">
             ${(item.stages || []).map(stage => `<span class="board-stage-tag">${escapeHtml(stage.stageName)}</span>`).join("")}
           </div>
-          ${renderMetadataSection(item)}
         </article>
       `).join("") : '<div class="board-empty">没有项目</div>';
     });
@@ -1946,61 +2409,8 @@
       const action = editBtn.dataset.metaAction;
       const serverName = editBtn.dataset.server;
       const examCode = editBtn.dataset.exam;
-      const key = `${serverName}|${examCode}`;
-      const meta = projectMetadataMap[key] || { maintainer: "", appServers: "" };
-      const row = editBtn.closest(".board-meta-row");
-      if (!row) return;
-
-      // Check if already editing
-      if (row.querySelector(".board-meta-inline-edit")) return;
-
-      if (action === "edit-maintainer") {
-        const container = document.createElement("div");
-        container.className = "board-meta-inline-edit";
-        const select = document.createElement("select");
-        select.innerHTML = '<option value="">未指定</option>' +
-          (Array.isArray(allUsersCache) ? allUsersCache : []).map(u => {
-            const rl = {admin:"管理员",internal:"内部",external:"外部"}[u.role] || u.role;
-            return `<option value="${escapeHtml(u.username)}" ${u.username === meta.maintainer ? "selected" : ""}>${escapeHtml(u.username)}（${rl}）</option>`;
-          }).join("");
-        const saveBtn = document.createElement("button");
-        saveBtn.textContent = "保存";
-        saveBtn.addEventListener("click", async () => {
-          try {
-            await saveProjectMetadata(serverName, examCode, select.value, meta.appServers);
-            if (allBoardGroups.length) renderBoard(allBoardGroups);
-          } catch (e) { alert(e.message); }
-        });
-        const cancelBtn = document.createElement("button");
-        cancelBtn.className = "ghost";
-        cancelBtn.textContent = "取消";
-        cancelBtn.addEventListener("click", () => container.remove());
-        container.appendChild(select);
-        container.appendChild(saveBtn);
-        container.appendChild(cancelBtn);
-        row.appendChild(container);
-      } else if (action === "edit-appservers") {
-        const container = document.createElement("div");
-        container.className = "board-meta-inline-edit";
-        const textarea = document.createElement("textarea");
-        textarea.value = meta.appServers || "";
-        textarea.placeholder = "每行一个IP或主机名";
-        const saveBtn = document.createElement("button");
-        saveBtn.textContent = "保存";
-        saveBtn.addEventListener("click", async () => {
-          try {
-            await saveProjectMetadata(serverName, examCode, meta.maintainer, textarea.value.trim());
-            if (allBoardGroups.length) renderBoard(allBoardGroups);
-          } catch (e) { alert(e.message); }
-        });
-        const cancelBtn = document.createElement("button");
-        cancelBtn.className = "ghost";
-        cancelBtn.textContent = "取消";
-        cancelBtn.addEventListener("click", () => container.remove());
-        container.appendChild(textarea);
-        container.appendChild(saveBtn);
-        container.appendChild(cancelBtn);
-        row.appendChild(container);
+      if (action === "open-metadata") {
+        showMetadataOverlay(serverName, examCode);
       }
     });
 
@@ -2044,6 +2454,27 @@
         link.click();
       } catch (error) {
         setQueryStatus(error.message);
+      }
+    });
+
+    document.getElementById("save-metadata-btn").addEventListener("click", async () => {
+      if (!currentMetadataEditKey) return;
+
+      try {
+        const [serverName, examCode] = currentMetadataEditKey.split("|");
+        const meta = projectMetadataMap[currentMetadataEditKey] || { maintainer: "", appServers: "" };
+        const maintainer = isAdminOrInternal()
+          ? document.getElementById("metadata-maintainer-select").value
+          : meta.maintainer;
+        const selected = Array.from(document.querySelectorAll('#metadata-app-server-options input[type="checkbox"]:checked'))
+          .map(input => input.value);
+
+        setMetadataStatus("正在保存项目配置...");
+        await saveProjectMetadata(serverName, examCode, maintainer, joinAppServerValues(selected));
+        if (allBoardGroups.length) renderBoard(allBoardGroups);
+        hideMetadataOverlay();
+      } catch (error) {
+        setMetadataStatus(error.message);
       }
     });
 

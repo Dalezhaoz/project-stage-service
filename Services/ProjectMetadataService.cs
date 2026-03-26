@@ -12,9 +12,17 @@ public sealed class ProjectMetadataRecord
     public DateTime? UpdatedAt { get; set; }
 }
 
+public sealed class AppServerOptionRecord
+{
+    public string Name { get; set; } = "";
+    public int SortOrder { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
 public sealed class ProjectMetadataService
 {
     private const string TableName = "project_metadata";
+    private const string AppServerOptionTableName = "app_server_options";
     private readonly SummaryStoreConfigStore _configStore;
 
     public ProjectMetadataService(SummaryStoreConfigStore configStore)
@@ -89,6 +97,14 @@ public sealed class ProjectMetadataService
         if (!config.Enabled)
             throw new InvalidOperationException("请先启用中心库。");
 
+        serverName = serverName?.Trim() ?? "";
+        examCode = examCode?.Trim() ?? "";
+        maintainer = maintainer?.Trim() ?? "";
+        appServers = await NormalizeAppServersAsync(appServers, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(examCode))
+            throw new InvalidOperationException("项目元数据缺少服务器或考试代码。");
+
         await using var connection = OpenConnection(config);
         await connection.OpenAsync(cancellationToken);
         await EnsureSchemaAsync(connection, cancellationToken);
@@ -111,6 +127,122 @@ public sealed class ProjectMetadataService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<List<AppServerOptionRecord>> GetAppServerOptionsAsync(CancellationToken cancellationToken)
+    {
+        var config = await _configStore.LoadAsync(cancellationToken);
+        if (!config.Enabled)
+            return [];
+
+        await using var connection = OpenConnection(config);
+        await connection.OpenAsync(cancellationToken);
+        await EnsureSchemaAsync(connection, cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT name, sort_order, updated_at
+            FROM dbo.{AppServerOptionTableName}
+            ORDER BY sort_order, name;
+            """;
+
+        var records = new List<AppServerOptionRecord>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            records.Add(new AppServerOptionRecord
+            {
+                Name = reader.GetString(0),
+                SortOrder = reader.GetInt32(1),
+                UpdatedAt = reader.IsDBNull(2) ? null : reader.GetDateTime(2)
+            });
+        }
+
+        return records;
+    }
+
+    public async Task SaveAppServerOptionsAsync(List<string> options, CancellationToken cancellationToken)
+    {
+        var config = await _configStore.LoadAsync(cancellationToken);
+        if (!config.Enabled)
+            throw new InvalidOperationException("请先启用中心库。");
+
+        var normalized = (options ?? [])
+            .Select(item => item?.Trim() ?? "")
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        await using var connection = OpenConnection(config);
+        await connection.OpenAsync(cancellationToken);
+        await EnsureSchemaAsync(connection, cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            await using (var deleteCommand = connection.CreateCommand())
+            {
+                deleteCommand.Transaction = (SqlTransaction)transaction;
+                deleteCommand.CommandText = $"DELETE FROM dbo.{AppServerOptionTableName};";
+                await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            for (var index = 0; index < normalized.Count; index++)
+            {
+                await using var insertCommand = connection.CreateCommand();
+                insertCommand.Transaction = (SqlTransaction)transaction;
+                insertCommand.CommandText = $"""
+                    INSERT INTO dbo.{AppServerOptionTableName} (name, sort_order, updated_at)
+                    VALUES (@name, @sort_order, GETDATE());
+                    """;
+                insertCommand.Parameters.AddWithValue("@name", normalized[index]);
+                insertCommand.Parameters.AddWithValue("@sort_order", index);
+                await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task<string> NormalizeAppServersAsync(string appServers, CancellationToken cancellationToken)
+    {
+        var normalized = ParseDelimitedValues(appServers);
+        if (normalized.Count == 0)
+            return "";
+
+        var configured = (await GetAppServerOptionsAsync(cancellationToken))
+            .Select(item => item.Name)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (configured.Count == 0)
+            throw new InvalidOperationException("请先配置可选应用服务器。");
+
+        var invalid = normalized
+            .Where(item => !configured.Contains(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (invalid.Count > 0)
+            throw new InvalidOperationException($"存在未配置的应用服务器：{string.Join("、", invalid)}");
+
+        return string.Join("、", normalized);
+    }
+
+    private static List<string> ParseDelimitedValues(string? raw)
+    {
+        return (raw ?? "")
+            .Split(['\r', '\n', ',', '，', ';', '；', '、'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(item => item.Trim())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static async Task EnsureSchemaAsync(SqlConnection connection, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
@@ -124,6 +256,16 @@ public sealed class ProjectMetadataService
                     app_servers NVARCHAR(500) NOT NULL DEFAULT '',
                     updated_at DATETIME NOT NULL DEFAULT GETDATE(),
                     CONSTRAINT PK_{TableName} PRIMARY KEY (server_name, exam_code)
+                );
+            END;
+
+            IF OBJECT_ID(N'dbo.{AppServerOptionTableName}', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.{AppServerOptionTableName} (
+                    name NVARCHAR(100) NOT NULL,
+                    sort_order INT NOT NULL DEFAULT 0,
+                    updated_at DATETIME NOT NULL DEFAULT GETDATE(),
+                    CONSTRAINT PK_{AppServerOptionTableName} PRIMARY KEY (name)
                 );
             END;
             """;
