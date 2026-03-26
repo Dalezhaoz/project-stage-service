@@ -13,18 +13,32 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self._respond(200, {"status": "ok", "message": "钉钉转发代理运行中"})
+
     def do_POST(self):
         try:
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)
-            payload = json.loads(body)
 
+            print(f"[REQ] {self.command} {self.path} Content-Length={content_length}")
+            print(f"[REQ] Body: {body[:500]}")
+
+            if not body:
+                self._respond(400, {"error": "请求体为空"})
+                print("[ERR] Empty body")
+                return
+
+            payload = json.loads(body)
             target_url = payload.get("targetUrl", "")
             message = payload.get("message", {})
 
             if not target_url:
                 self._respond(400, {"error": "缺少 targetUrl"})
+                print("[ERR] Missing targetUrl")
                 return
+
+            print(f"[FWD] -> {target_url[:80]}...")
 
             # Forward to DingTalk
             data = json.dumps(message).encode("utf-8")
@@ -38,26 +52,29 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 result = json.loads(resp.read())
 
             self._respond(200, result)
-            print(f"[OK] Forwarded to DingTalk -> errcode={result.get('errcode', '?')}")
+            print(f"[OK] Forwarded -> errcode={result.get('errcode', '?')}")
 
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8", errors="replace")
             self._respond(e.code, {"error": error_body})
             print(f"[ERR] DingTalk returned {e.code}: {error_body}")
+        except json.JSONDecodeError as e:
+            self._respond(400, {"error": f"JSON 解析失败: {e}"})
+            print(f"[ERR] JSON decode failed: {e}")
         except Exception as e:
             self._respond(500, {"error": str(e)})
             print(f"[ERR] {e}")
 
     def _respond(self, code, data):
-        body = json.dumps(data).encode("utf-8")
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def log_message(self, format, *args):
-        pass  # suppress default logs
+        pass  # suppress default access logs
 
 
 def main():
