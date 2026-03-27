@@ -61,12 +61,16 @@ public sealed class DingTalkNotifyService
 
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT project_name, stage_name, stage_start_time, stage_end_time,
-                   registration_count, admission_ticket_count,
-                   source_server_name, source_database_name, exam_code
-            FROM dbo.project_stage_summary
-            WHERE CAST(stage_start_time AS DATE) = CAST(GETDATE() AS DATE)
-            ORDER BY stage_start_time, project_name, stage_name
+            SELECT s.project_name, s.stage_name, s.stage_start_time, s.stage_end_time,
+                   s.registration_count, s.admission_ticket_count,
+                   s.source_server_name, s.source_database_name, s.exam_code,
+                   ISNULL(m.maintainer, '') AS maintainer,
+                   ISNULL(m.app_servers, '') AS app_servers
+            FROM dbo.project_stage_summary s
+            LEFT JOIN dbo.project_metadata m
+                ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
+            WHERE CAST(s.stage_start_time AS DATE) = CAST(GETDATE() AS DATE)
+            ORDER BY s.stage_start_time, s.project_name, s.stage_name
             """;
 
         var results = new List<TodayStageInfo>();
@@ -83,7 +87,9 @@ public sealed class DingTalkNotifyService
                 AdmissionTicketCount = reader.GetInt32(5),
                 ServerName = reader.GetString(6),
                 DatabaseName = reader.GetString(7),
-                ExamCode = reader.GetString(8)
+                ExamCode = reader.GetString(8),
+                Maintainer = reader.GetString(9),
+                AppServers = reader.GetString(10)
             });
         }
 
@@ -95,28 +101,76 @@ public sealed class DingTalkNotifyService
         var today = DateTime.Today.ToString("yyyy-MM-dd");
         var title = $"今日开始的项目阶段 ({today})";
 
-        var totalRegistration = stages.Sum(s => s.RegistrationCount);
-        var totalAdmission = stages.Sum(s => s.AdmissionTicketCount);
-
         var sb = new StringBuilder();
+
+        // === Header ===
         sb.AppendLine($"### 📋 今日开始的项目阶段");
-        sb.Append($"> 日期：**{today}**，共 **{stages.Count}** 个阶段");
-        if (totalRegistration > 0 || totalAdmission > 0)
-        {
-            var totals = new List<string>();
-            if (totalRegistration > 0) totals.Add($"报名 **{totalRegistration:N0}** 人");
-            if (totalAdmission > 0) totals.Add($"准考证 **{totalAdmission:N0}** 人");
-            sb.Append($"，合计 {string.Join("、", totals)}");
-        }
-        sb.AppendLine("  ");
+        sb.AppendLine($"> 日期：**{today}**，共 **{stages.Count}** 个阶段  ");
         sb.AppendLine();
 
-        // Group by project
+        // === Overview ===
+        var registrationStages = stages.Where(s => s.StageName.Contains("报名")).ToList();
+        var admissionStages = stages.Where(s => s.StageName.Contains("准考证")).ToList();
+        var scoreStages = stages.Where(s => s.StageName.Contains("成绩")).ToList();
+
+        if (registrationStages.Count > 0 || admissionStages.Count > 0 || scoreStages.Count > 0)
+        {
+            sb.AppendLine("**📊 总览**  ");
+            if (registrationStages.Count > 0)
+                sb.AppendLine($"- 报名：**{registrationStages.Sum(s => s.RegistrationCount):N0}** 人（{registrationStages.Count} 个阶段）");
+            if (admissionStages.Count > 0)
+                sb.AppendLine($"- 准考证：**{admissionStages.Sum(s => s.AdmissionTicketCount):N0}** 人（{admissionStages.Count} 个阶段）");
+            if (scoreStages.Count > 0)
+                sb.AppendLine($"- 成绩查询：**{scoreStages.Sum(s => s.AdmissionTicketCount):N0}** 人（{scoreStages.Count} 个阶段）");
+            sb.AppendLine();
+        }
+
+        // === Per App Server ===
+        var appServerCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var stage in stages)
+        {
+            var servers = (stage.AppServers ?? "")
+                .Split(['、', ',', '，'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s));
+            var count = GetEffectiveCount(stage);
+            foreach (var server in servers)
+            {
+                if (!appServerCounts.TryGetValue(server, out _))
+                    appServerCounts[server] = 0;
+                appServerCounts[server] += count;
+            }
+        }
+        if (appServerCounts.Count > 0)
+        {
+            sb.AppendLine("**🖥 应用服务器**  ");
+            foreach (var kv in appServerCounts.OrderByDescending(kv => kv.Value))
+                sb.AppendLine($"- {kv.Key}：**{kv.Value:N0}** 人");
+            sb.AppendLine();
+        }
+
+        // === Per Database Server ===
+        var dbServerGroups = stages
+            .GroupBy(s => s.ServerName)
+            .Select(g => new { Server = g.Key, Count = g.Sum(s => GetEffectiveCount(s)) })
+            .Where(g => g.Count > 0)
+            .OrderByDescending(g => g.Count)
+            .ToList();
+        if (dbServerGroups.Count > 0)
+        {
+            sb.AppendLine("**💾 数据库服务器**  ");
+            foreach (var g in dbServerGroups)
+                sb.AppendLine($"- {g.Server}：**{g.Count:N0}** 人");
+            sb.AppendLine();
+        }
+
+        // === Details ===
         var groups = stages
             .GroupBy(s => new { s.ProjectName, s.ServerName, s.ExamCode })
             .OrderBy(g => g.Min(s => s.StartTime))
             .ToList();
 
+        sb.AppendLine("**📝 明细**  ");
         var index = 0;
         foreach (var group in groups)
         {
@@ -132,13 +186,12 @@ public sealed class DingTalkNotifyService
                 sb.AppendLine($"- **{stage.StageName}** {startStr} 至 {endStr}");
 
                 var counts = new List<string>();
-                var isScoreStage = stage.StageName.Contains("成绩", StringComparison.OrdinalIgnoreCase);
-                if (stage.RegistrationCount > 0)
-                    counts.Add($"报名 {stage.RegistrationCount} 人");
-                if (stage.AdmissionTicketCount > 0)
-                    counts.Add($"准考证 {stage.AdmissionTicketCount} 人");
-                if (isScoreStage && stage.AdmissionTicketCount > 0)
-                    counts.Add($"预估查询 {stage.AdmissionTicketCount} 人");
+                if (stage.StageName.Contains("报名") && stage.RegistrationCount > 0)
+                    counts.Add($"报名 {stage.RegistrationCount:N0} 人");
+                if (stage.StageName.Contains("准考证") && stage.AdmissionTicketCount > 0)
+                    counts.Add($"准考证 {stage.AdmissionTicketCount:N0} 人");
+                if (stage.StageName.Contains("成绩") && stage.AdmissionTicketCount > 0)
+                    counts.Add($"预估查询 {stage.AdmissionTicketCount:N0} 人");
                 if (counts.Count > 0)
                     sb.AppendLine($"  - {string.Join("，", counts)}");
             }
@@ -147,6 +200,18 @@ public sealed class DingTalkNotifyService
         }
 
         return (title, sb.ToString());
+    }
+
+    private static int GetEffectiveCount(TodayStageInfo stage)
+    {
+        var count = 0;
+        if (stage.StageName.Contains("报名"))
+            count += stage.RegistrationCount;
+        if (stage.StageName.Contains("准考证"))
+            count += stage.AdmissionTicketCount;
+        if (stage.StageName.Contains("成绩"))
+            count += stage.AdmissionTicketCount;
+        return count;
     }
 
     private async Task SendDingTalkMessageAsync(
@@ -234,5 +299,7 @@ public sealed class DingTalkNotifyService
         public string ServerName { get; set; } = "";
         public string DatabaseName { get; set; } = "";
         public string ExamCode { get; set; } = "";
+        public string Maintainer { get; set; } = "";
+        public string AppServers { get; set; } = "";
     }
 }
