@@ -215,6 +215,19 @@ app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest request, Loc
     }
 }).RequireAuthorization("AdminOnly");
 
+app.MapPost("/api/auth/user-dingtalk", async (UpdateUserDingTalkRequest request, LocalAuthService authService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await authService.UpdateUserDingTalkAsync(request.Username, request.WebhookUrl, request.Secret, cancellationToken);
+        return Results.Ok(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
 app.MapPost("/api/auth/logout", async (HttpContext httpContext) =>
 {
     await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

@@ -603,12 +603,19 @@
       background: #fafbfc; padding: 12px;
     }
     .user-row {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft);
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line-soft);
     }
     .user-row:last-child { border-bottom: none; }
     .user-meta { color: #374151; font-size: 13px; font-weight: 600; }
     .user-role { color: var(--muted); font-size: 12px; }
+    .user-dingtalk { margin-top: 6px; }
+    .user-dingtalk input {
+      font-size: 12px; padding: 3px 6px; border: 1px solid var(--line);
+      border-radius: 4px; width: 220px; margin-right: 4px;
+    }
+    .user-dingtalk-status { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .user-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
     .danger-note { color: var(--warning); font-size: 12px; line-height: 1.5; margin-top: 8px; }
     .query-actions { align-items: center; }
     .query-actions #query-btn { min-width: 120px; }
@@ -1534,11 +1541,19 @@
       const userList = Array.isArray(users) ? users : [];
       container.innerHTML = userList.map(user => `
         <div class="user-row">
-          <div>
+          <div style="flex:1; min-width:0;">
             <div class="user-meta">${escapeHtml(user.username)}</div>
             <div class="user-role">${{admin:"超级管理员",internal:"内部用户",external:"外部用户"}[user.role] || user.role}</div>
+            <div class="user-dingtalk">
+              <input type="text" placeholder="钉钉 Webhook URL" data-dingtalk-webhook="${escapeHtml(user.username)}" value="${escapeHtml(user.dingTalkWebhook || "")}">
+              <input type="text" placeholder="签名密钥（选填）" data-dingtalk-secret="${escapeHtml(user.username)}" value="${escapeHtml(user.dingTalkSecret || "")}" style="width:140px;">
+              <button type="button" class="ghost" data-save-dingtalk="${escapeHtml(user.username)}">保存</button>
+              <div class="user-dingtalk-status" id="dingtalk-status-${escapeHtml(user.username)}"></div>
+            </div>
           </div>
-          ${user.role === "admin" ? "" : `<button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>`}
+          <div class="user-actions">
+            ${user.role === "admin" ? "" : `<button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>`}
+          </div>
         </div>
       `).join("") || '<div class="server-empty">还没有用户。</div>';
       allUsersCache = userList;
@@ -2068,15 +2083,40 @@
     document.getElementById("user-list").addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
-      const username = target.dataset.resetUser;
-      if (!username) return;
 
-      try {
-        setUserStatus(`正在重置 ${username} 的密码...`);
-        const result = await postJson(buildAppUrl("api/auth/reset-password"), { username });
-        setUserStatus(`用户 ${result.username} 的密码已重置为 ${result.defaultPassword}。`);
-      } catch (error) {
-        setUserStatus(error.message);
+      // Reset password
+      const resetUser = target.dataset.resetUser;
+      if (resetUser) {
+        try {
+          setUserStatus(`正在重置 ${resetUser} 的密码...`);
+          const result = await postJson(buildAppUrl("api/auth/reset-password"), { username: resetUser });
+          setUserStatus(`用户 ${result.username} 的密码已重置为 ${result.defaultPassword}。`);
+        } catch (error) {
+          setUserStatus(error.message);
+        }
+        return;
+      }
+
+      // Save DingTalk config
+      const saveDingtalk = target.dataset.saveDingtalk;
+      if (saveDingtalk) {
+        const statusEl = document.getElementById(`dingtalk-status-${saveDingtalk}`);
+        const webhookEl = document.querySelector(`input[data-dingtalk-webhook="${saveDingtalk}"]`);
+        const secretEl = document.querySelector(`input[data-dingtalk-secret="${saveDingtalk}"]`);
+        if (!webhookEl || !secretEl) return;
+
+        try {
+          if (statusEl) statusEl.textContent = "保存中...";
+          await postJson(buildAppUrl("api/auth/user-dingtalk"), {
+            username: saveDingtalk,
+            webhookUrl: webhookEl.value.trim(),
+            secret: secretEl.value.trim()
+          });
+          if (statusEl) statusEl.textContent = "已保存";
+          setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 2000);
+        } catch (error) {
+          if (statusEl) statusEl.textContent = error.message;
+        }
       }
     });
     document.getElementById("change-password-btn").addEventListener("click", async () => {

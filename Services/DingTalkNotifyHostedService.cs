@@ -82,7 +82,9 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
                     continue;
                 }
 
-                await notifyService.SendDailyReportAsync(summaryConfig, config.DingTalkConfig!, stoppingToken);
+                var authService = scope.ServiceProvider.GetRequiredService<LocalAuthService>();
+                var userDingTalkConfigs = await authService.GetAllDingTalkConfigsAsync(stoppingToken);
+                await notifyService.SendDailyReportAsync(summaryConfig, config.DingTalkConfig!, userDingTalkConfigs, stoppingToken);
             }
             catch (TaskCanceledException)
             {

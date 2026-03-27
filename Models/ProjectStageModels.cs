@@ -54,6 +54,13 @@ public sealed class AllowUserRefreshRequest
     public bool Allow { get; set; }
 }
 
+public sealed class UpdateUserDingTalkRequest
+{
+    public string Username { get; set; } = "";
+    public string WebhookUrl { get; set; } = "";
+    public string Secret { get; set; } = "";
+}
+
 public sealed class AppServerOptionRequest
 {
     public List<string> Options { get; set; } = [];

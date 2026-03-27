@@ -23,12 +23,15 @@ public sealed class DingTalkNotifyService
         DingTalkConfig dingTalkConfig,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(dingTalkConfig.WebhookUrl))
-        {
-            _logger.LogWarning("DingTalk webhook URL is empty, skipping notification.");
-            return;
-        }
+        await SendDailyReportAsync(summaryConfig, dingTalkConfig, [], cancellationToken);
+    }
 
+    public async Task SendDailyReportAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig dingTalkConfig,
+        List<LocalAuthService.UserDingTalkConfig> userDingTalkConfigs,
+        CancellationToken cancellationToken)
+    {
         var todayStages = await QueryTodayStartingStagesAsync(summaryConfig, cancellationToken);
         if (todayStages.Count == 0)
         {
@@ -36,9 +39,40 @@ public sealed class DingTalkNotifyService
             return;
         }
 
-        var markdown = BuildMarkdownMessage(todayStages);
-        await SendDingTalkMessageAsync(dingTalkConfig, markdown.title, markdown.text, cancellationToken);
-        _logger.LogInformation("DingTalk daily report sent: {Count} stages starting today.", todayStages.Count);
+        // Send overall report to main webhook
+        if (!string.IsNullOrWhiteSpace(dingTalkConfig.WebhookUrl))
+        {
+            var markdown = BuildMarkdownMessage(todayStages);
+            await SendDingTalkMessageAsync(dingTalkConfig, markdown.title, markdown.text, cancellationToken);
+            _logger.LogInformation("DingTalk daily report sent: {Count} stages starting today.", todayStages.Count);
+        }
+
+        // Send per-maintainer reports
+        foreach (var userConfig in userDingTalkConfigs)
+        {
+            try
+            {
+                var userStages = todayStages
+                    .Where(s => string.Equals(s.Maintainer, userConfig.Username, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (userStages.Count == 0) continue;
+
+                var markdown = BuildMaintainerMarkdownMessage(userConfig.Username, userStages);
+                var config = new DingTalkConfig
+                {
+                    WebhookUrl = userConfig.WebhookUrl,
+                    Secret = userConfig.Secret,
+                    ProxyUrl = dingTalkConfig.ProxyUrl
+                };
+                await SendDingTalkMessageAsync(config, markdown.title, markdown.text, cancellationToken);
+                _logger.LogInformation("DingTalk personal report sent to {User}: {Count} stages.", userConfig.Username, userStages.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send personal DingTalk report to {User}.", userConfig.Username);
+            }
+        }
     }
 
     private async Task<List<TodayStageInfo>> QueryTodayStartingStagesAsync(
@@ -171,6 +205,52 @@ public sealed class DingTalkNotifyService
             .ToList();
 
         sb.AppendLine("**📝 明细**  ");
+        var index = 0;
+        foreach (var group in groups)
+        {
+            index++;
+            var first = group.First();
+            sb.AppendLine($"**{index}. {first.ProjectName}**");
+            sb.AppendLine($"> {first.ServerName} / 考试代码：{first.ExamCode}  ");
+
+            foreach (var stage in group.OrderBy(s => s.StartTime))
+            {
+                var startStr = stage.StartTime.ToString("HH:mm");
+                var endStr = stage.EndTime.ToString("MM-dd HH:mm");
+                sb.AppendLine($"- **{stage.StageName}** {startStr} 至 {endStr}");
+
+                var counts = new List<string>();
+                if (stage.StageName.Contains("报名") && stage.RegistrationCount > 0)
+                    counts.Add($"报名 {stage.RegistrationCount:N0} 人");
+                if (stage.StageName.Contains("准考证") && stage.AdmissionTicketCount > 0)
+                    counts.Add($"准考证 {stage.AdmissionTicketCount:N0} 人");
+                if (stage.StageName.Contains("成绩") && stage.AdmissionTicketCount > 0)
+                    counts.Add($"预估查询 {stage.AdmissionTicketCount:N0} 人");
+                if (counts.Count > 0)
+                    sb.AppendLine($"  - {string.Join("，", counts)}");
+            }
+
+            sb.AppendLine();
+        }
+
+        return (title, sb.ToString());
+    }
+
+    private static (string title, string text) BuildMaintainerMarkdownMessage(string maintainer, List<TodayStageInfo> stages)
+    {
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        var title = $"今日项目提醒 - {maintainer} ({today})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### 📋 {maintainer}，你今日有 **{stages.Count}** 个阶段开始");
+        sb.AppendLine($"> 日期：**{today}**  ");
+        sb.AppendLine();
+
+        var groups = stages
+            .GroupBy(s => new { s.ProjectName, s.ServerName, s.ExamCode })
+            .OrderBy(g => g.Min(s => s.StartTime))
+            .ToList();
+
         var index = 0;
         foreach (var group in groups)
         {

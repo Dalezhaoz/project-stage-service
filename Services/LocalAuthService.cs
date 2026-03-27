@@ -69,7 +69,7 @@ public sealed class LocalAuthService
         return store.Users
             .OrderBy(item => roleOrder.GetValueOrDefault(ResolveRole(item), 9))
             .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
-            .Select(item => new UserInfo(item.Username, ResolveRole(item)))
+            .Select(item => new UserInfo(item.Username, ResolveRole(item), item.DingTalkWebhook, item.DingTalkSecret))
             .ToList();
     }
 
@@ -148,6 +148,29 @@ public sealed class LocalAuthService
         ReplacePassword(user, DefaultPassword);
         user.ForcePasswordChange = true;
         await SaveStoreAsync(store, cancellationToken);
+    }
+
+    public async Task UpdateUserDingTalkAsync(string username, string webhookUrl, string secret, CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        var user = store.Users.FirstOrDefault(item => string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal));
+        if (user is null)
+        {
+            throw new InvalidOperationException("用户不存在。");
+        }
+
+        user.DingTalkWebhook = webhookUrl?.Trim() ?? "";
+        user.DingTalkSecret = secret?.Trim() ?? "";
+        await SaveStoreAsync(store, cancellationToken);
+    }
+
+    public async Task<List<UserDingTalkConfig>> GetAllDingTalkConfigsAsync(CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        return store.Users
+            .Where(item => !string.IsNullOrWhiteSpace(item.DingTalkWebhook))
+            .Select(item => new UserDingTalkConfig(item.Username, item.DingTalkWebhook, item.DingTalkSecret))
+            .ToList();
     }
 
     public async Task<bool> GetAllowUserRefreshAsync(CancellationToken cancellationToken)
@@ -294,7 +317,8 @@ public sealed class LocalAuthService
     }
 
     public sealed record AuthValidationResult(bool Success, string Role, bool ForcePasswordChange);
-    public sealed record UserInfo(string Username, string Role);
+    public sealed record UserInfo(string Username, string Role, string DingTalkWebhook = "", string DingTalkSecret = "");
+    public sealed record UserDingTalkConfig(string Username, string WebhookUrl, string Secret);
 
     private sealed class AuthStore
     {
@@ -311,6 +335,8 @@ public sealed class LocalAuthService
         public bool IsAdmin { get; set; }
         public string Role { get; set; } = "";
         public bool ForcePasswordChange { get; set; }
+        public string DingTalkWebhook { get; set; } = "";
+        public string DingTalkSecret { get; set; } = "";
     }
 
     private sealed class LegacyAuthRecord
