@@ -26,17 +26,20 @@ public sealed class DingTalkNotifyService
         await SendDailyReportAsync(summaryConfig, dingTalkConfig, [], cancellationToken);
     }
 
-    public async Task SendDailyReportAsync(
+    public async Task<DailyReportResult> SendDailyReportAsync(
         SummaryStoreConfig summaryConfig,
         DingTalkConfig dingTalkConfig,
         List<LocalAuthService.UserDingTalkConfig> userDingTalkConfigs,
         CancellationToken cancellationToken)
     {
+        var result = new DailyReportResult();
         var todayStages = await QueryTodayStartingStagesAsync(summaryConfig, cancellationToken);
+        result.TotalStages = todayStages.Count;
+
         if (todayStages.Count == 0)
         {
             _logger.LogInformation("No stages starting today, skipping DingTalk notification.");
-            return;
+            return result;
         }
 
         // Send overall report to main webhook
@@ -45,6 +48,7 @@ public sealed class DingTalkNotifyService
             var markdown = BuildMarkdownMessage(todayStages);
             await SendDingTalkMessageAsync(dingTalkConfig, markdown.title, markdown.text, cancellationToken);
             _logger.LogInformation("DingTalk daily report sent: {Count} stages starting today.", todayStages.Count);
+            result.MainSent = true;
         }
 
         // Send per-maintainer reports
@@ -56,7 +60,11 @@ public sealed class DingTalkNotifyService
                     .Where(s => string.Equals(s.Maintainer, userConfig.Username, StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
-                if (userStages.Count == 0) continue;
+                if (userStages.Count == 0)
+                {
+                    result.SkippedUsers.Add(userConfig.Username);
+                    continue;
+                }
 
                 var markdown = BuildMaintainerMarkdownMessage(userConfig.Username, userStages);
                 var config = new DingTalkConfig
@@ -67,12 +75,25 @@ public sealed class DingTalkNotifyService
                 };
                 await SendDingTalkMessageAsync(config, markdown.title, markdown.text, cancellationToken);
                 _logger.LogInformation("DingTalk personal report sent to {User}: {Count} stages.", userConfig.Username, userStages.Count);
+                result.SentUsers.Add(userConfig.Username);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send personal DingTalk report to {User}.", userConfig.Username);
+                result.FailedUsers.Add(userConfig.Username);
             }
         }
+
+        return result;
+    }
+
+    public class DailyReportResult
+    {
+        public int TotalStages { get; set; }
+        public bool MainSent { get; set; }
+        public List<string> SentUsers { get; set; } = [];
+        public List<string> SkippedUsers { get; set; } = [];
+        public List<string> FailedUsers { get; set; } = [];
     }
 
     private async Task<List<TodayStageInfo>> QueryTodayStartingStagesAsync(

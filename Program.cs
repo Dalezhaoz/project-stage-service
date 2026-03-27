@@ -282,8 +282,15 @@ app.MapPost("/api/dingtalk/test-personal", async (HttpContext httpContext, DingT
             new(me.Username, me.DingTalkWebhook, me.DingTalkSecret)
         };
         var dummyMainConfig = new DingTalkConfig { ProxyUrl = proxyUrl };
-        await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
-        return Results.Ok(new { sent = true });
+        var result = await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
+
+        if (result.TotalStages == 0)
+            return Results.Ok(new { sent = false, detail = "今天没有开始的阶段，无内容可推送。" });
+        if (result.SkippedUsers.Contains(username))
+            return Results.Ok(new { sent = false, detail = $"今天有 {result.TotalStages} 个阶段，但没有分配给你的项目。请联系管理员在看板中设置负责人。" });
+        if (result.SentUsers.Contains(username))
+            return Results.Ok(new { sent = true });
+        return Results.Ok(new { sent = false, detail = "发送失败，请检查 Webhook 配置。" });
     }
     catch (Exception ex)
     {
@@ -337,7 +344,7 @@ app.MapPost("/api/schedule", async (ScheduleConfig config, ScheduleConfigStore s
     return Results.Ok(new { saved = true });
 }).RequireAuthorization("AdminOnly");
 
-app.MapPost("/api/dingtalk/test", async (DingTalkNotifyService notifyService, SummaryStoreConfigStore summaryStoreConfigStore, ScheduleConfigStore scheduleConfigStore, CancellationToken cancellationToken) =>
+app.MapPost("/api/dingtalk/test", async (DingTalkNotifyService notifyService, SummaryStoreConfigStore summaryStoreConfigStore, ScheduleConfigStore scheduleConfigStore, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -353,8 +360,62 @@ app.MapPost("/api/dingtalk/test", async (DingTalkNotifyService notifyService, Su
             return Results.BadRequest(new { detail = "请先启用中心库。" });
         }
 
-        await notifyService.SendDailyReportAsync(summaryConfig, scheduleConfig.DingTalkConfig, cancellationToken);
-        return Results.Ok(new { sent = true });
+        // Also send to all users who have DingTalk configured
+        var users = await authService.GetUsersAsync(cancellationToken);
+        var userConfigs = users
+            .Where(u => !string.IsNullOrWhiteSpace(u.DingTalkWebhook))
+            .Select(u => new LocalAuthService.UserDingTalkConfig(u.Username, u.DingTalkWebhook, u.DingTalkSecret))
+            .ToList();
+
+        var result = await notifyService.SendDailyReportAsync(summaryConfig, scheduleConfig.DingTalkConfig, userConfigs, cancellationToken);
+        return Results.Ok(new
+        {
+            sent = result.MainSent || result.SentUsers.Count > 0,
+            totalStages = result.TotalStages,
+            mainSent = result.MainSent,
+            sentUsers = result.SentUsers,
+            skippedUsers = result.SkippedUsers,
+            failedUsers = result.FailedUsers
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/dingtalk/test-user", async (TestUserDingTalkRequest request, DingTalkNotifyService notifyService, SummaryStoreConfigStore summaryStoreConfigStore, ScheduleConfigStore scheduleConfigStore, LocalAuthService authService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var users = await authService.GetUsersAsync(cancellationToken);
+        var target = users.FirstOrDefault(u => string.Equals(u.Username, request.Username, StringComparison.Ordinal));
+        if (target is null)
+            return Results.BadRequest(new { detail = $"用户 {request.Username} 不存在。" });
+        if (string.IsNullOrWhiteSpace(target.DingTalkWebhook))
+            return Results.BadRequest(new { detail = $"用户 {request.Username} 未配置钉钉 Webhook。" });
+
+        var summaryConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+        if (!summaryConfig.Enabled)
+            return Results.BadRequest(new { detail = "请先启用中心库。" });
+
+        var scheduleConfig = await scheduleConfigStore.LoadAsync(cancellationToken);
+        var proxyUrl = scheduleConfig.DingTalkConfig?.ProxyUrl ?? "";
+
+        var userConfigs = new List<LocalAuthService.UserDingTalkConfig>
+        {
+            new(target.Username, target.DingTalkWebhook, target.DingTalkSecret)
+        };
+        var dummyMainConfig = new DingTalkConfig { ProxyUrl = proxyUrl };
+        var result = await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
+
+        if (result.TotalStages == 0)
+            return Results.Ok(new { sent = false, detail = "今天没有开始的阶段，无内容可推送。" });
+        if (result.SkippedUsers.Contains(target.Username))
+            return Results.Ok(new { sent = false, detail = $"今天有 {result.TotalStages} 个阶段，但没有分配给 {target.Username} 的项目。" });
+        if (result.SentUsers.Contains(target.Username))
+            return Results.Ok(new { sent = true });
+        return Results.Ok(new { sent = false, detail = "发送失败，请检查 Webhook 配置。" });
     }
     catch (Exception ex)
     {

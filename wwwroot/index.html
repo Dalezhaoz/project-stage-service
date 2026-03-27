@@ -1570,6 +1570,7 @@
               <input type="text" placeholder="钉钉 Webhook URL" data-dingtalk-webhook="${escapeHtml(user.username)}" value="${escapeHtml(user.dingTalkWebhook || "")}">
               <input type="text" placeholder="签名密钥（选填）" data-dingtalk-secret="${escapeHtml(user.username)}" value="${escapeHtml(user.dingTalkSecret || "")}" style="width:140px;">
               <button type="button" class="ghost" data-save-dingtalk="${escapeHtml(user.username)}">保存</button>
+              <button type="button" class="ghost" data-test-dingtalk="${escapeHtml(user.username)}" ${user.dingTalkWebhook ? '' : 'disabled'}>测试推送</button>
               <div class="user-dingtalk-status" id="dingtalk-status-${escapeHtml(user.username)}"></div>
             </div>
           </div>
@@ -2017,8 +2018,13 @@
         setScheduleStatus("正在发送测试消息...");
         // 先保存配置再测试
         await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
-        await postJson(buildAppUrl("api/dingtalk/test"), {});
-        setScheduleStatus("钉钉测试消息已发送，请查看群消息。");
+        const data = await postJson(buildAppUrl("api/dingtalk/test"), {});
+        let msg = "✅ 群消息已发送。";
+        if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
+        if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
+        if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
+        if (data.totalStages === 0) msg = "⚠️ 今天没有开始的阶段，无内容可推送。";
+        setScheduleStatus(msg);
       } catch (error) {
         setScheduleStatus(error.message);
       }
@@ -2060,10 +2066,14 @@
       const statusEl = document.getElementById("my-dingtalk-status");
       try {
         statusEl.textContent = "正在发送测试推送...";
-        await postJson(buildAppUrl("api/dingtalk/test-personal"), {});
-        statusEl.textContent = "测试推送已发送，请检查钉钉。";
+        const data = await postJson(buildAppUrl("api/dingtalk/test-personal"), {});
+        if (data.sent) {
+          statusEl.textContent = "✅ 测试推送已发送，请检查钉钉。";
+        } else {
+          statusEl.textContent = "⚠️ " + (data.detail || "未发送，原因未知。");
+        }
       } catch (error) {
-        statusEl.textContent = error.message;
+        statusEl.textContent = "❌ " + error.message;
       }
     });
     document.getElementById("my-dingtalk-overlay").addEventListener("click", (event) => {
@@ -2182,6 +2192,24 @@
           setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 2000);
         } catch (error) {
           if (statusEl) statusEl.textContent = error.message;
+        }
+      }
+
+      // Test DingTalk push for user (admin only)
+      const testDingtalk = target.dataset.testDingtalk;
+      if (testDingtalk) {
+        const statusEl = document.getElementById(`dingtalk-status-${testDingtalk}`);
+        try {
+          if (statusEl) statusEl.textContent = "正在发送测试推送...";
+          const data = await postJson(buildAppUrl("api/dingtalk/test-user"), { username: testDingtalk });
+          if (data.sent) {
+            if (statusEl) statusEl.textContent = "✅ 已发送";
+          } else {
+            if (statusEl) statusEl.textContent = "⚠️ " + (data.detail || "未发送");
+          }
+          setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 5000);
+        } catch (error) {
+          if (statusEl) statusEl.textContent = "❌ " + error.message;
         }
       }
     });

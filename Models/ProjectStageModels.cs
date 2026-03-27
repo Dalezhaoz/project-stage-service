@@ -61,6 +61,11 @@ public sealed class UpdateUserDingTalkRequest
     public string Secret { get; set; } = "";
 }
 
+public sealed class TestUserDingTalkRequest
+{
+    public string Username { get; set; } = "";
+}
+
 public sealed class AppServerOptionRequest
 {
     public List<string> Options { get; set; } = [];
