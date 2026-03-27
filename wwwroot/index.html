@@ -1546,10 +1546,9 @@
     }
 
     async function bootstrapAfterLogin() {
-      await loadServers();
-      renderServers();
-      renderCacheInfo(await loadCacheInfo());
-      await loadProjectMetadata();
+      try { await loadServers(); renderServers(); } catch (e) { /* ignore for external */ }
+      try { renderCacheInfo(await loadCacheInfo()); } catch (e) { /* ignore */ }
+      try { await loadProjectMetadata(); } catch (e) { /* ignore */ }
       if (isAdminOrInternal()) {
         try { allUsersCache = await loadUsersForAdmin(); } catch (e) { /* ignore */ }
       }
