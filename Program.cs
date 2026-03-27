@@ -234,6 +234,63 @@ app.MapPost("/api/auth/logout", async (HttpContext httpContext) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+app.MapGet("/api/auth/my-dingtalk", async (HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
+{
+    var username = httpContext.User.Identity?.Name;
+    if (string.IsNullOrWhiteSpace(username)) return Results.Unauthorized();
+    var users = await authService.GetUsersAsync(cancellationToken);
+    var me = users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.Ordinal));
+    return Results.Ok(new { webhookUrl = me?.DingTalkWebhook ?? "", secret = me?.DingTalkSecret ?? "" });
+}).RequireAuthorization();
+
+app.MapPost("/api/auth/my-dingtalk", async (UpdateUserDingTalkRequest request, HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
+{
+    var username = httpContext.User.Identity?.Name;
+    if (string.IsNullOrWhiteSpace(username)) return Results.Unauthorized();
+    try
+    {
+        await authService.UpdateUserDingTalkAsync(username, request.WebhookUrl, request.Secret, cancellationToken);
+        return Results.Ok(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapPost("/api/dingtalk/test-personal", async (HttpContext httpContext, DingTalkNotifyService notifyService, SummaryStoreConfigStore summaryStoreConfigStore, LocalAuthService authService, ScheduleConfigStore scheduleConfigStore, CancellationToken cancellationToken) =>
+{
+    var username = httpContext.User.Identity?.Name;
+    if (string.IsNullOrWhiteSpace(username)) return Results.Unauthorized();
+
+    try
+    {
+        var users = await authService.GetUsersAsync(cancellationToken);
+        var me = users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.Ordinal));
+        if (me is null || string.IsNullOrWhiteSpace(me.DingTalkWebhook))
+            return Results.BadRequest(new { detail = "请先配置你的钉钉 Webhook 地址。" });
+
+        var summaryConfig = await summaryStoreConfigStore.LoadAsync(cancellationToken);
+        if (!summaryConfig.Enabled)
+            return Results.BadRequest(new { detail = "请联系管理员先启用中心库。" });
+
+        var scheduleConfig = await scheduleConfigStore.LoadAsync(cancellationToken);
+        var proxyUrl = scheduleConfig.DingTalkConfig?.ProxyUrl ?? "";
+
+        var userConfigs = new List<LocalAuthService.UserDingTalkConfig>
+        {
+            new(me.Username, me.DingTalkWebhook, me.DingTalkSecret)
+        };
+        var dummyMainConfig = new DingTalkConfig { ProxyUrl = proxyUrl };
+        await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
+        return Results.Ok(new { sent = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization();
+
 app.MapPost("/api/auth/allow-user-refresh", async (AllowUserRefreshRequest request, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     await authService.SetAllowUserRefreshAsync(request.Allow, cancellationToken);

@@ -669,6 +669,7 @@
         <span class="auth-user" id="auth-user"></span>
         <button id="toggle-config-panel" type="button" class="header-toggle">配置</button>
         <button id="open-user-modal" type="button" class="header-toggle" style="display:none;">用户</button>
+        <button id="open-my-dingtalk-modal" type="button" class="header-toggle" style="display:none;">钉钉推送</button>
         <button id="open-password-modal" type="button" class="header-toggle" style="display:none;">密码</button>
         <button id="logout-btn" type="button" class="header-toggle" style="display:none;">退出</button>
       </div>
@@ -823,6 +824,26 @@
         </div>
         <div class="danger-note" id="password-note" style="display:none;">当前账号使用的是初始密码，必须先修改后才能继续使用。</div>
         <div class="auth-status" id="password-status"></div>
+      </div>
+    </div>
+
+    <!-- My DingTalk Overlay -->
+    <div class="overlay" id="my-dingtalk-overlay">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h2>我的钉钉推送</h2>
+          <button id="close-my-dingtalk-modal" class="close-btn">关闭</button>
+        </div>
+        <div class="hint" style="margin-bottom:12px;">配置后，系统会在定时推送时单独给你发送属于你的项目通知。</div>
+        <label>Webhook URL</label>
+        <input id="my-dingtalk-webhook" type="text" placeholder="请粘贴钉钉机器人 Webhook 地址">
+        <label style="margin-top:12px;">签名密钥（选填）</label>
+        <input id="my-dingtalk-secret" type="text" placeholder="如果机器人启用了签名，请填写密钥">
+        <div class="auth-actions" style="gap:8px;">
+          <button id="save-my-dingtalk-btn">保存</button>
+          <button id="test-my-dingtalk-btn" class="secondary">测试推送</button>
+        </div>
+        <div class="auth-status" id="my-dingtalk-status"></div>
       </div>
     </div>
 
@@ -1279,6 +1300,7 @@
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
+      document.getElementById("open-my-dingtalk-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-app-server-options-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
       document.getElementById("open-schedule-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
@@ -2005,6 +2027,50 @@
     document.getElementById("close-user-modal").addEventListener("click", hideUserOverlay);
     document.getElementById("close-password-modal").addEventListener("click", hidePasswordOverlay);
     document.getElementById("close-summary-store-modal").addEventListener("click", hideSummaryStoreOverlay);
+    document.getElementById("open-my-dingtalk-modal").addEventListener("click", async () => {
+      document.getElementById("my-dingtalk-overlay").classList.add("show");
+      document.getElementById("my-dingtalk-status").textContent = "";
+      try {
+        const resp = await apiFetch(buildAppUrl("api/auth/my-dingtalk"));
+        if (resp.ok) {
+          const data = await resp.json();
+          document.getElementById("my-dingtalk-webhook").value = data.webhookUrl || "";
+          document.getElementById("my-dingtalk-secret").value = data.secret || "";
+        }
+      } catch (e) { /* ignore */ }
+    });
+    document.getElementById("close-my-dingtalk-modal").addEventListener("click", () => {
+      document.getElementById("my-dingtalk-overlay").classList.remove("show");
+    });
+    document.getElementById("save-my-dingtalk-btn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("my-dingtalk-status");
+      try {
+        statusEl.textContent = "保存中...";
+        await postJson(buildAppUrl("api/auth/my-dingtalk"), {
+          username: currentUsername,
+          webhookUrl: document.getElementById("my-dingtalk-webhook").value.trim(),
+          secret: document.getElementById("my-dingtalk-secret").value.trim()
+        });
+        statusEl.textContent = "已保存。";
+      } catch (error) {
+        statusEl.textContent = error.message;
+      }
+    });
+    document.getElementById("test-my-dingtalk-btn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("my-dingtalk-status");
+      try {
+        statusEl.textContent = "正在发送测试推送...";
+        await postJson(buildAppUrl("api/dingtalk/test-personal"), {});
+        statusEl.textContent = "测试推送已发送，请检查钉钉。";
+      } catch (error) {
+        statusEl.textContent = error.message;
+      }
+    });
+    document.getElementById("my-dingtalk-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("my-dingtalk-overlay")) {
+        document.getElementById("my-dingtalk-overlay").classList.remove("show");
+      }
+    });
     document.getElementById("user-overlay").addEventListener("click", (event) => {
       if (event.target === document.getElementById("user-overlay")) {
         hideUserOverlay();
