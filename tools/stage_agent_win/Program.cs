@@ -3,6 +3,7 @@ using StageAgentService;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(options => options.ServiceName = "StageAgent");
+builder.Services.AddSingleton<AgentPayloadProtector>();
 builder.Services.AddSingleton<SyncWorker>();
 builder.Services.AddHostedService<HttpListenerService>();
 

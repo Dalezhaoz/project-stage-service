@@ -1,35 +1,33 @@
-using System.Text;
-using System.Text.Json;
 using ProjectStageService.Models;
 
 namespace ProjectStageService.Services;
 
 public sealed class ProjectStageRefreshService
 {
-    private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromMinutes(5) };
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     private readonly ServerConfigStore _serverConfigStore;
-    private readonly ProjectStageQueryService _queryService;
+    private readonly AgentClientService _agentClientService;
     private readonly ProjectStageCacheStore _cacheStore;
     private readonly SummaryStoreConfigStore _summaryStoreConfigStore;
     private readonly SummaryStoreService _summaryStoreService;
+    private readonly ProjectStageSummaryBuilder _summaryBuilder;
     private readonly ILogger<ProjectStageRefreshService> _logger;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
     public ProjectStageRefreshService(
         ServerConfigStore serverConfigStore,
-        ProjectStageQueryService queryService,
+        AgentClientService agentClientService,
         ProjectStageCacheStore cacheStore,
         SummaryStoreConfigStore summaryStoreConfigStore,
         SummaryStoreService summaryStoreService,
+        ProjectStageSummaryBuilder summaryBuilder,
         ILogger<ProjectStageRefreshService> logger)
     {
         _serverConfigStore = serverConfigStore;
-        _queryService = queryService;
+        _agentClientService = agentClientService;
         _cacheStore = cacheStore;
         _summaryStoreConfigStore = summaryStoreConfigStore;
         _summaryStoreService = summaryStoreService;
+        _summaryBuilder = summaryBuilder;
         _logger = logger;
     }
 
@@ -50,71 +48,41 @@ public sealed class ProjectStageRefreshService
                 throw new InvalidOperationException("请至少启用一台服务器后再更新数据。");
             }
 
+            if (sourceServers.Any(item => item.AgentPort <= 0))
+            {
+                var invalidServers = string.Join("、", sourceServers.Where(item => item.AgentPort <= 0).Select(item => item.Name));
+                throw new InvalidOperationException($"当前版本仅支持 Agent 模式，以下服务器未配置 Agent 端口：{invalidServers}");
+            }
+
             _logger.LogInformation("Starting stage cache refresh for {Count} enabled servers.", sourceServers.Count);
 
-            // 分成两组：有 Agent 的走远程调用，没有的走直连查询
-            var agentServers = sourceServers.Where(s => s.AgentPort > 0).ToList();
-            var directServers = sourceServers.Where(s => s.AgentPort <= 0).ToList();
-
             var summaryStoreConfig = await _summaryStoreConfigStore.LoadAsync(cancellationToken);
-
-            // 并行调用所有 Agent
-            var agentResultList = new List<AgentRefreshResult>();
-            if (agentServers.Count > 0 && summaryStoreConfig.Enabled)
+            if (!summaryStoreConfig.Enabled)
             {
-                var agentTasks = agentServers.Select(server => CallAgentAsync(server, summaryStoreConfig, cancellationToken));
-                agentResultList.AddRange(await Task.WhenAll(agentTasks));
-            }
-            else if (agentServers.Count > 0)
-            {
-                _logger.LogWarning("有 {Count} 台服务器配置了 Agent 端口，但中心库未启用，已跳过 Agent 同步。", agentServers.Count);
-                agentResultList.AddRange(agentServers.Select(s => new AgentRefreshResult
-                {
-                    ServerName = s.Name, Success = false, Error = "中心库未启用，已跳过"
-                }));
+                throw new InvalidOperationException("当前版本仅支持 Agent 写入中心表，请先启用中心库。");
             }
 
-            // 直连查询（没有 Agent 的服务器，走原有逻辑）
-            ProjectStageSummary summary;
-            if (directServers.Count > 0)
-            {
-                summary = await _queryService.QueryAsync(new ProjectStageQueryRequest
-                {
-                    Servers = directServers,
-                    StatusFilters = [],
-                    StageKeyword = "",
-                    StageNames = [],
-                    ProjectKeyword = "",
-                    RangeStart = null,
-                    RangeEnd = null
-                }, cancellationToken);
-            }
-            else
-            {
-                summary = new ProjectStageSummary { EnabledServers = 0 };
-            }
+            var agentQueryTasks = sourceServers.Select(server => QueryServerThroughAgentAsync(server, cancellationToken));
+            var agentQueryResults = (await Task.WhenAll(agentQueryTasks)).ToList();
 
-            // 用实际启用的服务器总数覆盖 summary 中的值（包含 Agent 服务器）
-            summary.EnabledServers = sourceServers.Count;
+            var records = agentQueryResults
+                .SelectMany(item => item.Records)
+                .ToList();
 
-            // 汇总 Agent 结果到 summary
-            var agentTotalRecords = agentResultList.Where(r => r.Success).Sum(r => r.Records);
-            var agentTotalDatabases = agentResultList.Where(r => r.Success).Sum(r => r.Databases);
-            summary.VisitedDatabases += agentTotalDatabases;
-            summary.MatchedDatabases += agentTotalDatabases;
+            var summary = _summaryBuilder.BuildSummary(
+                records,
+                sourceServers.Count,
+                agentQueryResults.Sum(item => item.VisitedDatabases),
+                agentQueryResults.Sum(item => item.MatchedDatabases));
 
             await _cacheStore.SaveSnapshotAsync(summary, cancellationToken);
+            await _summaryStoreService.SyncSnapshotAsync(summaryStoreConfig, summary, cancellationToken);
 
-            if (summaryStoreConfig.Enabled && directServers.Count > 0)
-            {
-                await _summaryStoreService.SyncSnapshotAsync(summaryStoreConfig, summary, cancellationToken);
-            }
-
-            var totalRecords = summary.Records.Count + agentTotalRecords;
+            var totalRecords = summary.Records.Count;
             var refreshedAt = DateTime.Now;
             _logger.LogInformation(
-                "Stage cache refresh completed. DirectRecords={Direct}, AgentRecords={Agent}, Total={Total}.",
-                summary.Records.Count, agentTotalRecords, totalRecords);
+                "Stage cache refresh completed through agents. Total={Total}.",
+                totalRecords);
 
             return new ProjectStageRefreshResult
             {
@@ -123,7 +91,7 @@ public sealed class ProjectStageRefreshService
                 VisitedDatabases = summary.VisitedDatabases,
                 MatchedDatabases = summary.MatchedDatabases,
                 RecordCount = totalRecords,
-                AgentResults = agentResultList
+                AgentResults = agentQueryResults.Select(item => item.Result).ToList()
             };
         }
         finally
@@ -132,73 +100,83 @@ public sealed class ProjectStageRefreshService
         }
     }
 
-    private async Task<AgentRefreshResult> CallAgentAsync(StageServerConfig server, SummaryStoreConfig summaryStoreConfig, CancellationToken cancellationToken)
+    private async Task<AgentServerQueryAggregate> QueryServerThroughAgentAsync(StageServerConfig server, CancellationToken cancellationToken)
     {
-        var url = $"http://{server.Host}:{server.AgentPort}/sync";
-        _logger.LogInformation("Calling agent at {Url} for server {Name}.", url, server.Name);
-
-        var payload = new
-        {
-            serverName = server.Name,
-            source = new
-            {
-                databaseType = server.DatabaseType,
-                host = "localhost",
-                port = server.Port,
-                username = server.Username,
-                password = server.Password
-            },
-            target = new
-            {
-                host = summaryStoreConfig.Host,
-                port = summaryStoreConfig.Port,
-                databaseName = summaryStoreConfig.DatabaseName,
-                username = summaryStoreConfig.Username,
-                password = summaryStoreConfig.Password
-            }
-        };
-
-        var json = JsonSerializer.Serialize(payload);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var agentResult = new AgentRefreshResult { ServerName = server.Name };
 
         try
         {
-            var response = await HttpClient.PostAsync(url, content, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var response = await _agentClientService.QueryAsync(server, cancellationToken);
+            var now = DateTime.Now;
+            var records = response.Records
+                .Select(item => MapRecord(server.Name, item, now))
+                .Where(item => item is not null)
+                .Cast<ProjectStageRecord>()
+                .ToList();
 
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogError("Agent {Name} returned {Code}: {Body}", server.Name, (int)response.StatusCode, responseBody);
-                return new AgentRefreshResult
-                {
-                    ServerName = server.Name, Success = false,
-                    Error = $"HTTP {(int)response.StatusCode}: {responseBody}"
-                };
-            }
+            agentResult.Success = true;
+            agentResult.Databases = response.MatchedDatabases;
+            agentResult.Records = records.Count;
 
-            var result = JsonSerializer.Deserialize<AgentSyncResult>(responseBody, JsonOptions);
-            _logger.LogInformation("Agent {Name} synced {Records} records from {Databases} databases.",
-                server.Name, result?.Records ?? 0, result?.Databases ?? 0);
-            return new AgentRefreshResult
-            {
-                ServerName = server.Name, Success = true,
-                Databases = result?.Databases ?? 0, Records = result?.Records ?? 0
-            };
+            return new AgentServerQueryAggregate(
+                response.VisitedDatabases,
+                response.MatchedDatabases,
+                records,
+                agentResult);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to call agent for server {Name} at {Url}.", server.Name, url);
-            return new AgentRefreshResult
-            {
-                ServerName = server.Name, Success = false, Error = ex.Message
-            };
+            _logger.LogError(ex, "Agent query failed for server {ServerName}.", server.Name);
+            agentResult.Success = false;
+            agentResult.Error = ex.Message;
+            return new AgentServerQueryAggregate(0, 0, [], agentResult);
         }
     }
 
-    private sealed class AgentSyncResult
+    private ProjectStageRecord? MapRecord(string serverName, AgentQueryRecord record, DateTime now)
     {
-        public string ServerName { get; set; } = "";
-        public int Databases { get; set; }
-        public int Records { get; set; }
+        if (!record.Values.TryGetValue("exam_code", out var examCode) ||
+            !record.Values.TryGetValue("project_name", out var projectName) ||
+            !record.Values.TryGetValue("stage_name", out var stageName) ||
+            !record.Values.TryGetValue("start_time", out var startText) ||
+            !record.Values.TryGetValue("end_time", out var endText))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(examCode) ||
+            string.IsNullOrWhiteSpace(projectName) ||
+            string.IsNullOrWhiteSpace(stageName) ||
+            !DateTime.TryParse(startText, out var startTime) ||
+            !DateTime.TryParse(endText, out var endTime))
+        {
+            return null;
+        }
+
+        var status = now < startTime
+            ? ProjectStageStatuses.Upcoming
+            : now > endTime
+                ? ProjectStageStatuses.Ended
+                : ProjectStageStatuses.Ongoing;
+
+        return new ProjectStageRecord
+        {
+            ServerName = serverName,
+            DatabaseName = record.DatabaseName ?? "",
+            ExamCode = examCode.Trim(),
+            ProjectName = projectName.Trim(),
+            StageName = stageName.Trim(),
+            StartTime = startTime,
+            EndTime = endTime,
+            Status = status,
+            RegistrationCount = record.Metrics.TryGetValue("registration_count", out var registrationCount) ? registrationCount : 0,
+            AdmissionTicketCount = record.Metrics.TryGetValue("admission_ticket_count", out var admissionTicketCount) ? admissionTicketCount : 0
+        };
     }
+
+    private sealed record AgentServerQueryAggregate(
+        int VisitedDatabases,
+        int MatchedDatabases,
+        List<ProjectStageRecord> Records,
+        AgentRefreshResult Result);
 }

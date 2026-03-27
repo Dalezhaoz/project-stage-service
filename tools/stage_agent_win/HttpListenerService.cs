@@ -8,12 +8,14 @@ public sealed class HttpListenerService : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
+    private readonly AgentPayloadProtector _protector;
     private readonly SyncWorker _syncWorker;
     private readonly ILogger<HttpListenerService> _logger;
     private readonly int _port;
 
-    public HttpListenerService(SyncWorker syncWorker, ILogger<HttpListenerService> logger, IConfiguration configuration)
+    public HttpListenerService(AgentPayloadProtector protector, SyncWorker syncWorker, ILogger<HttpListenerService> logger, IConfiguration configuration)
     {
+        _protector = protector;
         _syncWorker = syncWorker;
         _logger = logger;
         _port = configuration.GetValue("Port", 5100);
@@ -66,15 +68,52 @@ public sealed class HttpListenerService : BackgroundService
             {
                 using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
                 var body = await reader.ReadToEndAsync();
-                var request = JsonSerializer.Deserialize<SyncRequest>(body, JsonOpts);
+                var envelope = JsonSerializer.Deserialize<AgentEncryptedEnvelope>(body, JsonOpts);
 
-                if (request is null)
+                if (envelope is null)
                 {
                     await WriteJson(ctx, 400, new { detail = "invalid request body" });
                     return;
                 }
 
+                var request = _protector.Decrypt<SyncRequest>(envelope);
                 var result = await _syncWorker.RunSyncAsync(request);
+                await WriteJson(ctx, 200, result);
+                return;
+            }
+
+            if (ctx.Request.HttpMethod == "POST" && path == "/query")
+            {
+                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                var body = await reader.ReadToEndAsync();
+                var envelope = JsonSerializer.Deserialize<AgentEncryptedEnvelope>(body, JsonOpts);
+
+                if (envelope is null)
+                {
+                    await WriteJson(ctx, 400, new { detail = "invalid request body" });
+                    return;
+                }
+
+                var request = _protector.Decrypt<QueryRequest>(envelope);
+                var result = await _syncWorker.QueryAsync(request);
+                await WriteJson(ctx, 200, result);
+                return;
+            }
+
+            if (ctx.Request.HttpMethod == "POST" && path == "/test")
+            {
+                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                var body = await reader.ReadToEndAsync();
+                var envelope = JsonSerializer.Deserialize<AgentEncryptedEnvelope>(body, JsonOpts);
+
+                if (envelope is null)
+                {
+                    await WriteJson(ctx, 400, new { detail = "invalid request body" });
+                    return;
+                }
+
+                var request = _protector.Decrypt<TestRequest>(envelope);
+                var result = await _syncWorker.TestAsync(request);
                 await WriteJson(ctx, 200, result);
                 return;
             }

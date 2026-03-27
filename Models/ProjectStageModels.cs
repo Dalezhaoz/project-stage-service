@@ -11,6 +11,7 @@ public sealed class StageServerConfig
     public string Password { get; set; } = "";
     public bool Enabled { get; set; } = true;
     public int AgentPort { get; set; }
+    public string AgentSecret { get; set; } = "";
 }
 
 public sealed class TestConnectionRequest

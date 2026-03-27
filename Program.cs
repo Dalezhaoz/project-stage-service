@@ -30,10 +30,11 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
     options.AddPolicy("InternalOrAbove", policy => policy.RequireClaim("role", "admin", "internal"));
 });
-builder.Services.AddSingleton<ProjectStageQueryService>();
 builder.Services.AddSingleton<ProjectStageExportService>();
+builder.Services.AddSingleton<ProjectStageSummaryBuilder>();
 builder.Services.AddSingleton<ServerConfigStore>();
 builder.Services.AddSingleton<ProjectStageCacheStore>();
+builder.Services.AddSingleton<AgentClientService>();
 builder.Services.AddSingleton<ProjectStageRefreshService>();
 builder.Services.AddSingleton<ProjectStageCountRefreshService>();
 builder.Services.AddSingleton<LocalAuthService>();
@@ -461,11 +462,11 @@ app.MapPost("/api/servers", async (List<StageServerConfig> servers, ServerConfig
     return Results.Ok(new { saved = servers.Count });
 }).RequireAuthorization("InternalOrAbove");
 
-app.MapPost("/api/test", async (TestConnectionRequest request, ProjectStageQueryService queryService, CancellationToken cancellationToken) =>
+app.MapPost("/api/test", async (TestConnectionRequest request, AgentClientService agentClientService, CancellationToken cancellationToken) =>
 {
     try
     {
-        var result = await queryService.TestConnectionAsync(request.Server, cancellationToken);
+        var result = await agentClientService.TestAsync(request.Server, cancellationToken);
         return Results.Ok(result);
     }
     catch (Exception ex)

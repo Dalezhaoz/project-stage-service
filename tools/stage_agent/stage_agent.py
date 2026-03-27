@@ -8,13 +8,18 @@ StageAgent - 部署在业务服务器上的轻量 HTTP 服务。
   python3 stage_agent.py 5200         # 指定端口
 
 依赖:
-  pip install pymysql pymssql
+  pip install pymysql pymssql cryptography
 """
 
+import base64
+import hashlib
 import json
+import os
 import sys
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 class SyncHandler(BaseHTTPRequestHandler):
@@ -26,13 +31,34 @@ class SyncHandler(BaseHTTPRequestHandler):
         self._json_response(404, {"detail": "not found"})
 
     def do_POST(self):
+        if self.path == "/test":
+            try:
+                body = self._read_body()
+                payload = decrypt_payload(body)
+                result = run_test(payload)
+                self._json_response(200, result)
+            except Exception as e:
+                self._json_response(500, {"detail": str(e)})
+            return
+
+        if self.path == "/query":
+            try:
+                body = self._read_body()
+                payload = decrypt_payload(body)
+                result = run_query(payload)
+                self._json_response(200, result)
+            except Exception as e:
+                self._json_response(500, {"detail": str(e)})
+            return
+
         if self.path != "/sync":
             self._json_response(404, {"detail": "not found"})
             return
 
         try:
             body = self._read_body()
-            result = run_sync(body)
+            payload = decrypt_payload(body)
+            result = run_sync(payload)
             self._json_response(200, result)
         except Exception as e:
             self._json_response(500, {"detail": str(e)})
@@ -57,38 +83,130 @@ class SyncHandler(BaseHTTPRequestHandler):
 
 # ─── 同步逻辑 ────────────────────────────────────────────────
 
-def run_sync(body):
-    """
-    body 格式:
-    {
-      "serverName": "xxx",
-      "source": { "databaseType": "MySQL", "host": "localhost", "port": 3306, "username": "", "password": "" },
-      "target": { "host": "", "port": 1433, "databaseName": "", "username": "", "password": "" }
+def decrypt_payload(envelope):
+    secret = os.environ.get("STAGE_AGENT_SECRET", "").strip()
+    if not secret:
+        raise RuntimeError("STAGE_AGENT_SECRET 未配置")
+
+    if int(envelope.get("version", 0)) != 1:
+        raise RuntimeError("不支持的加密版本")
+
+    nonce = base64.b64decode(envelope["nonce"])
+    ciphertext = base64.b64decode(envelope["ciphertext"])
+    tag = base64.b64decode(envelope["tag"])
+    key = hashlib.sha256(secret.encode("utf-8")).digest()
+
+    aesgcm = AESGCM(key)
+    plain = aesgcm.decrypt(nonce, ciphertext + tag, None)
+    return json.loads(plain.decode("utf-8"))
+
+
+def run_test(body):
+    source = body["source"]
+    definition = body["definition"]
+    db_type = source.get("databaseType", "MySQL").lower()
+    databases = (
+        find_mysql_databases(source, definition["requiredTables"])
+        if db_type == "mysql"
+        else find_sqlserver_databases(source, definition["requiredTables"])
+    )
+    return {
+        "visitedDatabases": len(databases),
+        "matchedDatabases": len(databases),
     }
-    """
+
+
+def run_query(body):
+    server_name = body["serverName"]
+    source = body["source"]
+    definition = body["definition"]
+    db_type = source.get("databaseType", "MySQL").lower()
+
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{ts}] 查询开始 - {server_name} (源: {db_type})")
+
+    if db_type == "mysql":
+        databases = find_mysql_databases(source, definition["requiredTables"])
+        records = []
+        for db_name in databases:
+            records.extend(query_mysql_database(source, db_name, definition))
+    else:
+        databases = find_sqlserver_databases(source, definition["requiredTables"])
+        records = []
+        for db_name in databases:
+            records.extend(query_sqlserver_database(source, db_name, definition))
+
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{ts}] 查询完成 - {len(databases)} 个库, {len(records)} 条记录")
+
+    return {
+        "visitedDatabases": len(databases),
+        "matchedDatabases": len(databases),
+        "records": records,
+    }
+
+
+def run_sync(body):
     server_name = body["serverName"]
     source = body["source"]
     target = body["target"]
     db_type = source.get("databaseType", "MySQL").lower()
+    definition = body.get("definition") or {
+        "requiredTables": ["mgt_exam_organize", "mgt_exam_step"] if db_type == "mysql" else ["EI_ExamTreeDesc", "web_SR_CodeItem", "WEB_SR_SetTime"],
+        "stageQuerySql": """
+            SELECT CAST(a.id AS CHAR) AS exam_code, a.name AS project_name, b.name AS stage_name, b.start_date AS start_time, b.end_date AS end_time
+            FROM mgt_exam_organize a JOIN mgt_exam_step b ON a.id = b.exam_id ORDER BY b.start_date ASC
+        """ if db_type == "mysql" else """
+            SELECT CONVERT(NVARCHAR(50), A.Code) AS exam_code, CONVERT(NVARCHAR(500), A.NAME) AS project_name, CONVERT(NVARCHAR(200), B.Description) AS stage_name,
+                   C.KDate AS start_time, C.ZDate AS end_time
+            FROM dbo.EI_ExamTreeDesc A
+            JOIN dbo.WEB_SR_SetTime C ON A.Code = C.ExamSort
+            JOIN dbo.web_SR_CodeItem B ON B.Codeid = 'WT' AND B.Code = C.Kind
+            WHERE A.CodeLen = '2' AND C.Kind <> '06'
+            ORDER BY C.KDate ASC
+        """,
+        "existingTablesSql": "SHOW TABLES" if db_type == "mysql" else "SELECT name FROM sys.tables",
+        "registrationTablePattern": "tb_ks_a001_{exam_code}" if db_type == "mysql" else "考生表{exam_code}",
+        "admissionTicketTablePattern": "tb_ks_kc_{exam_code}" if db_type == "mysql" else "考场表{exam_code}",
+    }
 
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] 同步开始 - {server_name} (源: {db_type})")
 
     if db_type == "mysql":
-        databases = find_mysql_databases(source)
+        databases = find_mysql_databases(source, definition["requiredTables"])
         all_records = []
         for db_name in databases:
-            records = query_mysql_database(source, db_name, server_name)
+            records = query_mysql_database(source, db_name, definition, server_name)
             all_records.extend(records)
     else:
-        databases = find_sqlserver_databases(source)
+        databases = find_sqlserver_databases(source, definition["requiredTables"])
         all_records = []
         for db_name in databases:
-            records = query_sqlserver_database(source, db_name, server_name)
+            records = query_sqlserver_database(source, db_name, definition, server_name)
             all_records.extend(records)
 
     if all_records:
-        write_to_central(target, server_name, all_records)
+        write_to_central(
+            target,
+            server_name,
+            [
+                {
+                    "server_name": server_name,
+                    "database_name": item["databaseName"],
+                    "database_type": "MySQL" if db_type == "mysql" else "SQL Server",
+                    "exam_code": item["values"].get("exam_code", ""),
+                    "project_name": item["values"].get("project_name", ""),
+                    "stage_name": item["values"].get("stage_name", ""),
+                    "start_time": item["values"].get("start_time", ""),
+                    "end_time": item["values"].get("end_time", ""),
+                    "status": _build_status(item["values"].get("start_time", ""), item["values"].get("end_time", "")),
+                    "registration_count": item["metrics"].get("registration_count", 0),
+                    "admission_ticket_count": item["metrics"].get("admission_ticket_count", 0),
+                }
+                for item in all_records
+            ]
+        )
 
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] 同步完成 - {len(databases)} 个库, {len(all_records)} 条记录")
@@ -102,7 +220,7 @@ def run_sync(body):
 
 # ─── MySQL 源 ────────────────────────────────────────────────
 
-def find_mysql_databases(source):
+def find_mysql_databases(source, required_tables):
     import pymysql
     conn = pymysql.connect(
         host=source["host"], port=source.get("port", 3306),
@@ -111,20 +229,21 @@ def find_mysql_databases(source):
     )
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            table_list = ", ".join(["%s"] * len(required_tables))
+            cur.execute(f"""
                 SELECT table_schema
                 FROM information_schema.tables
                 WHERE table_schema NOT IN ('information_schema','mysql','performance_schema','sys')
-                  AND table_name IN ('mgt_exam_organize','mgt_exam_step')
+                  AND table_name IN ({table_list})
                 GROUP BY table_schema
-                HAVING COUNT(DISTINCT table_name) = 2
-            """)
+                HAVING COUNT(DISTINCT table_name) = %s
+            """, [*required_tables, len(required_tables)])
             return [row[0] for row in cur.fetchall()]
     finally:
         conn.close()
 
 
-def query_mysql_database(source, db_name, server_name):
+def query_mysql_database(source, db_name, definition, server_name=None):
     import pymysql
     conn = pymysql.connect(
         host=source["host"], port=source.get("port", 3306),
@@ -132,37 +251,32 @@ def query_mysql_database(source, db_name, server_name):
         database=db_name, charset="utf8mb4", connect_timeout=20,
     )
     try:
-        now = datetime.now()
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT a.id, a.name, b.name, b.start_date, b.end_date
-                FROM mgt_exam_organize a
-                JOIN mgt_exam_step b ON a.id = b.exam_id
-                ORDER BY b.start_date ASC
-            """)
+            cur.execute(definition["stageQuerySql"])
+            columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
 
             # 查所有表名用于判断报名表/考场表是否存在
-            cur.execute("SHOW TABLES")
+            cur.execute(definition["existingTablesSql"])
             existing_tables = {r[0] for r in cur.fetchall()}
 
-        records = _build_records(rows, now, server_name, db_name, "MySQL")
+        records = _build_query_records(rows, columns, db_name)
 
         # 按 exam_code 统计报名人数和准考证人数
-        exam_codes = {r["exam_code"] for r in records}
+        exam_codes = {r["values"].get("exam_code", "") for r in records if r["values"].get("exam_code")}
         counts = {}
         with conn.cursor() as cur:
             for ec in exam_codes:
-                reg_table = f"tb_ks_a001_{ec}"
-                adm_table = f"tb_ks_kc_{ec}"
+                reg_table = definition["registrationTablePattern"].replace("{exam_code}", ec)
+                adm_table = definition["admissionTicketTablePattern"].replace("{exam_code}", ec)
                 reg_count = _count_mysql_table(cur, reg_table) if reg_table in existing_tables else 0
                 adm_count = _count_mysql_table(cur, adm_table) if adm_table in existing_tables else 0
                 counts[ec] = (reg_count, adm_count)
 
         for r in records:
-            c = counts.get(r["exam_code"], (0, 0))
-            r["registration_count"] = c[0]
-            r["admission_ticket_count"] = c[1]
+            c = counts.get(r["values"].get("exam_code", ""), (0, 0))
+            r["metrics"]["registration_count"] = c[0]
+            r["metrics"]["admission_ticket_count"] = c[1]
 
         return records
     finally:
@@ -179,7 +293,7 @@ def _count_mysql_table(cursor, table_name):
 
 # ─── SQL Server 源 ───────────────────────────────────────────
 
-def find_sqlserver_databases(source):
+def find_sqlserver_databases(source, required_tables):
     import pymssql
     conn = pymssql.connect(
         server=source["host"], port=source.get("port", 1433),
@@ -201,20 +315,20 @@ def find_sqlserver_databases(source):
         for db_name in all_dbs:
             escaped = db_name.replace("]", "]]")
             with conn.cursor() as cur:
-                cur.execute(f"""
-                    SELECT COUNT(*) FROM [{escaped}].sys.tables
-                    WHERE name IN ('EI_ExamTreeDesc','web_SR_CodeItem','WEB_SR_SetTime')
-                """)
-                if cur.fetchone()[0] == 3:
+                table_list = ",".join(["%s"] * len(required_tables))
+                cur.execute(
+                    f"SELECT COUNT(*) FROM [{escaped}].sys.tables WHERE name IN ({table_list})",
+                    tuple(required_tables),
+                )
+                if cur.fetchone()[0] == len(required_tables):
                     matching.append(db_name)
         return matching
     finally:
         conn.close()
 
 
-def query_sqlserver_database(source, db_name, server_name):
+def query_sqlserver_database(source, db_name, definition, server_name=None):
     import pymssql
-    escaped = db_name.replace("]", "]]")
     conn = pymssql.connect(
         server=source["host"], port=source.get("port", 1433),
         user=source["username"], password=source["password"],
@@ -222,49 +336,42 @@ def query_sqlserver_database(source, db_name, server_name):
         tds_version="7.0",
     )
     try:
-        now = datetime.now()
         with conn.cursor() as cur:
-            cur.execute(f"""
-                SELECT A.Code, A.NAME, B.Description, C.KDate, C.ZDate
-                FROM [{escaped}].[dbo].[EI_ExamTreeDesc] A
-                JOIN [{escaped}].[dbo].[WEB_SR_SetTime] C ON A.Code = C.ExamSort
-                JOIN [{escaped}].[dbo].[web_SR_CodeItem] B ON B.Codeid = 'WT' AND B.Code = C.Kind
-                WHERE A.CodeLen = '2' AND C.Kind <> '06'
-                ORDER BY C.KDate ASC
-            """)
+            cur.execute(definition["stageQuerySql"])
+            columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
 
             # 查所有表名
-            cur.execute(f"SELECT name FROM [{escaped}].sys.tables")
+            cur.execute(definition["existingTablesSql"])
             existing_tables = {r[0] for r in cur.fetchall()}
 
-        records = _build_records(rows, now, server_name, db_name, "SQL Server")
+        records = _build_query_records(rows, columns, db_name)
 
         # 按 exam_code 统计报名人数和准考证人数
-        exam_codes = {r["exam_code"] for r in records}
+        exam_codes = {r["values"].get("exam_code", "") for r in records if r["values"].get("exam_code")}
         counts = {}
         with conn.cursor() as cur:
             for ec in exam_codes:
-                reg_table = f"考生表{ec}"
-                adm_table = f"考场表{ec}"
-                reg_count = _count_sqlserver_table(cur, escaped, reg_table) if reg_table in existing_tables else 0
-                adm_count = _count_sqlserver_table(cur, escaped, adm_table) if adm_table in existing_tables else 0
+                reg_table = definition["registrationTablePattern"].replace("{exam_code}", ec)
+                adm_table = definition["admissionTicketTablePattern"].replace("{exam_code}", ec)
+                reg_count = _count_sqlserver_table(cur, reg_table) if reg_table in existing_tables else 0
+                adm_count = _count_sqlserver_table(cur, adm_table) if adm_table in existing_tables else 0
                 counts[ec] = (reg_count, adm_count)
 
         for r in records:
-            c = counts.get(r["exam_code"], (0, 0))
-            r["registration_count"] = c[0]
-            r["admission_ticket_count"] = c[1]
+            c = counts.get(r["values"].get("exam_code", ""), (0, 0))
+            r["metrics"]["registration_count"] = c[0]
+            r["metrics"]["admission_ticket_count"] = c[1]
 
         return records
     finally:
         conn.close()
 
 
-def _count_sqlserver_table(cursor, escaped_db, table_name):
+def _count_sqlserver_table(cursor, table_name):
     try:
         escaped_table = table_name.replace("]", "]]")
-        cursor.execute(f"SELECT COUNT(*) FROM [{escaped_db}].[dbo].[{escaped_table}]")
+        cursor.execute(f"SELECT COUNT(*) FROM [dbo].[{escaped_table}]")
         return cursor.fetchone()[0]
     except Exception:
         return 0
@@ -290,6 +397,41 @@ def _build_records(rows, now, server_name, db_name, db_type):
             "registration_count": 0, "admission_ticket_count": 0,
         })
     return records
+
+
+def _build_query_records(rows, columns, db_name):
+    records = []
+    for row in rows:
+        values = {}
+        for index, column in enumerate(columns):
+            value = row[index]
+            if isinstance(value, datetime):
+                values[column] = value.isoformat(sep=" ")
+            elif value is None:
+                values[column] = ""
+            else:
+                values[column] = str(value).strip()
+
+        records.append({
+            "databaseName": db_name,
+            "values": values,
+            "metrics": {},
+        })
+    return records
+
+
+def _build_status(start_text, end_text):
+    try:
+        start_time = datetime.fromisoformat(str(start_text))
+        end_time = datetime.fromisoformat(str(end_text))
+        now = datetime.now()
+        if now < start_time:
+            return "即将开始"
+        if now > end_time:
+            return "已经结束"
+        return "正在进行"
+    except Exception:
+        return ""
 
 
 # ─── 写入中心表 ──────────────────────────────────────────────

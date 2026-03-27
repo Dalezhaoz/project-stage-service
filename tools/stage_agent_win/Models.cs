@@ -1,10 +1,55 @@
 namespace StageAgentService;
 
+public class AgentEncryptedEnvelope
+{
+    public int Version { get; set; } = 1;
+    public string Nonce { get; set; } = "";
+    public string Ciphertext { get; set; } = "";
+    public string Tag { get; set; } = "";
+}
+
 public class SyncRequest
 {
     public string ServerName { get; set; } = "";
     public SourceConfig Source { get; set; } = new();
     public TargetConfig Target { get; set; } = new();
+}
+
+public class TestRequest
+{
+    public string ServerName { get; set; } = "";
+    public SourceConfig Source { get; set; } = new();
+    public QueryDefinition Definition { get; set; } = new();
+}
+
+public class QueryRequest
+{
+    public string ServerName { get; set; } = "";
+    public SourceConfig Source { get; set; } = new();
+    public QueryDefinition Definition { get; set; } = new();
+}
+
+public class QueryDefinition
+{
+    public List<string> RequiredTables { get; set; } = [];
+    public string StageQuerySql { get; set; } = "";
+    public string ExistingTablesSql { get; set; } = "";
+    public string RegistrationTablePattern { get; set; } = "";
+    public string AdmissionTicketTablePattern { get; set; } = "";
+}
+
+public class QueryResponse
+{
+    public int VisitedDatabases { get; set; }
+    public int MatchedDatabases { get; set; }
+    public List<QueryRecord> Records { get; set; } = [];
+}
+
+public class QueryRecord
+{
+    public string DatabaseName { get; set; } = "";
+    public Dictionary<string, string> Values { get; set; } = [];
+    public Dictionary<string, int> Metrics { get; set; } = [];
 }
 
 public class SourceConfig
