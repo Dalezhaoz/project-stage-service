@@ -66,6 +66,12 @@ public sealed class TestUserDingTalkRequest
     public string Username { get; set; } = "";
 }
 
+public sealed class DingTalkProxyRegistrationRequest
+{
+    public string ProxyUrl { get; set; } = "";
+    public string Token { get; set; } = "";
+}
+
 public sealed class AppServerOptionRequest
 {
     public List<string> Options { get; set; } = [];

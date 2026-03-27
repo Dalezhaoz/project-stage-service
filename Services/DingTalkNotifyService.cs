@@ -11,11 +11,13 @@ public sealed class DingTalkNotifyService
 {
     private readonly ILogger<DingTalkNotifyService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly DingTalkProxyRegistry _proxyRegistry;
 
-    public DingTalkNotifyService(ILogger<DingTalkNotifyService> logger, IHttpClientFactory httpClientFactory)
+    public DingTalkNotifyService(ILogger<DingTalkNotifyService> logger, IHttpClientFactory httpClientFactory, DingTalkProxyRegistry proxyRegistry)
     {
         _logger = logger;
         _httpClientFactory = httpClientFactory;
+        _proxyRegistry = proxyRegistry;
     }
 
     public async Task SendDailyReportAsync(
@@ -348,15 +350,19 @@ public sealed class DingTalkNotifyService
         var client = _httpClientFactory.CreateClient();
         HttpResponseMessage response;
 
+        // Priority: registered proxy (heartbeat) > static config proxy
+        var proxyUrl = _proxyRegistry.GetActiveProxyUrl() ?? config.ProxyUrl;
+
         // If proxy is configured, send via proxy; otherwise send directly
-        if (!string.IsNullOrWhiteSpace(config.ProxyUrl))
+        if (!string.IsNullOrWhiteSpace(proxyUrl))
         {
             var proxyPayload = new
             {
                 targetUrl,
                 message = dingTalkMessage
             };
-            response = await client.PostAsJsonAsync(config.ProxyUrl.TrimEnd('/'), proxyPayload, cancellationToken);
+            _logger.LogDebug("Sending via proxy: {ProxyUrl}", proxyUrl);
+            response = await client.PostAsJsonAsync(proxyUrl.TrimEnd('/'), proxyPayload, cancellationToken);
         }
         else
         {

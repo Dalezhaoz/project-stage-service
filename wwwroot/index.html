@@ -962,8 +962,9 @@
         <input id="dingtalk-webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx">
         <label style="margin-top:12px;">签名密钥（Secret）</label>
         <input id="dingtalk-secret" placeholder="SEC...">
-        <label style="margin-top:12px;">转发代理地址 <span style="font-weight:normal;color:var(--muted);">（服务器无法访问外网时填写）</span></label>
+        <label style="margin-top:12px;">转发代理地址 <span style="font-weight:normal;color:var(--muted);">（手动配置，代理心跳注册后自动覆盖）</span></label>
         <input id="dingtalk-proxy" placeholder="例如：http://10.10.11.38:9100">
+        <div id="proxy-status-line" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
         <label style="margin-top:12px;">推送时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
         <textarea id="dingtalk-notify-times" rows="2" placeholder="08:00" style="font-family:inherit;resize:vertical;"></textarea>
         <div class="auth-actions" style="margin-top:16px;">
@@ -1498,6 +1499,24 @@
       document.getElementById("dingtalk-secret").value = config.dingTalkConfig?.secret || "";
       document.getElementById("dingtalk-proxy").value = config.dingTalkConfig?.proxyUrl || "";
       document.getElementById("dingtalk-notify-times").value = (config.dingTalkNotifyTimes || ["08:00"]).join("\n");
+      // Load proxy heartbeat status
+      try {
+        const proxyResp = await apiFetch(buildAppUrl("api/dingtalk/proxy-status"));
+        if (proxyResp.ok) {
+          const ps = await proxyResp.json();
+          const el = document.getElementById("proxy-status-line");
+          if (ps.alive) {
+            el.innerHTML = `🟢 代理在线: <strong>${ps.proxyUrl}</strong>（心跳 ${new Date(ps.lastHeartbeat).toLocaleTimeString()}）`;
+            el.style.color = "#27ae60";
+          } else if (ps.proxyUrl) {
+            el.innerHTML = `🔴 代理离线: ${ps.proxyUrl}（最后心跳 ${new Date(ps.lastHeartbeat).toLocaleTimeString()}）`;
+            el.style.color = "#e74c3c";
+          } else {
+            el.textContent = "⚪ 无代理注册，使用上方手动配置的地址";
+            el.style.color = "var(--muted)";
+          }
+        }
+      } catch (e) { /* ignore */ }
     }
 
     function buildSchedulePayload() {

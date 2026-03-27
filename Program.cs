@@ -41,6 +41,7 @@ builder.Services.AddSingleton<SummaryStoreConfigStore>();
 builder.Services.AddSingleton<SummaryStoreService>();
 builder.Services.AddSingleton<ScheduleConfigStore>();
 builder.Services.AddSingleton<DingTalkNotifyService>();
+builder.Services.AddSingleton<DingTalkProxyRegistry>();
 builder.Services.AddSingleton<ProjectMetadataService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
@@ -342,6 +343,31 @@ app.MapPost("/api/schedule", async (ScheduleConfig config, ScheduleConfigStore s
 {
     await store.SaveAsync(config, cancellationToken);
     return Results.Ok(new { saved = true });
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/dingtalk/register-proxy", (DingTalkProxyRegistrationRequest request, DingTalkProxyRegistry registry, ScheduleConfigStore scheduleConfigStore) =>
+{
+    // Simple token auth - proxy must send the same secret configured in DingTalkConfig
+    var config = scheduleConfigStore.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
+    var expectedSecret = config.DingTalkConfig?.Secret ?? "";
+    if (string.IsNullOrWhiteSpace(request.Token) || request.Token != expectedSecret)
+    {
+        return Results.Unauthorized();
+    }
+
+    registry.Register(request.ProxyUrl);
+    return Results.Ok(new { ok = true });
+});
+
+app.MapGet("/api/dingtalk/proxy-status", (DingTalkProxyRegistry registry) =>
+{
+    var status = registry.GetStatus();
+    return Results.Ok(new
+    {
+        proxyUrl = status.url,
+        lastHeartbeat = status.lastHeartbeat,
+        alive = status.alive
+    });
 }).RequireAuthorization("AdminOnly");
 
 app.MapPost("/api/dingtalk/test", async (DingTalkNotifyService notifyService, SummaryStoreConfigStore summaryStoreConfigStore, ScheduleConfigStore scheduleConfigStore, LocalAuthService authService, CancellationToken cancellationToken) =>
