@@ -295,6 +295,13 @@ app.MapPost("/api/dingtalk/test-personal", async (HttpContext httpContext, DingT
         }
         else
         {
+            // 先查有没有阶段，无阶段时直接发通知
+            var noStageConfig = new DingTalkConfig
+            {
+                WebhookUrl = me.DingTalkWebhook,
+                Secret = me.DingTalkSecret,
+                ProxyUrl = proxyUrl
+            };
             var userConfigs = new List<LocalAuthService.UserDingTalkConfig>
             {
                 new(me.Username, me.DingTalkWebhook, me.DingTalkSecret)
@@ -303,11 +310,21 @@ app.MapPost("/api/dingtalk/test-personal", async (HttpContext httpContext, DingT
             var result = await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
 
             if (result.TotalStages == 0)
-                return Results.Ok(new { sent = false, detail = "今天没有开始的阶段，无内容可推送。" });
+            {
+                // 无阶段时用用户自己的 webhook 发通知
+                var today = DateTime.Today.ToString("yyyy-MM-dd");
+                await notifyService.SendDirectMessageAsync(noStageConfig, $"今日项目提醒 ({today})", $"### ✅ 今日无即将开始的项目\n> 日期：**{today}**", cancellationToken);
+                return Results.Ok(new { sent = true, totalStages = 0 });
+            }
             if (result.SkippedUsers.Contains(username))
-                return Results.Ok(new { sent = false, detail = $"今天有 {result.TotalStages} 个阶段，但没有分配给你的项目。请联系管理员在看板中设置负责人。" });
+            {
+                // 有阶段但没分配给该用户，也发通知告知
+                var today = DateTime.Today.ToString("yyyy-MM-dd");
+                await notifyService.SendDirectMessageAsync(noStageConfig, $"今日项目提醒 ({today})", $"### ✅ 今日有 {result.TotalStages} 个阶段开始，但没有分配给你的项目\n> 日期：**{today}**", cancellationToken);
+                return Results.Ok(new { sent = true, totalStages = result.TotalStages });
+            }
             if (result.SentUsers.Contains(username))
-                return Results.Ok(new { sent = true });
+                return Results.Ok(new { sent = true, totalStages = result.TotalStages });
             return Results.Ok(new { sent = false, detail = "发送失败，请检查 Webhook 配置。" });
         }
     }
@@ -461,6 +478,12 @@ app.MapPost("/api/dingtalk/test-user", async (TestUserDingTalkRequest request, D
         }
         else
         {
+            var targetDingTalk = new DingTalkConfig
+            {
+                WebhookUrl = target.DingTalkWebhook,
+                Secret = target.DingTalkSecret,
+                ProxyUrl = proxyUrl
+            };
             var userConfigs = new List<LocalAuthService.UserDingTalkConfig>
             {
                 new(target.Username, target.DingTalkWebhook, target.DingTalkSecret)
@@ -469,9 +492,17 @@ app.MapPost("/api/dingtalk/test-user", async (TestUserDingTalkRequest request, D
             var result = await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
 
             if (result.TotalStages == 0)
-                return Results.Ok(new { sent = false, detail = "今天没有开始的阶段，无内容可推送。" });
+            {
+                var today = DateTime.Today.ToString("yyyy-MM-dd");
+                await notifyService.SendDirectMessageAsync(targetDingTalk, $"今日项目提醒 ({today})", $"### ✅ 今日无即将开始的项目\n> 日期：**{today}**", cancellationToken);
+                return Results.Ok(new { sent = true, totalStages = 0 });
+            }
             if (result.SkippedUsers.Contains(target.Username))
-                return Results.Ok(new { sent = false, detail = $"今天有 {result.TotalStages} 个阶段，但没有分配给 {target.Username} 的项目。" });
+            {
+                var today = DateTime.Today.ToString("yyyy-MM-dd");
+                await notifyService.SendDirectMessageAsync(targetDingTalk, $"今日项目提醒 ({today})", $"### ✅ 今日有 {result.TotalStages} 个阶段开始，但没有分配给 {target.Username} 的项目\n> 日期：**{today}**", cancellationToken);
+                return Results.Ok(new { sent = true, totalStages = result.TotalStages });
+            }
             if (result.SentUsers.Contains(target.Username))
                 return Results.Ok(new { sent = true, totalStages = result.TotalStages });
             return Results.Ok(new { sent = false, detail = "发送失败，请检查 Webhook 配置。" });

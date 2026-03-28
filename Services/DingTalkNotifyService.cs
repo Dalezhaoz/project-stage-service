@@ -327,6 +327,15 @@ public sealed class DingTalkNotifyService
         return count;
     }
 
+    public async Task SendDirectMessageAsync(
+        DingTalkConfig config,
+        string title,
+        string markdownText,
+        CancellationToken cancellationToken)
+    {
+        await SendDingTalkMessageAsync(config, title, markdownText, cancellationToken);
+    }
+
     private async Task SendDingTalkMessageAsync(
         DingTalkConfig config,
         string title,
