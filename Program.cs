@@ -279,20 +279,37 @@ app.MapPost("/api/dingtalk/test-personal", async (HttpContext httpContext, DingT
         var scheduleConfig = await scheduleConfigStore.LoadAsync(cancellationToken);
         var proxyUrl = scheduleConfig.DingTalkConfig?.ProxyUrl ?? "";
 
-        var userConfigs = new List<LocalAuthService.UserDingTalkConfig>
+        var isAdminOrInternal = string.Equals(me.Role, "admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(me.Role, "internal", StringComparison.OrdinalIgnoreCase);
+        if (isAdminOrInternal)
         {
-            new(me.Username, me.DingTalkWebhook, me.DingTalkSecret)
-        };
-        var dummyMainConfig = new DingTalkConfig { ProxyUrl = proxyUrl };
-        var result = await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
+            // admin/internal 测试推送发全量报告
+            var mainConfig = new DingTalkConfig
+            {
+                WebhookUrl = me.DingTalkWebhook,
+                Secret = me.DingTalkSecret,
+                ProxyUrl = proxyUrl
+            };
+            var result = await notifyService.SendDailyReportAsync(summaryConfig, mainConfig, [], cancellationToken);
+            return Results.Ok(new { sent = result.MainSent, totalStages = result.TotalStages });
+        }
+        else
+        {
+            var userConfigs = new List<LocalAuthService.UserDingTalkConfig>
+            {
+                new(me.Username, me.DingTalkWebhook, me.DingTalkSecret)
+            };
+            var dummyMainConfig = new DingTalkConfig { ProxyUrl = proxyUrl };
+            var result = await notifyService.SendDailyReportAsync(summaryConfig, dummyMainConfig, userConfigs, cancellationToken);
 
-        if (result.TotalStages == 0)
-            return Results.Ok(new { sent = false, detail = "今天没有开始的阶段，无内容可推送。" });
-        if (result.SkippedUsers.Contains(username))
-            return Results.Ok(new { sent = false, detail = $"今天有 {result.TotalStages} 个阶段，但没有分配给你的项目。请联系管理员在看板中设置负责人。" });
-        if (result.SentUsers.Contains(username))
-            return Results.Ok(new { sent = true });
-        return Results.Ok(new { sent = false, detail = "发送失败，请检查 Webhook 配置。" });
+            if (result.TotalStages == 0)
+                return Results.Ok(new { sent = false, detail = "今天没有开始的阶段，无内容可推送。" });
+            if (result.SkippedUsers.Contains(username))
+                return Results.Ok(new { sent = false, detail = $"今天有 {result.TotalStages} 个阶段，但没有分配给你的项目。请联系管理员在看板中设置负责人。" });
+            if (result.SentUsers.Contains(username))
+                return Results.Ok(new { sent = true });
+            return Results.Ok(new { sent = false, detail = "发送失败，请检查 Webhook 配置。" });
+        }
     }
     catch (Exception ex)
     {

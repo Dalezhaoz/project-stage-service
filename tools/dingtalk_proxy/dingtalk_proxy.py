@@ -3,7 +3,7 @@
 服务器发消息到这个代理，代理转发到钉钉 API
 启动后自动向主服务注册，定时心跳保活，VPN IP 变化自动更新。
 
-用法: python dingtalk_proxy.py [--port 9100] [--server http://主服务地址] [--token 密钥]
+用法: python dingtalk_proxy.py [--port 9100] [--server http://主服务地址] [--token 密钥] [--proxy-ip VPN内网IP]
 
 也可以通过环境变量配置:
   PROXY_PORT=9100
@@ -29,6 +29,7 @@ def parse_args():
     port = int(os.environ.get("PROXY_PORT", "9100"))
     server = os.environ.get("MAIN_SERVER", "")
     token = os.environ.get("PROXY_TOKEN", "")
+    proxy_ip = os.environ.get("PROXY_IP", "")
 
     args = sys.argv[1:]
     i = 0
@@ -42,13 +43,16 @@ def parse_args():
         elif args[i] == "--token" and i + 1 < len(args):
             token = args[i + 1]
             i += 2
+        elif args[i] == "--proxy-ip" and i + 1 < len(args):
+            proxy_ip = args[i + 1]
+            i += 2
         elif args[i].isdigit():
             port = int(args[i])  # backward compatible: positional port
             i += 1
         else:
             i += 1
 
-    return port, server, token
+    return port, server, token, proxy_ip
 
 
 # ---------- Heartbeat ----------
@@ -69,7 +73,7 @@ def get_local_ip(target_host):
         return None
 
 
-def heartbeat_loop(port, server_url, token):
+def heartbeat_loop(port, server_url, token, proxy_ip=""):
     """Periodically register this proxy with the main server."""
     if not server_url:
         print("[心跳] 未配置 --server，跳过自动注册。需手动在主服务配置 ProxyUrl。")
@@ -81,7 +85,7 @@ def heartbeat_loop(port, server_url, token):
 
     while True:
         try:
-            local_ip = get_local_ip(server_url)
+            local_ip = proxy_ip or get_local_ip(server_url)
             if not local_ip:
                 print("[心跳] 无法获取本机 IP，等待重试...")
                 time.sleep(30)
@@ -207,14 +211,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
 # ---------- Main ----------
 
 def main():
-    port, server, token = parse_args()
+    port, server, token, proxy_ip = parse_args()
 
     print(f"钉钉转发代理已启动: http://0.0.0.0:{port}")
+    if proxy_ip:
+        print(f"指定注册 IP: {proxy_ip}")
     if server:
         print(f"主服务地址: {server}")
         print(f"心跳间隔: 60 秒")
         # Start heartbeat in background thread
-        t = threading.Thread(target=heartbeat_loop, args=(port, server, token), daemon=True)
+        t = threading.Thread(target=heartbeat_loop, args=(port, server, token, proxy_ip), daemon=True)
         t.start()
     else:
         print("未配置 --server，仅作为转发代理运行（手动配置模式）")
