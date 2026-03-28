@@ -96,7 +96,7 @@ public sealed class AgentClientService
         CancellationToken cancellationToken)
     {
         var envelope = AgentPayloadProtector.Encrypt(payload, server.AgentSecret);
-        var json = JsonSerializer.Serialize(envelope);
+        var json = JsonSerializer.Serialize(envelope, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var url = $"http://{server.Host}:{server.AgentPort}{path}";
