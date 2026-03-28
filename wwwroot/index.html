@@ -2095,7 +2095,9 @@
         statusEl.textContent = "正在发送测试推送...";
         const data = await postJson(buildAppUrl("api/dingtalk/test-personal"), {});
         if (data.sent) {
-          statusEl.textContent = "✅ 测试推送已发送，请检查钉钉。";
+          statusEl.textContent = data.totalStages === 0
+            ? "✅ 已发送（今日无即将开始的项目），请检查钉钉。"
+            : `✅ 测试推送已发送（${data.totalStages} 个阶段），请检查钉钉。`;
         } else {
           statusEl.textContent = "⚠️ " + (data.detail || "未发送，原因未知。");
         }
@@ -2230,7 +2232,9 @@
           if (statusEl) statusEl.textContent = "正在发送测试推送...";
           const data = await postJson(buildAppUrl("api/dingtalk/test-user"), { username: testDingtalk });
           if (data.sent) {
-            if (statusEl) statusEl.textContent = "✅ 已发送";
+            if (statusEl) statusEl.textContent = data.totalStages === 0
+              ? "✅ 已发送（今日无项目）"
+              : `✅ 已发送（${data.totalStages} 个阶段）`;
           } else {
             if (statusEl) statusEl.textContent = "⚠️ " + (data.detail || "未发送");
           }
