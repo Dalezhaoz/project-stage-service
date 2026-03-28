@@ -29,13 +29,40 @@ export STAGE_AGENT_SECRET='你的密钥'
 - `POST /query`
 - `POST /sync`
 
-## 推荐部署方式
+## systemd 部署步骤
 
-- systemd 常驻
+### 1. 创建服务文件
 
-## systemd 建议项
+```bash
+cat > /etc/systemd/system/stage-agent.service << 'EOF'
+[Unit]
+Description=Stage Agent
+After=network.target
 
-- WorkingDirectory 指向 agent 目录
-- ExecStart 使用固定 python3
-- Environment 设置 `STAGE_AGENT_SECRET`
-- Restart=always
+[Service]
+Type=simple
+WorkingDirectory=/data/tools/stage_agent
+ExecStart=/usr/bin/python3 /data/tools/stage_agent/stage_agent.py 5200
+Environment=STAGE_AGENT_SECRET=你的密钥
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+### 2. 启用并启动
+
+```bash
+systemctl daemon-reload
+systemctl enable stage-agent
+systemctl start stage-agent
+systemctl status stage-agent
+```
+
+### 3. 查看日志
+
+```bash
+journalctl -u stage-agent -n 50 --no-pager
+```

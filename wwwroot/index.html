@@ -739,10 +739,10 @@
           </div>
           <div class="filter-row">
             <div class="filter-group filter-inputs-row">
-              <input id="project-keyword" placeholder="项目关键字" class="filter-input">
-              <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input">
-              <input id="database-keyword" placeholder="数据库关键字" class="filter-input">
-              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input">
+              <input id="project-keyword" placeholder="项目关键字" class="filter-input" autocomplete="off">
+              <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input" autocomplete="off">
+              <input id="database-keyword" placeholder="数据库关键字" class="filter-input" autocomplete="off">
+              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input" autocomplete="off">
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
@@ -1951,8 +1951,13 @@
         alert("设置失败：" + error.message);
       }
     });
+    // 防止在弹窗内选中文本拖拽到 overlay 时误关闭
+    let overlayMouseDownTarget = null;
+    document.querySelectorAll(".overlay").forEach(overlay => {
+      overlay.addEventListener("mousedown", (e) => { overlayMouseDownTarget = e.target; });
+    });
     document.getElementById("server-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("server-overlay")) {
+      if (event.target === document.getElementById("server-overlay") && overlayMouseDownTarget === event.target) {
         hideServerModal();
       }
     });
@@ -1998,20 +2003,20 @@
     });
     document.getElementById("close-app-server-options-modal").addEventListener("click", hideAppServerOptionsOverlay);
     document.getElementById("app-server-options-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("app-server-options-overlay")) {
+      if (event.target === document.getElementById("app-server-options-overlay") && overlayMouseDownTarget === event.target) {
         hideAppServerOptionsOverlay();
       }
     });
     document.getElementById("close-metadata-modal").addEventListener("click", hideMetadataOverlay);
     document.getElementById("cancel-metadata-btn").addEventListener("click", hideMetadataOverlay);
     document.getElementById("metadata-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("metadata-overlay")) {
+      if (event.target === document.getElementById("metadata-overlay") && overlayMouseDownTarget === event.target) {
         hideMetadataOverlay();
       }
     });
     document.getElementById("close-schedule-modal").addEventListener("click", hideScheduleOverlay);
     document.getElementById("schedule-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("schedule-overlay")) {
+      if (event.target === document.getElementById("schedule-overlay") && overlayMouseDownTarget === event.target) {
         hideScheduleOverlay();
       }
     });
@@ -2099,22 +2104,22 @@
       }
     });
     document.getElementById("my-dingtalk-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("my-dingtalk-overlay")) {
+      if (event.target === document.getElementById("my-dingtalk-overlay") && overlayMouseDownTarget === event.target) {
         document.getElementById("my-dingtalk-overlay").classList.remove("show");
       }
     });
     document.getElementById("user-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("user-overlay")) {
+      if (event.target === document.getElementById("user-overlay") && overlayMouseDownTarget === event.target) {
         hideUserOverlay();
       }
     });
     document.getElementById("password-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("password-overlay")) {
+      if (event.target === document.getElementById("password-overlay") && overlayMouseDownTarget === event.target) {
         hidePasswordOverlay();
       }
     });
     document.getElementById("summary-store-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("summary-store-overlay")) {
+      if (event.target === document.getElementById("summary-store-overlay") && overlayMouseDownTarget === event.target) {
         hideSummaryStoreOverlay();
       }
     });
