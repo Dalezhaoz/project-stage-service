@@ -2050,7 +2050,7 @@
         if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
         if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
         if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
-        if (data.totalStages === 0) msg = "⚠️ 今天没有开始的阶段，无内容可推送。";
+        if (data.totalStages === 0) msg = "✅ 今天没有即将开始的项目，已发送通知。";
         setScheduleStatus(msg);
       } catch (error) {
         setScheduleStatus(error.message);

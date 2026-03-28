@@ -38,19 +38,29 @@ public sealed class DingTalkNotifyService
         var todayStages = await QueryTodayStartingStagesAsync(summaryConfig, cancellationToken);
         result.TotalStages = todayStages.Count;
 
-        if (todayStages.Count == 0)
-        {
-            _logger.LogInformation("No stages starting today, skipping DingTalk notification.");
-            return result;
-        }
-
         // Send overall report to main webhook
         if (!string.IsNullOrWhiteSpace(dingTalkConfig.WebhookUrl))
         {
-            var markdown = BuildMarkdownMessage(todayStages);
-            await SendDingTalkMessageAsync(dingTalkConfig, markdown.title, markdown.text, cancellationToken);
-            _logger.LogInformation("DingTalk daily report sent: {Count} stages starting today.", todayStages.Count);
+            if (todayStages.Count == 0)
+            {
+                var today = DateTime.Today.ToString("yyyy-MM-dd");
+                var title = $"今日项目通知 ({today})";
+                var text = $"### ✅ 今日无即将开始的项目\n> 日期：**{today}**";
+                await SendDingTalkMessageAsync(dingTalkConfig, title, text, cancellationToken);
+                _logger.LogInformation("DingTalk daily report sent: no stages starting today.");
+            }
+            else
+            {
+                var markdown = BuildMarkdownMessage(todayStages);
+                await SendDingTalkMessageAsync(dingTalkConfig, markdown.title, markdown.text, cancellationToken);
+                _logger.LogInformation("DingTalk daily report sent: {Count} stages starting today.", todayStages.Count);
+            }
             result.MainSent = true;
+        }
+
+        if (todayStages.Count == 0)
+        {
+            return result;
         }
 
         // Send per-maintainer reports
