@@ -114,6 +114,105 @@ public sealed class ProjectStageRefreshService
                 .Cast<ProjectStageRecord>()
                 .ToList();
 
+            var endedCacheEntries = await _cacheStore.LoadEndedCountCacheEntriesAsync(server.Name, cancellationToken);
+            var endedCacheMap = endedCacheEntries.ToDictionary(
+                item => $"{item.DatabaseName}::{item.ExamCode}",
+                StringComparer.OrdinalIgnoreCase);
+
+            var groups = records
+                .GroupBy(item => new { item.DatabaseName, item.ExamCode })
+                .ToList();
+
+            var countTargets = new List<AgentCountTarget>();
+            foreach (var group in groups)
+            {
+                var ordered = group
+                    .OrderBy(item => item.StartTime)
+                    .ThenBy(item => item.EndTime)
+                    .ThenBy(item => item.StageName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var allEnded = ordered.All(item => IsEndedStatus(item.Status));
+                var cacheKey = $"{group.Key.DatabaseName}::{group.Key.ExamCode}";
+
+                if (!allEnded)
+                {
+                    countTargets.Add(new AgentCountTarget
+                    {
+                        DatabaseName = group.Key.DatabaseName,
+                        ExamCode = group.Key.ExamCode
+                    });
+                    continue;
+                }
+
+                var signature = BuildStageSignature(ordered);
+                if (!endedCacheMap.TryGetValue(cacheKey, out var cached) ||
+                    !string.Equals(cached.StageSignature, signature, StringComparison.Ordinal))
+                {
+                    countTargets.Add(new AgentCountTarget
+                    {
+                        DatabaseName = group.Key.DatabaseName,
+                        ExamCode = group.Key.ExamCode
+                    });
+                }
+            }
+
+            var countResults = await _agentClientService.CountAsync(
+                server,
+                countTargets,
+                includeRegistrationCount: true,
+                includeAdmissionTicketCount: true,
+                cancellationToken);
+
+            var countMap = countResults.Results.ToDictionary(
+                item => $"{item.DatabaseName}::{item.ExamCode}",
+                StringComparer.OrdinalIgnoreCase);
+
+            var nextEndedCacheEntries = new List<EndedCountCacheEntry>();
+            foreach (var group in groups)
+            {
+                var ordered = group
+                    .OrderBy(item => item.StartTime)
+                    .ThenBy(item => item.EndTime)
+                    .ThenBy(item => item.StageName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var cacheKey = $"{group.Key.DatabaseName}::{group.Key.ExamCode}";
+
+                int registrationCount = 0;
+                int admissionTicketCount = 0;
+
+                if (countMap.TryGetValue(cacheKey, out var counted))
+                {
+                    registrationCount = counted.RegistrationCount;
+                    admissionTicketCount = counted.AdmissionTicketCount;
+                }
+                else if (ordered.All(item => IsEndedStatus(item.Status)) &&
+                         endedCacheMap.TryGetValue(cacheKey, out var cached))
+                {
+                    registrationCount = cached.RegistrationCount;
+                    admissionTicketCount = cached.AdmissionTicketCount;
+                }
+
+                foreach (var record in ordered)
+                {
+                    record.RegistrationCount = registrationCount;
+                    record.AdmissionTicketCount = admissionTicketCount;
+                }
+
+                if (ordered.All(item => IsEndedStatus(item.Status)))
+                {
+                    nextEndedCacheEntries.Add(new EndedCountCacheEntry
+                    {
+                        DatabaseName = group.Key.DatabaseName,
+                        ExamCode = group.Key.ExamCode,
+                        StageSignature = BuildStageSignature(ordered),
+                        RegistrationCount = registrationCount,
+                        AdmissionTicketCount = admissionTicketCount
+                    });
+                }
+            }
+
+            await _cacheStore.SaveEndedCountCacheEntriesAsync(server.Name, nextEndedCacheEntries, cancellationToken);
+
             agentResult.Success = true;
             agentResult.Databases = response.MatchedDatabases;
             agentResult.Records = records.Count;
@@ -179,4 +278,24 @@ public sealed class ProjectStageRefreshService
         int MatchedDatabases,
         List<ProjectStageRecord> Records,
         AgentRefreshResult Result);
+
+    private static bool IsEndedStatus(string? status) =>
+        string.Equals(status, ProjectStageStatuses.Ended, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "已经结束", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildStageSignature(IEnumerable<ProjectStageRecord> records)
+    {
+        return string.Join(
+            "\n",
+            records.Select(item => new
+                {
+                    item.StageName,
+                    Start = item.StartTime.ToString("O"),
+                    End = item.EndTime.ToString("O")
+                })
+                .OrderBy(item => item.Start, StringComparer.Ordinal)
+                .ThenBy(item => item.End, StringComparer.Ordinal)
+                .ThenBy(item => item.StageName, StringComparer.OrdinalIgnoreCase)
+                .Select(item => $"{item.StageName}|{item.Start}|{item.End}"));
+    }
 }

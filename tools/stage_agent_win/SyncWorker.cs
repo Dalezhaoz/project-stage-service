@@ -47,6 +47,31 @@ public sealed class SyncWorker
 
     public Task<QueryResponse> QueryAsync(QueryRequest req) => QueryInternalAsync(req);
 
+    public async Task<CountResponse> CountAsync(CountRequest req)
+    {
+        var groupedTargets = req.Targets
+            .Where(item => !string.IsNullOrWhiteSpace(item.DatabaseName) && !string.IsNullOrWhiteSpace(item.ExamCode))
+            .GroupBy(item => item.DatabaseName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var results = new List<CountResult>();
+        foreach (var databaseGroup in groupedTargets)
+        {
+            var examCodes = databaseGroup
+                .Select(item => item.ExamCode)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var counts = string.Equals(req.Source.DatabaseType, "MySQL", StringComparison.OrdinalIgnoreCase)
+                ? await CountMySqlTargetsAsync(req.Source, databaseGroup.Key, req.Definition, examCodes, req.IncludeRegistrationCount, req.IncludeAdmissionTicketCount)
+                : await CountSqlServerTargetsAsync(req.Source, databaseGroup.Key, req.Definition, examCodes, req.IncludeRegistrationCount, req.IncludeAdmissionTicketCount);
+
+            results.AddRange(counts);
+        }
+
+        return new CountResponse { Results = results };
+    }
+
     private async Task<QueryResponse> QueryInternalAsync(QueryRequest req)
     {
         _logger.LogInformation("查询开始 - {ServerName}", req.ServerName);
@@ -203,35 +228,6 @@ public sealed class SyncWorker
             records.AddRange(await ReadQueryRecordsAsync(dbName, reader));
         }
 
-        var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        using (var cmd = new SqlCommand(definition.ExistingTablesSql, conn))
-        using (var reader = await cmd.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                existingTables.Add(reader.GetString(0));
-            }
-        }
-
-        foreach (var examCode in records.Select(item => item.Values.GetValueOrDefault("exam_code")).Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var registrationTable = definition.RegistrationTablePattern.Replace("{exam_code}", examCode);
-            var admissionTable = definition.AdmissionTicketTablePattern.Replace("{exam_code}", examCode);
-
-            var registrationCount = existingTables.Contains(registrationTable)
-                ? await CountSqlServerTableAsync(conn, registrationTable)
-                : 0;
-            var admissionCount = existingTables.Contains(admissionTable)
-                ? await CountSqlServerTableAsync(conn, admissionTable)
-                : 0;
-
-            foreach (var record in records.Where(item => string.Equals(item.Values.GetValueOrDefault("exam_code"), examCode, StringComparison.OrdinalIgnoreCase)))
-            {
-                record.Metrics["registration_count"] = registrationCount;
-                record.Metrics["admission_ticket_count"] = admissionCount;
-            }
-        }
-
         return records;
     }
 
@@ -247,36 +243,6 @@ public sealed class SyncWorker
             cmd.CommandText = definition.StageQuerySql;
             await using var reader = await cmd.ExecuteReaderAsync();
             records.AddRange(await ReadMySqlQueryRecordsAsync(dbName, reader));
-        }
-
-        var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        await using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = definition.ExistingTablesSql;
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                existingTables.Add(reader.GetString(0));
-            }
-        }
-
-        foreach (var examCode in records.Select(item => item.Values.GetValueOrDefault("exam_code")).Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var registrationTable = definition.RegistrationTablePattern.Replace("{exam_code}", examCode);
-            var admissionTable = definition.AdmissionTicketTablePattern.Replace("{exam_code}", examCode);
-
-            var registrationCount = existingTables.Contains(registrationTable)
-                ? await CountMySqlTableAsync(conn, registrationTable)
-                : 0;
-            var admissionCount = existingTables.Contains(admissionTable)
-                ? await CountMySqlTableAsync(conn, admissionTable)
-                : 0;
-
-            foreach (var record in records.Where(item => string.Equals(item.Values.GetValueOrDefault("exam_code"), examCode, StringComparison.OrdinalIgnoreCase)))
-            {
-                record.Metrics["registration_count"] = registrationCount;
-                record.Metrics["admission_ticket_count"] = admissionCount;
-            }
         }
 
         return records;
@@ -390,6 +356,101 @@ public sealed class SyncWorker
             null => "",
             _ => Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? ""
         };
+    }
+
+    private static async Task<List<CountResult>> CountSqlServerTargetsAsync(
+        SourceConfig source,
+        string dbName,
+        QueryDefinition definition,
+        List<string> examCodes,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount)
+    {
+        var connStr = BuildSourceConnStr(source, dbName);
+        using var conn = new SqlConnection(connStr);
+        await conn.OpenAsync();
+
+        var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var cmd = new SqlCommand(definition.ExistingTablesSql, conn))
+        using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                existingTables.Add(reader.GetString(0));
+            }
+        }
+
+        var results = new List<CountResult>();
+        foreach (var examCode in examCodes)
+        {
+            var registrationTable = definition.RegistrationTablePattern.Replace("{exam_code}", examCode);
+            var admissionTable = definition.AdmissionTicketTablePattern.Replace("{exam_code}", examCode);
+
+            var registrationCount = includeRegistrationCount && existingTables.Contains(registrationTable)
+                ? await CountSqlServerTableAsync(conn, registrationTable)
+                : 0;
+            var admissionCount = includeAdmissionTicketCount && existingTables.Contains(admissionTable)
+                ? await CountSqlServerTableAsync(conn, admissionTable)
+                : 0;
+
+            results.Add(new CountResult
+            {
+                DatabaseName = dbName,
+                ExamCode = examCode,
+                RegistrationCount = registrationCount,
+                AdmissionTicketCount = admissionCount
+            });
+        }
+
+        return results;
+    }
+
+    private static async Task<List<CountResult>> CountMySqlTargetsAsync(
+        SourceConfig source,
+        string dbName,
+        QueryDefinition definition,
+        List<string> examCodes,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount)
+    {
+        var connStr = BuildMySqlConnStr(source, dbName);
+        await using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+
+        var existingTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = definition.ExistingTablesSql;
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                existingTables.Add(reader.GetString(0));
+            }
+        }
+
+        var results = new List<CountResult>();
+        foreach (var examCode in examCodes)
+        {
+            var registrationTable = definition.RegistrationTablePattern.Replace("{exam_code}", examCode);
+            var admissionTable = definition.AdmissionTicketTablePattern.Replace("{exam_code}", examCode);
+
+            var registrationCount = includeRegistrationCount && existingTables.Contains(registrationTable)
+                ? await CountMySqlTableAsync(conn, registrationTable)
+                : 0;
+            var admissionCount = includeAdmissionTicketCount && existingTables.Contains(admissionTable)
+                ? await CountMySqlTableAsync(conn, admissionTable)
+                : 0;
+
+            results.Add(new CountResult
+            {
+                DatabaseName = dbName,
+                ExamCode = examCode,
+                RegistrationCount = registrationCount,
+                AdmissionTicketCount = admissionCount
+            });
+        }
+
+        return results;
     }
 
     private static async Task WriteToCentralAsync(TargetConfig target, string serverName, List<StageRecord> records)

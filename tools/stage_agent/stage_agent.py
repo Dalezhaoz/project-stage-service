@@ -51,6 +51,16 @@ class SyncHandler(BaseHTTPRequestHandler):
                 self._json_response(500, {"detail": str(e)})
             return
 
+        if self.path == "/counts":
+            try:
+                body = self._read_body()
+                payload = decrypt_payload(body)
+                result = run_counts(payload)
+                self._json_response(200, result)
+            except Exception as e:
+                self._json_response(500, {"detail": str(e)})
+            return
+
         if self.path != "/sync":
             self._json_response(404, {"detail": "not found"})
             return
@@ -144,6 +154,32 @@ def run_query(body):
         "matchedDatabases": len(databases),
         "records": records,
     }
+
+
+def run_counts(body):
+    source = body["source"]
+    definition = body["definition"]
+    db_type = source.get("databaseType", "MySQL").lower()
+    include_registration = bool(body.get("includeRegistrationCount"))
+    include_admission = bool(body.get("includeAdmissionTicketCount"))
+    targets = body.get("targets", []) or []
+
+    grouped = {}
+    for item in targets:
+        db_name = (item.get("databaseName") or "").strip()
+        exam_code = (item.get("examCode") or "").strip()
+        if not db_name or not exam_code:
+            continue
+        grouped.setdefault(db_name, set()).add(exam_code)
+
+    results = []
+    for db_name, exam_codes in grouped.items():
+        if db_type == "mysql":
+            results.extend(count_mysql_targets(source, db_name, definition, exam_codes, include_registration, include_admission))
+        else:
+            results.extend(count_sqlserver_targets(source, db_name, definition, exam_codes, include_registration, include_admission))
+
+    return {"results": results}
 
 
 def run_sync(body):
@@ -255,30 +291,7 @@ def query_mysql_database(source, db_name, definition, server_name=None):
             cur.execute(definition["stageQuerySql"])
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
-
-            # 查所有表名用于判断报名表/考场表是否存在
-            cur.execute(definition["existingTablesSql"])
-            existing_tables = {r[0] for r in cur.fetchall()}
-
-        records = _build_query_records(rows, columns, db_name)
-
-        # 按 exam_code 统计报名人数和准考证人数
-        exam_codes = {r["values"].get("exam_code", "") for r in records if r["values"].get("exam_code")}
-        counts = {}
-        with conn.cursor() as cur:
-            for ec in exam_codes:
-                reg_table = definition["registrationTablePattern"].replace("{exam_code}", ec)
-                adm_table = definition["admissionTicketTablePattern"].replace("{exam_code}", ec)
-                reg_count = _count_mysql_table(cur, reg_table) if reg_table in existing_tables else 0
-                adm_count = _count_mysql_table(cur, adm_table) if adm_table in existing_tables else 0
-                counts[ec] = (reg_count, adm_count)
-
-        for r in records:
-            c = counts.get(r["values"].get("exam_code", ""), (0, 0))
-            r["metrics"]["registration_count"] = c[0]
-            r["metrics"]["admission_ticket_count"] = c[1]
-
-        return records
+        return _build_query_records(rows, columns, db_name)
     finally:
         conn.close()
 
@@ -340,30 +353,7 @@ def query_sqlserver_database(source, db_name, definition, server_name=None):
             cur.execute(definition["stageQuerySql"])
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
-
-            # 查所有表名
-            cur.execute(definition["existingTablesSql"])
-            existing_tables = {r[0] for r in cur.fetchall()}
-
-        records = _build_query_records(rows, columns, db_name)
-
-        # 按 exam_code 统计报名人数和准考证人数
-        exam_codes = {r["values"].get("exam_code", "") for r in records if r["values"].get("exam_code")}
-        counts = {}
-        with conn.cursor() as cur:
-            for ec in exam_codes:
-                reg_table = definition["registrationTablePattern"].replace("{exam_code}", ec)
-                adm_table = definition["admissionTicketTablePattern"].replace("{exam_code}", ec)
-                reg_count = _count_sqlserver_table(cur, reg_table) if reg_table in existing_tables else 0
-                adm_count = _count_sqlserver_table(cur, adm_table) if adm_table in existing_tables else 0
-                counts[ec] = (reg_count, adm_count)
-
-        for r in records:
-            c = counts.get(r["values"].get("exam_code", ""), (0, 0))
-            r["metrics"]["registration_count"] = c[0]
-            r["metrics"]["admission_ticket_count"] = c[1]
-
-        return records
+        return _build_query_records(rows, columns, db_name)
     finally:
         conn.close()
 
@@ -432,6 +422,65 @@ def _build_status(start_text, end_text):
         return "正在进行"
     except Exception:
         return ""
+
+
+def count_mysql_targets(source, db_name, definition, exam_codes, include_registration, include_admission):
+    import pymysql
+    conn = pymysql.connect(
+        host=source["host"], port=source.get("port", 3306),
+        user=source["username"], password=source["password"],
+        database=db_name, charset="utf8mb4", connect_timeout=20,
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(definition["existingTablesSql"])
+            existing_tables = {r[0] for r in cur.fetchall()}
+
+            results = []
+            for ec in exam_codes:
+                reg_table = definition["registrationTablePattern"].replace("{exam_code}", ec)
+                adm_table = definition["admissionTicketTablePattern"].replace("{exam_code}", ec)
+                reg_count = _count_mysql_table(cur, reg_table) if include_registration and reg_table in existing_tables else 0
+                adm_count = _count_mysql_table(cur, adm_table) if include_admission and adm_table in existing_tables else 0
+                results.append({
+                    "databaseName": db_name,
+                    "examCode": ec,
+                    "registrationCount": reg_count,
+                    "admissionTicketCount": adm_count
+                })
+            return results
+    finally:
+        conn.close()
+
+
+def count_sqlserver_targets(source, db_name, definition, exam_codes, include_registration, include_admission):
+    import pymssql
+    conn = pymssql.connect(
+        server=source["host"], port=source.get("port", 1433),
+        user=source["username"], password=source["password"],
+        database=db_name, login_timeout=60, charset="utf8",
+        tds_version="7.0",
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(definition["existingTablesSql"])
+            existing_tables = {r[0] for r in cur.fetchall()}
+
+            results = []
+            for ec in exam_codes:
+                reg_table = definition["registrationTablePattern"].replace("{exam_code}", ec)
+                adm_table = definition["admissionTicketTablePattern"].replace("{exam_code}", ec)
+                reg_count = _count_sqlserver_table(cur, reg_table) if include_registration and reg_table in existing_tables else 0
+                adm_count = _count_sqlserver_table(cur, adm_table) if include_admission and adm_table in existing_tables else 0
+                results.append({
+                    "databaseName": db_name,
+                    "examCode": ec,
+                    "registrationCount": reg_count,
+                    "admissionTicketCount": adm_count
+                })
+            return results
+    finally:
+        conn.close()
 
 
 # ─── 写入中心表 ──────────────────────────────────────────────

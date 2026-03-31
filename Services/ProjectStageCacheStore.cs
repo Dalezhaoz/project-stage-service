@@ -45,11 +45,21 @@ public sealed class ProjectStageCacheStore
                 admission_ticket_count INTEGER NOT NULL DEFAULT 0
             );
 
+            CREATE TABLE IF NOT EXISTS ended_count_cache (
+                server_name TEXT NOT NULL,
+                database_name TEXT NOT NULL,
+                exam_code TEXT NOT NULL,
+                stage_signature TEXT NOT NULL,
+                registration_count INTEGER NOT NULL DEFAULT 0,
+                admission_ticket_count INTEGER NOT NULL DEFAULT 0
+            );
+
             CREATE INDEX IF NOT EXISTS idx_stage_record_server ON stage_record(server_name);
             CREATE INDEX IF NOT EXISTS idx_stage_record_exam ON stage_record(server_name, database_name, exam_code);
             CREATE INDEX IF NOT EXISTS idx_stage_record_stage_name ON stage_record(stage_name);
             CREATE INDEX IF NOT EXISTS idx_stage_record_status ON stage_record(status);
             CREATE INDEX IF NOT EXISTS idx_stage_record_time ON stage_record(start_time, end_time);
+            CREATE INDEX IF NOT EXISTS idx_ended_count_cache_exam ON ended_count_cache(server_name, database_name, exam_code);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
 
@@ -287,6 +297,83 @@ public sealed class ProjectStageCacheStore
         }
 
         return targets;
+    }
+
+    public async Task<List<EndedCountCacheEntry>> LoadEndedCountCacheEntriesAsync(string serverName, CancellationToken cancellationToken)
+    {
+        await using var connection = OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT database_name, exam_code, stage_signature, registration_count, admission_ticket_count
+            FROM ended_count_cache
+            WHERE server_name = $server_name
+            ORDER BY database_name, exam_code
+            """;
+        command.Parameters.AddWithValue("$server_name", serverName);
+
+        var results = new List<EndedCountCacheEntry>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(new EndedCountCacheEntry
+            {
+                DatabaseName = reader.GetString(0),
+                ExamCode = reader.GetString(1),
+                StageSignature = reader.GetString(2),
+                RegistrationCount = reader.GetInt32(3),
+                AdmissionTicketCount = reader.GetInt32(4)
+            });
+        }
+
+        return results;
+    }
+
+    public async Task SaveEndedCountCacheEntriesAsync(string serverName, IReadOnlyCollection<EndedCountCacheEntry> entries, CancellationToken cancellationToken)
+    {
+        await using var connection = OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+
+        await using (var deleteCommand = connection.CreateCommand())
+        {
+            deleteCommand.Transaction = transaction;
+            deleteCommand.CommandText = "DELETE FROM ended_count_cache WHERE server_name = $server_name;";
+            deleteCommand.Parameters.AddWithValue("$server_name", serverName);
+            await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var insertCommand = connection.CreateCommand())
+        {
+            insertCommand.Transaction = transaction;
+            insertCommand.CommandText = """
+                INSERT INTO ended_count_cache (
+                    server_name, database_name, exam_code, stage_signature, registration_count, admission_ticket_count
+                )
+                VALUES ($server_name, $database_name, $exam_code, $stage_signature, $registration_count, $admission_ticket_count);
+                """;
+
+            var serverNameParameter = insertCommand.Parameters.Add("$server_name", SqliteType.Text);
+            var databaseNameParameter = insertCommand.Parameters.Add("$database_name", SqliteType.Text);
+            var examCodeParameter = insertCommand.Parameters.Add("$exam_code", SqliteType.Text);
+            var signatureParameter = insertCommand.Parameters.Add("$stage_signature", SqliteType.Text);
+            var registrationCountParameter = insertCommand.Parameters.Add("$registration_count", SqliteType.Integer);
+            var admissionTicketCountParameter = insertCommand.Parameters.Add("$admission_ticket_count", SqliteType.Integer);
+
+            foreach (var entry in entries)
+            {
+                serverNameParameter.Value = serverName;
+                databaseNameParameter.Value = entry.DatabaseName;
+                examCodeParameter.Value = entry.ExamCode;
+                signatureParameter.Value = entry.StageSignature;
+                registrationCountParameter.Value = entry.RegistrationCount;
+                admissionTicketCountParameter.Value = entry.AdmissionTicketCount;
+                await insertCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task SaveServerCountsAsync(
@@ -565,4 +652,13 @@ public sealed class ProjectStageCacheStore
         alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);
     }
+}
+
+public sealed class EndedCountCacheEntry
+{
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+    public string StageSignature { get; set; } = "";
+    public int RegistrationCount { get; set; }
+    public int AdmissionTicketCount { get; set; }
 }

@@ -38,6 +38,16 @@ public class QueryDefinition
     public string AdmissionTicketTablePattern { get; set; } = "";
 }
 
+public class CountRequest
+{
+    public string ServerName { get; set; } = "";
+    public SourceConfig Source { get; set; } = new();
+    public QueryDefinition Definition { get; set; } = new();
+    public bool IncludeRegistrationCount { get; set; }
+    public bool IncludeAdmissionTicketCount { get; set; }
+    public List<CountTarget> Targets { get; set; } = [];
+}
+
 public class QueryResponse
 {
     public int VisitedDatabases { get; set; }
@@ -50,6 +60,25 @@ public class QueryRecord
     public string DatabaseName { get; set; } = "";
     public Dictionary<string, string> Values { get; set; } = [];
     public Dictionary<string, int> Metrics { get; set; } = [];
+}
+
+public class CountTarget
+{
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+}
+
+public class CountResponse
+{
+    public List<CountResult> Results { get; set; } = [];
+}
+
+public class CountResult
+{
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+    public int RegistrationCount { get; set; }
+    public int AdmissionTicketCount { get; set; }
 }
 
 public class SourceConfig

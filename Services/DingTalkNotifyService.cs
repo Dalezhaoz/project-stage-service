@@ -25,7 +25,7 @@ public sealed class DingTalkNotifyService
         DingTalkConfig dingTalkConfig,
         CancellationToken cancellationToken)
     {
-        await SendDailyReportAsync(summaryConfig, dingTalkConfig, [], cancellationToken);
+        await SendStageReportAsync(summaryConfig, dingTalkConfig, [], DateTime.Today, "今日", cancellationToken);
     }
 
     public async Task<DailyReportResult> SendDailyReportAsync(
@@ -34,8 +34,28 @@ public sealed class DingTalkNotifyService
         List<LocalAuthService.UserDingTalkConfig> userDingTalkConfigs,
         CancellationToken cancellationToken)
     {
+        return await SendStageReportAsync(summaryConfig, dingTalkConfig, userDingTalkConfigs, DateTime.Today, "今日", cancellationToken);
+    }
+
+    public async Task<DailyReportResult> SendNextDayPreviewAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig dingTalkConfig,
+        List<LocalAuthService.UserDingTalkConfig> userDingTalkConfigs,
+        CancellationToken cancellationToken)
+    {
+        return await SendStageReportAsync(summaryConfig, dingTalkConfig, userDingTalkConfigs, DateTime.Today.AddDays(1), "明日", cancellationToken);
+    }
+
+    private async Task<DailyReportResult> SendStageReportAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig dingTalkConfig,
+        List<LocalAuthService.UserDingTalkConfig> userDingTalkConfigs,
+        DateTime targetDate,
+        string label,
+        CancellationToken cancellationToken)
+    {
         var result = new DailyReportResult();
-        var todayStages = await QueryTodayStartingStagesAsync(summaryConfig, cancellationToken);
+        var todayStages = await QueryStartingStagesAsync(summaryConfig, targetDate, cancellationToken);
         result.TotalStages = todayStages.Count;
 
         // Send overall report to main webhook
@@ -43,17 +63,17 @@ public sealed class DingTalkNotifyService
         {
             if (todayStages.Count == 0)
             {
-                var today = DateTime.Today.ToString("yyyy-MM-dd");
-                var title = $"今日项目通知 ({today})";
-                var text = $"### ✅ 今日无即将开始的项目\n> 日期：**{today}**";
+                var dayText = targetDate.ToString("yyyy-MM-dd");
+                var title = $"{label}项目通知 ({dayText})";
+                var text = $"### ✅ {label}无即将开始的项目\n> 日期：**{dayText}**";
                 await SendDingTalkMessageAsync(dingTalkConfig, title, text, cancellationToken);
-                _logger.LogInformation("DingTalk daily report sent: no stages starting today.");
+                _logger.LogInformation("DingTalk {Label} report sent: no stages starting on {Day}.", label, dayText);
             }
             else
             {
-                var markdown = BuildMarkdownMessage(todayStages);
+                var markdown = BuildMarkdownMessage(todayStages, targetDate, label);
                 await SendDingTalkMessageAsync(dingTalkConfig, markdown.title, markdown.text, cancellationToken);
-                _logger.LogInformation("DingTalk daily report sent: {Count} stages starting today.", todayStages.Count);
+                _logger.LogInformation("DingTalk {Label} report sent: {Count} stages starting on {Day}.", label, todayStages.Count, targetDate.ToString("yyyy-MM-dd"));
             }
             result.MainSent = true;
         }
@@ -78,7 +98,7 @@ public sealed class DingTalkNotifyService
                     continue;
                 }
 
-                var markdown = BuildMaintainerMarkdownMessage(userConfig.Username, userStages);
+                var markdown = BuildMaintainerMarkdownMessage(userConfig.Username, userStages, targetDate, label);
                 var config = new DingTalkConfig
                 {
                     WebhookUrl = userConfig.WebhookUrl,
@@ -86,12 +106,12 @@ public sealed class DingTalkNotifyService
                     ProxyUrl = dingTalkConfig.ProxyUrl
                 };
                 await SendDingTalkMessageAsync(config, markdown.title, markdown.text, cancellationToken);
-                _logger.LogInformation("DingTalk personal report sent to {User}: {Count} stages.", userConfig.Username, userStages.Count);
+                _logger.LogInformation("DingTalk personal {Label} report sent to {User}: {Count} stages.", label, userConfig.Username, userStages.Count);
                 result.SentUsers.Add(userConfig.Username);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send personal DingTalk report to {User}.", userConfig.Username);
+                _logger.LogError(ex, "Failed to send personal {Label} DingTalk report to {User}.", label, userConfig.Username);
                 result.FailedUsers.Add(userConfig.Username);
             }
         }
@@ -108,8 +128,9 @@ public sealed class DingTalkNotifyService
         public List<string> FailedUsers { get; set; } = [];
     }
 
-    private async Task<List<TodayStageInfo>> QueryTodayStartingStagesAsync(
+    private async Task<List<TodayStageInfo>> QueryStartingStagesAsync(
         SummaryStoreConfig config,
+        DateTime targetDate,
         CancellationToken cancellationToken)
     {
         var builder = new SqlConnectionStringBuilder
@@ -136,9 +157,10 @@ public sealed class DingTalkNotifyService
             FROM dbo.project_stage_summary s
             LEFT JOIN dbo.project_metadata m
                 ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
-            WHERE CAST(s.stage_start_time AS DATE) = CAST(GETDATE() AS DATE)
+            WHERE CAST(s.stage_start_time AS DATE) = @target_date
             ORDER BY s.stage_start_time, s.project_name, s.stage_name
             """;
+        command.Parameters.AddWithValue("@target_date", targetDate.Date);
 
         var results = new List<TodayStageInfo>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -163,15 +185,15 @@ public sealed class DingTalkNotifyService
         return results;
     }
 
-    private static (string title, string text) BuildMarkdownMessage(List<TodayStageInfo> stages)
+    private static (string title, string text) BuildMarkdownMessage(List<TodayStageInfo> stages, DateTime targetDate, string label)
     {
-        var today = DateTime.Today.ToString("yyyy-MM-dd");
-        var title = $"今日开始的项目阶段 ({today})";
+        var today = targetDate.ToString("yyyy-MM-dd");
+        var title = $"{label}开始的项目阶段 ({today})";
 
         var sb = new StringBuilder();
 
         // === Header ===
-        sb.AppendLine($"### 📋 今日开始的项目阶段");
+        sb.AppendLine($"### 📋 {label}开始的项目阶段");
         sb.AppendLine($"> 日期：**{today}**，共 **{stages.Count}** 个阶段  ");
         sb.AppendLine();
 
@@ -269,13 +291,13 @@ public sealed class DingTalkNotifyService
         return (title, sb.ToString());
     }
 
-    private static (string title, string text) BuildMaintainerMarkdownMessage(string maintainer, List<TodayStageInfo> stages)
+    private static (string title, string text) BuildMaintainerMarkdownMessage(string maintainer, List<TodayStageInfo> stages, DateTime targetDate, string label)
     {
-        var today = DateTime.Today.ToString("yyyy-MM-dd");
-        var title = $"今日项目提醒 - {maintainer} ({today})";
+        var today = targetDate.ToString("yyyy-MM-dd");
+        var title = $"{label}项目提醒 - {maintainer} ({today})";
 
         var sb = new StringBuilder();
-        sb.AppendLine($"### 📋 {maintainer}，你今日有 **{stages.Count}** 个阶段开始");
+        sb.AppendLine($"### 📋 {maintainer}，你{label}有 **{stages.Count}** 个阶段开始");
         sb.AppendLine($"> 日期：**{today}**  ");
         sb.AppendLine();
 

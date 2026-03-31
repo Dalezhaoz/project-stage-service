@@ -1,3 +1,5 @@
+using ProjectStageService.Models;
+
 namespace ProjectStageService.Services;
 
 public sealed class DingTalkNotifyHostedService : BackgroundService
@@ -29,9 +31,13 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
         {
             var config = await _scheduleConfigStore.LoadAsync(stoppingToken);
 
-            if (!config.DingTalkEnabled ||
-                string.IsNullOrWhiteSpace(config.DingTalkConfig?.WebhookUrl) ||
-                config.DingTalkNotifyTimes.Count == 0)
+            var todayTimes = config.DingTalkNotifyTimes ?? [];
+            var nextDayTimes = config.DingTalkNextDayNotifyTimes ?? [];
+            var hasTodayNotify = config.DingTalkEnabled && todayTimes.Count > 0;
+            var hasNextDayNotify = config.DingTalkNextDayEnabled && nextDayTimes.Count > 0;
+
+            if ((!hasTodayNotify && !hasNextDayNotify) ||
+                string.IsNullOrWhiteSpace(config.DingTalkConfig?.WebhookUrl))
             {
                 _logger.LogInformation("DingTalk notify is disabled. Waiting for config change.");
                 try
@@ -50,10 +56,10 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
                 continue;
             }
 
-            var nextRun = GetNextRun(config.DingTalkNotifyTimes);
-            var delay = nextRun - DateTime.Now;
+            var nextRun = GetNextRun(config);
+            var delay = nextRun.Time - DateTime.Now;
 
-            _logger.LogInformation("Next DingTalk notification scheduled at {NextRun}.", nextRun);
+            _logger.LogInformation("Next DingTalk notification scheduled at {NextRun}.", nextRun.Time);
 
             try
             {
@@ -84,7 +90,14 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
 
                 var authService = scope.ServiceProvider.GetRequiredService<LocalAuthService>();
                 var userDingTalkConfigs = await authService.GetAllDingTalkConfigsAsync(stoppingToken);
-                await notifyService.SendDailyReportAsync(summaryConfig, config.DingTalkConfig!, userDingTalkConfigs, stoppingToken);
+                if (nextRun.Kind == DingTalkNotifyKind.NextDay)
+                {
+                    await notifyService.SendNextDayPreviewAsync(summaryConfig, config.DingTalkConfig!, userDingTalkConfigs, stoppingToken);
+                }
+                else
+                {
+                    await notifyService.SendDailyReportAsync(summaryConfig, config.DingTalkConfig!, userDingTalkConfigs, stoppingToken);
+                }
             }
             catch (TaskCanceledException)
             {
@@ -97,21 +110,41 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
         }
     }
 
-    private static DateTime GetNextRun(List<string> times)
+    private static ScheduledRun GetNextRun(ScheduleConfig config)
     {
         var now = DateTime.Now;
-        var candidates = new List<DateTime>();
+        var candidates = new List<ScheduledRun>();
 
-        foreach (var t in times)
+        foreach (var t in config.DingTalkNotifyTimes ?? [])
         {
             if (TimeSpan.TryParse(t, out var ts))
             {
                 var candidate = DateTime.Today.Add(ts);
                 if (candidate <= now) candidate = candidate.AddDays(1);
-                candidates.Add(candidate);
+                candidates.Add(new ScheduledRun(candidate, DingTalkNotifyKind.Today));
             }
         }
 
-        return candidates.Count > 0 ? candidates.Min() : DateTime.Today.AddDays(1).AddHours(8);
+        foreach (var t in config.DingTalkNextDayNotifyTimes ?? [])
+        {
+            if (TimeSpan.TryParse(t, out var ts))
+            {
+                var candidate = DateTime.Today.Add(ts);
+                if (candidate <= now) candidate = candidate.AddDays(1);
+                candidates.Add(new ScheduledRun(candidate, DingTalkNotifyKind.NextDay));
+            }
+        }
+
+        return candidates.Count > 0
+            ? candidates.OrderBy(item => item.Time).First()
+            : new ScheduledRun(DateTime.Today.AddDays(1).AddHours(8), DingTalkNotifyKind.Today);
+    }
+
+    private sealed record ScheduledRun(DateTime Time, DingTalkNotifyKind Kind);
+
+    private enum DingTalkNotifyKind
+    {
+        Today,
+        NextDay
     }
 }

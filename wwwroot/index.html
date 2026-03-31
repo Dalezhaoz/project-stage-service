@@ -668,6 +668,7 @@
       <div class="page-header-right">
         <span class="auth-user" id="auth-user"></span>
         <button id="toggle-config-panel" type="button" class="header-toggle">配置</button>
+        <button id="open-manage-page" type="button" class="header-toggle" style="display:none;">管理页</button>
         <button id="open-user-modal" type="button" class="header-toggle" style="display:none;">用户</button>
         <button id="open-my-dingtalk-modal" type="button" class="header-toggle" style="display:none;">钉钉推送</button>
         <button id="open-password-modal" type="button" class="header-toggle" style="display:none;">密码</button>
@@ -742,7 +743,19 @@
               <input id="project-keyword" placeholder="项目关键字" class="filter-input" autocomplete="nope" name="project-keyword-filter">
               <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input" autocomplete="nope" name="stage-keyword-filter">
               <input id="database-keyword" placeholder="数据库关键字" class="filter-input" autocomplete="nope" name="database-keyword-filter">
-              <input id="exam-code-keyword" placeholder="考试代码" class="filter-input" autocomplete="nope" name="exam-code-filter">
+              <input
+                id="exam-code-keyword"
+                placeholder="考试代码"
+                class="filter-input"
+                autocomplete="off"
+                inputmode="numeric"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                name="filter-exam-code"
+                data-lpignore="true"
+                readonly
+                onfocus="this.removeAttribute('readonly');">
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
@@ -965,13 +978,22 @@
         <label style="margin-top:12px;">转发代理地址 <span style="font-weight:normal;color:var(--muted);">（手动配置，代理心跳注册后自动覆盖）</span></label>
         <input id="dingtalk-proxy" placeholder="例如：http://10.10.11.38:9100">
         <div id="proxy-status-line" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
-        <label style="margin-top:12px;">推送时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
+        <label style="margin-top:12px;">当天推送时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
         <textarea id="dingtalk-notify-times" rows="2" placeholder="08:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <div class="auth-actions" style="margin-top:12px;">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-dingtalk-nextday-enabled">
+            <span>启用前一晚次日预告</span>
+          </label>
+        </div>
+        <label style="margin-top:12px;">次日预告时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
+        <textarea id="dingtalk-nextday-notify-times" rows="2" placeholder="20:00" style="font-family:inherit;resize:vertical;"></textarea>
         <div class="auth-actions" style="margin-top:16px;">
           <button id="save-schedule-btn">保存配置</button>
           <button id="test-dingtalk-btn" class="secondary">测试钉钉推送</button>
+          <button id="test-dingtalk-nextday-btn" class="secondary">测试次日预告</button>
         </div>
-        <div class="hint">启用后，每天在设定时间自动推送当日开始的项目阶段到钉钉群。</div>
+        <div class="hint">启用后，可分别推送当日开始项目和前一晚的次日即将开始项目预告。</div>
         <div class="auth-status" id="schedule-status"></div>
       </div>
     </div>
@@ -1302,6 +1324,7 @@
       document.getElementById("auth-confirm-wrap").style.display = hasAccount ? "none" : "block";
       document.getElementById("auth-user").textContent = username ? `${username}（${roleLabels[role] || role}）` : "";
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
+      document.getElementById("open-manage-page").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-my-dingtalk-modal").style.display = username ? "inline-flex" : "none";
@@ -1502,6 +1525,8 @@
       document.getElementById("dingtalk-secret").value = config.dingTalkConfig?.secret || "";
       document.getElementById("dingtalk-proxy").value = config.dingTalkConfig?.proxyUrl || "";
       document.getElementById("dingtalk-notify-times").value = (config.dingTalkNotifyTimes || ["08:00"]).join("\n");
+      document.getElementById("schedule-dingtalk-nextday-enabled").checked = Boolean(config.dingTalkNextDayEnabled);
+      document.getElementById("dingtalk-nextday-notify-times").value = (config.dingTalkNextDayNotifyTimes || ["20:00"]).join("\n");
       // Load proxy heartbeat status
       try {
         const proxyResp = await apiFetch(buildAppUrl("api/dingtalk/proxy-status"));
@@ -1530,6 +1555,8 @@
         countRefreshTimes: document.getElementById("schedule-count-times").value.split("\n").map(s => s.trim()).filter(Boolean),
         dingTalkEnabled: document.getElementById("schedule-dingtalk-enabled").checked,
         dingTalkNotifyTimes: document.getElementById("dingtalk-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        dingTalkNextDayEnabled: document.getElementById("schedule-dingtalk-nextday-enabled").checked,
+        dingTalkNextDayNotifyTimes: document.getElementById("dingtalk-nextday-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
         dingTalkConfig: {
           webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
           secret: document.getElementById("dingtalk-secret").value.trim(),
@@ -1593,6 +1620,7 @@
               <input type="text" placeholder="签名密钥（选填）" data-dingtalk-secret="${escapeHtml(user.username)}" value="${escapeHtml(user.dingTalkSecret || "")}" style="width:140px;">
               <button type="button" class="ghost" data-save-dingtalk="${escapeHtml(user.username)}">保存</button>
               <button type="button" class="ghost" data-test-dingtalk="${escapeHtml(user.username)}" ${user.dingTalkWebhook ? '' : 'disabled'}>测试推送</button>
+              <button type="button" class="ghost" data-test-dingtalk-nextday="${escapeHtml(user.username)}" ${user.dingTalkWebhook ? '' : 'disabled'}>测试次日预告</button>
               <div class="user-dingtalk-status" id="dingtalk-status-${escapeHtml(user.username)}"></div>
             </div>
           </div>
@@ -1976,6 +2004,10 @@
       if (!isAdmin()) return;
       showUserOverlay();
     });
+    document.getElementById("open-manage-page").addEventListener("click", () => {
+      if (!isAdmin()) return;
+      window.location.href = buildAppUrl("manage.html");
+    });
     document.getElementById("open-summary-store-modal").addEventListener("click", async () => {
       if (!isAdmin()) return;
       try {
@@ -2051,6 +2083,21 @@
         if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
         if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
         if (data.totalStages === 0) msg = "✅ 今天没有即将开始的项目，已发送通知。";
+        setScheduleStatus(msg);
+      } catch (error) {
+        setScheduleStatus(error.message);
+      }
+    });
+    document.getElementById("test-dingtalk-nextday-btn").addEventListener("click", async () => {
+      try {
+        setScheduleStatus("正在发送次日预告测试消息...");
+        await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
+        const data = await postJson(buildAppUrl("api/dingtalk/test-nextday"), {});
+        let msg = "✅ 次日预告群消息已发送。";
+        if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
+        if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
+        if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
+        if (data.totalStages === 0) msg = "✅ 明天没有即将开始的项目，已发送预告通知。";
         setScheduleStatus(msg);
       } catch (error) {
         setScheduleStatus(error.message);
@@ -2235,6 +2282,25 @@
             if (statusEl) statusEl.textContent = data.totalStages === 0
               ? "✅ 已发送（今日无项目）"
               : `✅ 已发送（${data.totalStages} 个阶段）`;
+          } else {
+            if (statusEl) statusEl.textContent = "⚠️ " + (data.detail || "未发送");
+          }
+          setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 5000);
+        } catch (error) {
+          if (statusEl) statusEl.textContent = "❌ " + error.message;
+        }
+      }
+
+      const testNextdayDingtalk = target.dataset.testDingtalkNextday;
+      if (testNextdayDingtalk) {
+        const statusEl = document.getElementById(`dingtalk-status-${testNextdayDingtalk}`);
+        try {
+          if (statusEl) statusEl.textContent = "正在发送次日预告...";
+          const data = await postJson(buildAppUrl("api/dingtalk/test-user-nextday"), { username: testNextdayDingtalk });
+          if (data.sent) {
+            if (statusEl) statusEl.textContent = data.totalStages === 0
+              ? "✅ 已发送（明日无项目）"
+              : `✅ 已发送次日预告（${data.totalStages} 个阶段）`;
           } else {
             if (statusEl) statusEl.textContent = "⚠️ " + (data.detail || "未发送");
           }

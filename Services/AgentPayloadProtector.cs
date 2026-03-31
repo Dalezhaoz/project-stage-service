@@ -88,6 +88,16 @@ public sealed class AgentQueryPayload
     public AgentQueryDefinition Definition { get; set; } = new();
 }
 
+public sealed class AgentCountPayload
+{
+    public string ServerName { get; set; } = "";
+    public AgentSourceConfig Source { get; set; } = new();
+    public AgentQueryDefinition Definition { get; set; } = new();
+    public bool IncludeRegistrationCount { get; set; }
+    public bool IncludeAdmissionTicketCount { get; set; }
+    public List<AgentCountTarget> Targets { get; set; } = [];
+}
+
 public sealed class AgentTestPayload
 {
     public string ServerName { get; set; } = "";
@@ -107,4 +117,23 @@ public sealed class AgentQueryRecord
     public string DatabaseName { get; set; } = "";
     public Dictionary<string, string> Values { get; set; } = [];
     public Dictionary<string, int> Metrics { get; set; } = [];
+}
+
+public sealed class AgentCountTarget
+{
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+}
+
+public sealed class AgentCountResponse
+{
+    public List<AgentCountResult> Results { get; set; } = [];
+}
+
+public sealed class AgentCountResult
+{
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+    public int RegistrationCount { get; set; }
+    public int AdmissionTicketCount { get; set; }
 }

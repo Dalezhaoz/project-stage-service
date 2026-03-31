@@ -96,6 +96,8 @@ public sealed class ScheduleConfig
     public List<string> CountRefreshTimes { get; set; } = ["06:00"];
     public bool DingTalkEnabled { get; set; }
     public List<string> DingTalkNotifyTimes { get; set; } = ["08:00"];
+    public bool DingTalkNextDayEnabled { get; set; }
+    public List<string> DingTalkNextDayNotifyTimes { get; set; } = ["20:00"];
     public DingTalkConfig? DingTalkConfig { get; set; }
 }
 

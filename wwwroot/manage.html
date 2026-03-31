@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目阶段管理台</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fbff;
+      --line: #d7e1f0;
+      --text: #16233f;
+      --muted: #6f7d96;
+      --primary: #315ef3;
+      --primary-soft: #ecf2ff;
+      --danger: #d94b4b;
+      --success: #198754;
+      --shadow: 0 10px 28px rgba(30, 60, 120, 0.08);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f5f9ff 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .page {
+      width: min(1500px, calc(100vw - 32px));
+      margin: 20px auto 36px;
+    }
+
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px 28px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 40px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .chip.muted {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .toolbar-button, .primary-button, .ghost-button {
+      border-radius: 14px;
+      border: 1px solid transparent;
+      padding: 11px 18px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: .18s ease;
+    }
+
+    .primary-button {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(49, 94, 243, 0.2);
+    }
+
+    .primary-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 22px rgba(49, 94, 243, 0.26);
+    }
+
+    .ghost-button, .toolbar-button {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    .layout {
+      margin-top: 18px;
+      display: grid;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .filter-panel {
+      padding: 14px 16px;
+    }
+
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: auto 1.35fr 0.9fr 0.9fr 0.9fr 0.9fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .filter-grid .actions-row,
+    .filter-grid .hint,
+    .filter-grid .status-line {
+      grid-column: 1 / -1;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field.inline-field {
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .field input, .field select {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .switch-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .toolbar-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-height: 40px;
+      padding-bottom: 1px;
+    }
+
+    .toolbar-status-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .switch-tag {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .switch-tag.active {
+      background: var(--primary-soft);
+      border-color: rgba(49, 94, 243, 0.35);
+      color: var(--primary);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .list-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .list-head h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .project-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .project-row {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+      display: grid;
+      gap: 12px;
+      cursor: pointer;
+      transition: .18s ease;
+    }
+
+    .project-row:hover {
+      border-color: rgba(49, 94, 243, 0.38);
+      box-shadow: 0 12px 22px rgba(49, 94, 243, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .project-row.selected {
+      border-color: rgba(49, 94, 243, 0.55);
+      background: linear-gradient(180deg, #fafdff 0%, #edf4ff 100%);
+      box-shadow: 0 12px 24px rgba(49, 94, 243, 0.14);
+    }
+
+    .project-row-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .project-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .project-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 11px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      background: #eef3fb;
+      color: #5f708e;
+    }
+
+    .status-ongoing {
+      background: #eaf7ef;
+      color: #198754;
+    }
+
+    .status-upcoming {
+      background: #eff4ff;
+      color: #315ef3;
+    }
+
+    .status-ended {
+      background: #f2f4f8;
+      color: #6c778d;
+    }
+
+    .project-row-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .select-button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: .18s ease;
+      white-space: nowrap;
+    }
+
+    .select-button:hover {
+      border-color: rgba(49, 94, 243, 0.38);
+      color: var(--primary);
+    }
+
+    .select-button.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(49, 94, 243, 0.2);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .value-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: #f5f8ff;
+      border: 1px solid #d6e0ff;
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .value-pill.empty {
+      color: var(--muted);
+      background: #f7f9fc;
+      border-color: #e4eaf5;
+    }
+
+    .quick-edit-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding-top: 2px;
+    }
+
+    .quick-edit-row select {
+      min-width: 180px;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .mini-button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: .18s ease;
+    }
+
+    .mini-button:hover {
+      border-color: rgba(49, 94, 243, 0.38);
+      color: var(--primary);
+    }
+
+    .mini-button.primary {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-color: rgba(49, 94, 243, 0.28);
+    }
+
+    .side-panel {
+      position: sticky;
+      top: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .summary-box {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fff 0%, #f7fbff 100%);
+      border: 1px solid var(--line);
+    }
+
+    .summary-box strong {
+      font-size: 16px;
+    }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .summary-stat {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      background: #fff;
+      text-align: center;
+    }
+
+    .summary-stat-number {
+      display: block;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .summary-stat-label {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .assign-panel {
+      display: grid;
+      gap: 14px;
+    }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+    }
+
+    .check-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+      transition: .18s ease;
+    }
+
+    .check-card.active {
+      background: var(--primary-soft);
+      border-color: rgba(49, 94, 243, 0.36);
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    .check-card input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .status-line {
+      min-height: 24px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status-line.error { color: var(--danger); }
+    .status-line.success { color: var(--success); }
+
+    .empty-state {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      background: #fcfdff;
+    }
+
+    @media (max-width: 1240px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .side-panel {
+        position: static;
+      }
+
+      .filter-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 980px) {
+      .hero h1 {
+        font-size: 34px;
+      }
+
+      .filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>项目分配管理台</h1>
+          <p>本地实例只负责负责人和应用服务器分配，读取同一套中心表与项目元数据，不参与正式同步。</p>
+        </div>
+        <div class="hero-actions">
+          <span class="chip muted" id="auth-chip">未登录</span>
+          <button class="toolbar-button" id="open-main-btn" type="button">打开正式查询页</button>
+          <button class="toolbar-button" id="logout-btn" type="button">退出登录</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel filter-panel">
+        <h2>筛选</h2>
+        <div class="filter-grid">
+          <div class="field inline-field">
+            <label>状态</label>
+            <div class="toolbar-status">
+              <button type="button" class="switch-tag active" data-status="正在进行">正在进行</button>
+              <button type="button" class="switch-tag active" data-status="即将开始">即将开始</button>
+              <button type="button" class="switch-tag active" data-status="已经结束">已结束</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="project-keyword">项目关键词</label>
+            <input id="project-keyword" placeholder="按项目名称筛选">
+          </div>
+
+          <div class="field">
+            <label for="server-keyword">数据库服务器</label>
+            <input id="server-keyword" placeholder="如：162">
+          </div>
+
+          <div class="field">
+            <label for="exam-keyword">考试代码</label>
+            <input id="exam-keyword" placeholder="如：39">
+          </div>
+
+          <div class="field">
+            <label for="maintainer-filter">负责人</label>
+            <select id="maintainer-filter">
+              <option value="">全部负责人</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="assignment-filter">分配状态</label>
+            <select id="assignment-filter">
+              <option value="all">全部项目</option>
+              <option value="unassigned">仅未分配负责人</option>
+              <option value="assigned">仅已分配负责人</option>
+            </select>
+          </div>
+
+          <div class="actions-row">
+            <button class="primary-button" type="button" id="query-btn">查询项目</button>
+            <button class="ghost-button" type="button" id="reset-btn">重置条件</button>
+          </div>
+          <div class="hint">项目列表来自中心表查询结果；负责人和应用服务器来自项目元数据。先点项目卡右上角“选择”，再到右侧批量保存。</div>
+          <div class="status-line" id="query-status"></div>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel">
+          <div class="list-head">
+            <h2>项目列表</h2>
+            <span class="chip"><span id="result-count">0</span> 个项目</span>
+          </div>
+          <div id="project-list" class="project-list"></div>
+        </div>
+
+        <aside class="side-panel">
+          <div class="summary-box">
+            <strong>当前选中</strong>
+            <div class="summary-stats">
+              <div class="summary-stat">
+                <span class="summary-stat-number" id="selected-count">0</span>
+                <span class="summary-stat-label">项目数</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-stat-number" id="selected-servers">0</span>
+                <span class="summary-stat-label">数据库服务器</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-stat-number" id="selected-apps">0</span>
+                <span class="summary-stat-label">应用服务器</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel assign-panel">
+            <h2>批量分配</h2>
+            <div class="field">
+              <label for="batch-maintainer">负责人</label>
+              <select id="batch-maintainer">
+                <option value="">未指定</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>应用服务器</label>
+              <div id="batch-app-servers" class="check-grid"></div>
+              <div class="hint" id="batch-app-hint">正在加载可选应用服务器...</div>
+            </div>
+
+            <div class="actions-row">
+              <button class="primary-button" type="button" id="save-batch-btn">保存选中项目</button>
+              <button class="ghost-button" type="button" id="clear-selection-btn">清空选中</button>
+            </div>
+            <div class="status-line" id="batch-status"></div>
+          </div>
+        </aside>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const buildAppUrl = (path) => {
+      const normalized = path.startsWith("/") ? path : `/${path}`;
+      const basePath = window.location.pathname.replace(/\/[^/]*$/, "");
+      return `${basePath}${normalized}`;
+    };
+
+    async function apiFetch(url, options = {}) {
+      return fetch(url, {
+        credentials: "include",
+        headers: {
+          ...(options.body ? { "Content-Type": "application/json" } : {}),
+          ...(options.headers || {})
+        },
+        ...options
+      });
+    }
+
+    async function getJson(url, options = {}) {
+      const response = await apiFetch(url, options);
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!response.ok) {
+        throw new Error(data?.detail || "请求失败");
+      }
+      return data;
+    }
+
+    async function postJson(url, body) {
+      return getJson(url, { method: "POST", body: JSON.stringify(body) });
+    }
+
+    const state = {
+      auth: null,
+      users: [],
+      metadata: [],
+      metadataMap: new Map(),
+      appServerOptions: [],
+      projects: [],
+      filteredProjects: [],
+      selectedKeys: new Set()
+    };
+
+    function escapeHtml(value) {
+      return (value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function getProjectKey(item) {
+      return `${item.serverName}::${item.examCode}`;
+    }
+
+    function parseAppServers(raw) {
+      return (raw || "")
+        .split(/[、,，;；\r\n]+/)
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function setStatus(id, text, type = "") {
+      const element = document.getElementById(id);
+      element.textContent = text || "";
+      element.className = `status-line${type ? ` ${type}` : ""}`;
+    }
+
+    function syncMetadataMap() {
+      state.metadataMap = new Map(
+        state.metadata.map(item => [`${item.serverName}::${item.examCode}`, item])
+      );
+    }
+
+    function getSelectedStatuses() {
+      return Array.from(document.querySelectorAll(".switch-tag.active")).map(button => button.dataset.status);
+    }
+
+    function buildQueryRequest() {
+      return {
+        statusFilters: getSelectedStatuses(),
+        timeMatchMode: "overlap",
+        stageKeyword: "",
+        stageNames: [],
+        serverNames: [],
+        projectKeyword: document.getElementById("project-keyword").value.trim(),
+        serverKeyword: document.getElementById("server-keyword").value.trim(),
+        databaseKeyword: "",
+        examCodeKeyword: document.getElementById("exam-keyword").value.trim(),
+        rangeStart: null,
+        rangeEnd: null,
+        dayOffsets: []
+      };
+    }
+
+    function fillMaintainerSelects() {
+      const filter = document.getElementById("maintainer-filter");
+      const batch = document.getElementById("batch-maintainer");
+      const options = ['<option value="">全部负责人</option>']
+        .concat(state.users.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}（${escapeHtml(user.role)}）</option>`));
+      filter.innerHTML = options.join("");
+      batch.innerHTML = '<option value="">未指定</option>' +
+        state.users.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}（${escapeHtml(user.role)}）</option>`).join("");
+    }
+
+    function renderAppServerOptions() {
+      const container = document.getElementById("batch-app-servers");
+      const hint = document.getElementById("batch-app-hint");
+      if (!state.appServerOptions.length) {
+        container.innerHTML = "";
+        hint.textContent = "还没有可选应用服务器，请先在正式页面里维护应用服务器配置。";
+        return;
+      }
+
+      hint.textContent = `共 ${state.appServerOptions.length} 个可选应用服务器。`;
+      container.innerHTML = state.appServerOptions.map(item => {
+        const value = escapeHtml(item.name);
+        return `
+          <label class="check-card" data-app-option="${value}">
+            <input type="checkbox" value="${value}">
+            <span>${value}</span>
+          </label>`;
+      }).join("");
+    }
+
+    function getProjectMaintainer(project) {
+      return state.metadataMap.get(getProjectKey(project))?.maintainer || "";
+    }
+
+    function getProjectAppServers(project) {
+      return parseAppServers(state.metadataMap.get(getProjectKey(project))?.appServers || "");
+    }
+
+    function applyProjectFilters() {
+      const maintainerFilter = document.getElementById("maintainer-filter").value;
+      const assignmentFilter = document.getElementById("assignment-filter").value;
+
+      state.filteredProjects = state.projects.filter(project => {
+        const maintainer = getProjectMaintainer(project);
+        if (maintainerFilter && maintainer !== maintainerFilter) {
+          return false;
+        }
+
+        if (assignmentFilter === "unassigned" && maintainer) {
+          return false;
+        }
+
+        if (assignmentFilter === "assigned" && !maintainer) {
+          return false;
+        }
+
+        return true;
+      });
+    }
+
+    function renderProjectList() {
+      applyProjectFilters();
+      const container = document.getElementById("project-list");
+      document.getElementById("result-count").textContent = String(state.filteredProjects.length);
+
+      if (!state.filteredProjects.length) {
+        container.innerHTML = '<div class="empty-state">没有符合条件的项目。</div>';
+        renderSelectionSummary();
+        return;
+      }
+
+      container.innerHTML = state.filteredProjects.map(project => {
+        const key = getProjectKey(project);
+        const maintainer = getProjectMaintainer(project);
+        const appServers = getProjectAppServers(project);
+        const statuses = Array.isArray(project.statuses) ? project.statuses : [];
+        const status = statuses.includes("正在进行")
+          ? "正在进行"
+          : statuses.includes("即将开始")
+            ? "即将开始"
+            : "已经结束";
+        const statusClass = status === "正在进行"
+          ? "status-ongoing"
+          : status === "即将开始"
+            ? "status-upcoming"
+            : "status-ended";
+        const selected = state.selectedKeys.has(key) ? " selected" : "";
+
+        return `
+          <article class="project-row${selected}" data-key="${escapeHtml(key)}">
+            <div class="project-row-top">
+              <div>
+                <h3 class="project-title">${escapeHtml(project.projectName)}</h3>
+                <div class="project-meta">
+                  <span>${escapeHtml(project.serverName)} / ${escapeHtml(project.databaseName)}</span>
+                  <span>考试代码：${escapeHtml(project.examCode)}</span>
+                </div>
+              </div>
+              <div class="project-row-actions">
+                <button type="button" class="select-button${state.selectedKeys.has(key) ? " active" : ""}" data-select-key="${escapeHtml(key)}">
+                  ${state.selectedKeys.has(key) ? "已选" : "选择"}
+                </button>
+                <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
+              </div>
+            </div>
+            <div class="pill-row">
+              ${maintainer
+                ? `<span class="value-pill">${escapeHtml(maintainer)}</span>`
+                : '<span class="value-pill empty">未指定负责人</span>'}
+              ${appServers.length
+                ? appServers.map(item => `<span class="value-pill">${escapeHtml(item)}</span>`).join("")
+                : '<span class="value-pill empty">未分配应用服务器</span>'}
+            </div>
+            <div class="quick-edit-row">
+              <select data-maintainer-select="${escapeHtml(key)}">
+                <option value="">未指定负责人</option>
+                ${state.users.map(user => `
+                  <option value="${escapeHtml(user.username)}" ${user.username === maintainer ? "selected" : ""}>
+                    ${escapeHtml(user.username)}（${escapeHtml(user.role)}）
+                  </option>`).join("")}
+              </select>
+              <button type="button" class="mini-button primary" data-save-maintainer="${escapeHtml(key)}">保存负责人</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      renderSelectionSummary();
+    }
+
+    function renderSelectionSummary() {
+      const selectedProjects = state.filteredProjects.filter(project => state.selectedKeys.has(getProjectKey(project)));
+      document.getElementById("selected-count").textContent = String(selectedProjects.length);
+      document.getElementById("selected-servers").textContent = String(new Set(selectedProjects.map(item => item.serverName)).size);
+      document.getElementById("selected-apps").textContent = String(new Set(selectedProjects.flatMap(item => getProjectAppServers(item))).size);
+    }
+
+    async function ensureAuth() {
+      const auth = await getJson(buildAppUrl("/api/auth/status"));
+      state.auth = auth;
+      document.getElementById("auth-chip").textContent = auth.authenticated
+        ? `${auth.username} / ${auth.role}`
+        : "未登录";
+
+      if (!auth.authenticated) {
+        window.location.href = buildAppUrl("/");
+        return false;
+      }
+
+      if (!(auth.role === "admin" || auth.role === "internal")) {
+        document.body.innerHTML = '<div class="page"><section class="hero"><h1>无权访问</h1><p>本地管理页仅开放给管理员和内部用户。</p></section></div>';
+        return false;
+      }
+
+      return true;
+    }
+
+    async function loadBaseData() {
+      const [users, metadata, appServers] = await Promise.all([
+        getJson(buildAppUrl("/api/auth/users")),
+        getJson(buildAppUrl("/api/project-metadata")),
+        getJson(buildAppUrl("/api/app-server-options"))
+      ]);
+
+      state.users = users;
+      state.metadata = metadata;
+      state.appServerOptions = appServers;
+      syncMetadataMap();
+      fillMaintainerSelects();
+      renderAppServerOptions();
+    }
+
+    async function queryProjects() {
+      setStatus("query-status", "正在查询项目...");
+      try {
+        const summary = await postJson(buildAppUrl("/api/query"), buildQueryRequest());
+        state.projects = Array.isArray(summary.groups) ? summary.groups : [];
+        renderProjectList();
+        setStatus("query-status", `查询完成，共 ${state.projects.length} 个项目。`, "success");
+      } catch (error) {
+        state.projects = [];
+        renderProjectList();
+        setStatus("query-status", error.message || "查询失败", "error");
+      }
+    }
+
+    function getSelectedAppServers() {
+      return Array.from(document.querySelectorAll('#batch-app-servers input[type="checkbox"]:checked')).map(input => input.value);
+    }
+
+    async function saveBatch() {
+      const selectedProjects = state.filteredProjects.filter(project => state.selectedKeys.has(getProjectKey(project)));
+      if (!selectedProjects.length) {
+        setStatus("batch-status", "请先选择至少一个项目。", "error");
+        return;
+      }
+
+      const maintainer = document.getElementById("batch-maintainer").value;
+      const appServers = getSelectedAppServers().join("、");
+
+      setStatus("batch-status", `正在保存 ${selectedProjects.length} 个项目...`);
+      try {
+        for (const project of selectedProjects) {
+          await postJson(buildAppUrl("/api/project-metadata"), {
+            serverName: project.serverName,
+            examCode: project.examCode,
+            maintainer,
+            appServers
+          });
+        }
+
+        state.metadata = await getJson(buildAppUrl("/api/project-metadata"));
+        syncMetadataMap();
+        renderProjectList();
+        setStatus("batch-status", `已保存 ${selectedProjects.length} 个项目。`, "success");
+      } catch (error) {
+        setStatus("batch-status", error.message || "保存失败", "error");
+      }
+    }
+
+    document.querySelectorAll(".switch-tag").forEach(button => {
+      button.addEventListener("click", () => {
+        button.classList.toggle("active");
+      });
+    });
+
+    document.getElementById("query-btn").addEventListener("click", queryProjects);
+    document.getElementById("reset-btn").addEventListener("click", () => {
+      document.getElementById("project-keyword").value = "";
+      document.getElementById("server-keyword").value = "";
+      document.getElementById("exam-keyword").value = "";
+      document.getElementById("maintainer-filter").value = "";
+      document.getElementById("assignment-filter").value = "all";
+      document.querySelectorAll(".switch-tag").forEach(button => button.classList.add("active"));
+      renderProjectList();
+      setStatus("query-status", "");
+    });
+
+    document.getElementById("maintainer-filter").addEventListener("change", renderProjectList);
+    document.getElementById("assignment-filter").addEventListener("change", renderProjectList);
+
+    document.getElementById("project-list").addEventListener("click", (event) => {
+      const selectButton = event.target.closest("[data-select-key]");
+      if (selectButton) {
+        event.stopPropagation();
+        const key = selectButton.dataset.selectKey;
+        if (state.selectedKeys.has(key)) {
+          state.selectedKeys.delete(key);
+        } else {
+          state.selectedKeys.add(key);
+        }
+        renderProjectList();
+        return;
+      }
+
+      const saveMaintainerButton = event.target.closest("[data-save-maintainer]");
+      if (saveMaintainerButton) {
+        event.stopPropagation();
+        return;
+      }
+
+      const interactive = event.target.closest("select, input, textarea, button, a, label");
+      if (interactive) {
+        return;
+      }
+
+      const row = event.target.closest(".project-row");
+      if (!row) return;
+      const key = row.dataset.key;
+      if (state.selectedKeys.has(key)) {
+        state.selectedKeys.delete(key);
+      } else {
+        state.selectedKeys.add(key);
+      }
+      renderProjectList();
+    });
+
+    document.getElementById("project-list").addEventListener("change", async (event) => {
+      const select = event.target.closest("[data-maintainer-select]");
+      if (!select) return;
+      select.dataset.dirty = "true";
+    });
+
+    document.getElementById("project-list").addEventListener("click", async (event) => {
+      const saveButton = event.target.closest("[data-save-maintainer]");
+      if (!saveButton) return;
+
+      event.stopPropagation();
+      const key = saveButton.dataset.saveMaintainer;
+      const select = document.querySelector(`[data-maintainer-select="${CSS.escape(key)}"]`);
+      if (!select) return;
+
+      const project = state.filteredProjects.find(item => getProjectKey(item) === key);
+      if (!project) return;
+
+      setStatus("batch-status", `正在保存 ${project.projectName} 的负责人...`);
+      try {
+        const existing = state.metadataMap.get(key);
+        await postJson(buildAppUrl("/api/project-metadata"), {
+          serverName: project.serverName,
+          examCode: project.examCode,
+          maintainer: select.value,
+          appServers: existing?.appServers || ""
+        });
+
+        state.metadata = await getJson(buildAppUrl("/api/project-metadata"));
+        syncMetadataMap();
+        renderProjectList();
+        setStatus("batch-status", `${project.projectName} 的负责人已更新。`, "success");
+      } catch (error) {
+        setStatus("batch-status", error.message || "保存负责人失败", "error");
+      }
+    });
+
+    document.getElementById("batch-app-servers").addEventListener("change", (event) => {
+      const card = event.target.closest(".check-card");
+      if (!card) return;
+      card.classList.toggle("active", event.target.checked);
+    });
+
+    document.getElementById("clear-selection-btn").addEventListener("click", () => {
+      state.selectedKeys.clear();
+      renderProjectList();
+      setStatus("batch-status", "已清空选中项目。");
+    });
+
+    document.getElementById("save-batch-btn").addEventListener("click", saveBatch);
+
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await postJson(buildAppUrl("/api/auth/logout"), {});
+      window.location.href = buildAppUrl("/");
+    });
+
+    document.getElementById("open-main-btn").addEventListener("click", () => {
+      window.location.href = buildAppUrl("/");
+    });
+
+    (async function bootstrap() {
+      const allowed = await ensureAuth();
+      if (!allowed) return;
+      await loadBaseData();
+      await queryProjects();
+    })();
+  </script>
+</body>
+</html>

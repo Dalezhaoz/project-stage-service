@@ -100,6 +100,24 @@ public sealed class HttpListenerService : BackgroundService
                 return;
             }
 
+            if (ctx.Request.HttpMethod == "POST" && path == "/counts")
+            {
+                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                var body = await reader.ReadToEndAsync();
+                var envelope = JsonSerializer.Deserialize<AgentEncryptedEnvelope>(body, JsonOpts);
+
+                if (envelope is null)
+                {
+                    await WriteJson(ctx, 400, new { detail = "invalid request body" });
+                    return;
+                }
+
+                var request = _protector.Decrypt<CountRequest>(envelope);
+                var result = await _syncWorker.CountAsync(request);
+                await WriteJson(ctx, 200, result);
+                return;
+            }
+
             if (ctx.Request.HttpMethod == "POST" && path == "/test")
             {
                 using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);

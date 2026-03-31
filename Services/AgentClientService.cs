@@ -50,6 +50,33 @@ public sealed class AgentClientService
         return await PostEncryptedAsync<AgentQueryResponse>(server, "/query", payload, cancellationToken);
     }
 
+    public async Task<AgentCountResponse> CountAsync(
+        StageServerConfig server,
+        IReadOnlyCollection<AgentCountTarget> targets,
+        bool includeRegistrationCount,
+        bool includeAdmissionTicketCount,
+        CancellationToken cancellationToken)
+    {
+        ValidateServer(server);
+
+        if (targets.Count == 0 || (!includeRegistrationCount && !includeAdmissionTicketCount))
+        {
+            return new AgentCountResponse();
+        }
+
+        var payload = new AgentCountPayload
+        {
+            ServerName = server.Name,
+            Source = BuildSource(server),
+            Definition = BuildDefinition(server),
+            IncludeRegistrationCount = includeRegistrationCount,
+            IncludeAdmissionTicketCount = includeAdmissionTicketCount,
+            Targets = targets.ToList()
+        };
+
+        return await PostEncryptedAsync<AgentCountResponse>(server, "/counts", payload, cancellationToken);
+    }
+
     public async Task<AgentRefreshResult> SyncAsync(StageServerConfig server, SummaryStoreConfig summaryStoreConfig, CancellationToken cancellationToken)
     {
         ValidateServer(server);
