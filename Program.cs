@@ -868,6 +868,19 @@ app.MapPost("/api/app-server-options", async (AppServerOptionRequest request, Pr
     }
 }).RequireAuthorization("InternalOrAbove");
 
+app.MapPost("/api/app-server-options/rename", async (RenameAppServerRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await metadataService.RenameAppServerAsync(request.OldName, request.NewName, cancellationToken);
+        return Results.Ok(new { renamed = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
 static string GetCurrentRole(HttpContext httpContext)
 {
     return httpContext.User.FindFirst("role")?.Value ?? LocalAuthService.RoleExternal;

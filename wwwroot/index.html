@@ -901,12 +901,11 @@
           <button id="close-app-server-options-modal" class="close-btn">关闭</button>
         </div>
         <label>可选应用服务器</label>
-        <textarea
-          id="app-server-options-input"
-          class="config-textarea"
-          rows="6"
-          placeholder="每行一个应用服务器名称或地址，例如：&#10;app-01&#10;10.10.1.18"></textarea>
-        <div class="hint">这里维护可分配的应用服务器选项。项目卡片里分配服务器时只会从这里选择。</div>
+        <div id="app-server-list" style="display:grid;gap:6px;margin-top:8px;"></div>
+        <div style="margin-top:8px;">
+          <button id="add-app-server-btn" type="button" class="ghost">+ 新增</button>
+        </div>
+        <div class="hint">修改名称后保存，会自动更新已分配该服务器的项目记录。</div>
         <div class="auth-actions">
           <button id="save-app-server-options-btn">保存配置</button>
         </div>
@@ -1446,8 +1445,35 @@
       allAppServerOptions = (Array.isArray(options) ? options : [])
         .map(item => String(item?.name ?? "").trim())
         .filter(Boolean);
-      document.getElementById("app-server-options-input").value = allAppServerOptions.join("\n");
+      renderAppServerList(allAppServerOptions);
       return allAppServerOptions;
+    }
+
+    function renderAppServerList(names) {
+      const container = document.getElementById("app-server-list");
+      container.innerHTML = names.map(name => `
+        <div class="app-server-row" style="display:flex;gap:6px;align-items:center;">
+          <input type="text" class="filter-input app-server-name-input" value="${escapeHtml(name)}"
+            data-original="${escapeHtml(name)}" style="flex:1;min-width:0;">
+          <button type="button" class="ghost app-server-delete-btn" style="color:#e53e3e;border-color:#e53e3e;white-space:nowrap;">删除</button>
+        </div>
+      `).join("") || '<div style="color:var(--muted);font-size:13px;">暂无数据，点击"新增"添加。</div>';
+    }
+
+    function addAppServerRow() {
+      const container = document.getElementById("app-server-list");
+      // Remove empty placeholder if present
+      if (container.querySelector("div:not(.app-server-row)")) container.innerHTML = "";
+      const row = document.createElement("div");
+      row.className = "app-server-row";
+      row.style.cssText = "display:flex;gap:6px;align-items:center;";
+      row.innerHTML = `
+        <input type="text" class="filter-input app-server-name-input" value=""
+          data-original="" style="flex:1;min-width:0;" placeholder="输入服务器名称">
+        <button type="button" class="ghost app-server-delete-btn" style="color:#e53e3e;border-color:#e53e3e;white-space:nowrap;">删除</button>
+      `;
+      container.appendChild(row);
+      row.querySelector("input").focus();
     }
 
     function showAppServerOptionsOverlay() {
@@ -2077,13 +2103,38 @@
         setScheduleStatus(error.message);
       }
     });
+    document.getElementById("add-app-server-btn").addEventListener("click", () => addAppServerRow());
+
+    document.getElementById("app-server-list").addEventListener("click", (event) => {
+      if (event.target.classList.contains("app-server-delete-btn")) {
+        event.target.closest(".app-server-row")?.remove();
+        if (!document.querySelector(".app-server-row")) {
+          document.getElementById("app-server-list").innerHTML =
+            '<div style="color:var(--muted);font-size:13px;">暂无数据，点击"新增"添加。</div>';
+        }
+      }
+    });
+
     document.getElementById("save-app-server-options-btn").addEventListener("click", async () => {
       try {
         setAppServerOptionsStatus("正在保存应用服务器配置...");
-        const options = parseAppServerValues(document.getElementById("app-server-options-input").value);
+        const rows = [...document.querySelectorAll(".app-server-row")];
+        const entries = rows.map(row => ({
+          original: row.querySelector("input").dataset.original || "",
+          current: row.querySelector("input").value.trim()
+        })).filter(e => e.current);
+
+        // Apply renames first (original exists and differs from current)
+        const renames = entries.filter(e => e.original && e.original !== e.current);
+        for (const { original, current } of renames) {
+          await postJson(buildAppUrl("api/app-server-options/rename"), { oldName: original, newName: current });
+        }
+
+        const options = entries.map(e => e.current);
         await postJson(buildAppUrl("api/app-server-options"), { options });
         await loadAppServerOptions();
-        setAppServerOptionsStatus(`应用服务器配置已保存，共 ${allAppServerOptions.length} 项。`);
+        if (allBoardGroups.length) renderBoard(allBoardGroups);
+        setAppServerOptionsStatus(`应用服务器配置已保存，共 ${allAppServerOptions.length} 项。${renames.length ? `已同步更新 ${renames.length} 个改名。` : ""}`);
       } catch (error) {
         setAppServerOptionsStatus(error.message);
       }

@@ -91,6 +91,57 @@ public sealed class ProjectMetadataService
         return records;
     }
 
+    public async Task RenameAppServerAsync(string oldName, string newName, CancellationToken cancellationToken)
+    {
+        oldName = oldName?.Trim() ?? "";
+        newName = newName?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName) ||
+            string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase)) return;
+
+        var config = await _configStore.LoadAsync(cancellationToken);
+        if (!config.Enabled) return;
+
+        await using var connection = OpenConnection(config);
+        await connection.OpenAsync(cancellationToken);
+        await EnsureSchemaAsync(connection, cancellationToken);
+
+        // Read records that may contain the old name
+        await using var selectCmd = connection.CreateCommand();
+        selectCmd.CommandText = $"SELECT server_name, exam_code, app_servers FROM dbo.{TableName} WHERE app_servers LIKE @pattern;";
+        selectCmd.Parameters.AddWithValue("@pattern", $"%{oldName}%");
+
+        var toUpdate = new List<(string Server, string ExamCode, string NewAppServers)>();
+        await using (var reader = await selectCmd.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var serverName = reader.GetString(0);
+                var examCode = reader.GetString(1);
+                var appServers = reader.IsDBNull(2) ? "" : reader.GetString(2);
+
+                var parts = appServers
+                    .Split(['、', ',', ';', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                    .Select(p => p.Trim())
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => string.Equals(p, oldName, StringComparison.OrdinalIgnoreCase) ? newName : p)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                toUpdate.Add((serverName, examCode, string.Join("、", parts)));
+            }
+        }
+
+        foreach (var (server, code, newAppServers) in toUpdate)
+        {
+            await using var updateCmd = connection.CreateCommand();
+            updateCmd.CommandText = $"UPDATE dbo.{TableName} SET app_servers = @app_servers, updated_at = GETDATE() WHERE server_name = @server_name AND exam_code = @exam_code;";
+            updateCmd.Parameters.AddWithValue("@app_servers", newAppServers);
+            updateCmd.Parameters.AddWithValue("@server_name", server);
+            updateCmd.Parameters.AddWithValue("@exam_code", code);
+            await updateCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
     public async Task ClearMaintainerAsync(string username, CancellationToken cancellationToken)
     {
         var config = await _configStore.LoadAsync(cancellationToken);

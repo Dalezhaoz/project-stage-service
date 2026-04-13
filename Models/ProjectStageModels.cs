@@ -73,6 +73,12 @@ public sealed class DingTalkProxyRegistrationRequest
     public string Token { get; set; } = "";
 }
 
+public sealed class RenameAppServerRequest
+{
+    public string OldName { get; set; } = "";
+    public string NewName { get; set; } = "";
+}
+
 public sealed class AppServerOptionRequest
 {
     public List<string> Options { get; set; } = [];
