@@ -6,240 +6,153 @@
   <title>项目阶段管理台</title>
   <style>
     :root {
-      --bg: #f4f7fb;
-      --panel: #ffffff;
-      --panel-soft: #f8fbff;
-      --line: #d7e1f0;
-      --text: #16233f;
-      --muted: #6f7d96;
-      --primary: #315ef3;
-      --primary-soft: #ecf2ff;
-      --danger: #d94b4b;
-      --success: #198754;
-      --shadow: 0 10px 28px rgba(30, 60, 120, 0.08);
-      --radius: 20px;
+      --bg: #f5f6fa;
+      --card: #ffffff;
+      --line: #e2e5ed;
+      --text: #1a1d26;
+      --muted: #6e7687;
+      --primary: #3b5bdb;
+      --primary-hover: #2b4acb;
+      --primary-light: #edf2ff;
+      --primary-border: #bac8ff;
+      --danger: #e03131;
+      --success: #099268;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.03);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --radius-lg: 14px;
+      --transition: .18s cubic-bezier(.4,0,.2,1);
     }
 
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0;
-      background: linear-gradient(180deg, #f5f9ff 0%, var(--bg) 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: var(--bg);
       color: var(--text);
-      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    button, input, select {
-      font: inherit;
+    /* ---- Layout ---- */
+    .page { max-width: 1400px; margin: 0 auto; padding: 20px 24px 40px; }
+
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 16px; padding: 0 2px;
+    }
+    .page-header-left { display: flex; align-items: center; gap: 12px; }
+    .page-header-left h1 {
+      font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--text);
+      white-space: nowrap;
+    }
+    .page-header-left .subtitle {
+      color: var(--muted); font-size: 12px; border-left: 1px solid var(--line);
+      padding-left: 12px; line-height: 1.3;
+    }
+    .page-header-right { display: flex; align-items: center; gap: 8px; }
+    .page-header-right .auth-user {
+      padding: 4px 10px; background: #f0f4ff; border-radius: 999px;
+      font-size: 12px; font-weight: 600; color: var(--primary);
+    }
+    .header-action-btn {
+      border: none; background: none; color: var(--muted); font-size: 12px;
+      cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm); font-weight: 500;
+    }
+    .header-action-btn:hover { background: #f3f4f6; color: var(--text); }
+
+    .layout { display: grid; gap: 14px; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow);
     }
 
-    .page {
-      width: min(1500px, calc(100vw - 32px));
-      margin: 20px auto 36px;
-    }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
 
-    .hero {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
-      padding: 24px 28px;
-      display: grid;
-      gap: 16px;
+    /* ---- Form Elements ---- */
+    label { display: block; margin: 0 0 4px; font-size: 13px; color: #374151; font-weight: 600; }
+    input, select, button { font: inherit; }
+    input, select {
+      width: 100%; padding: 8px 12px; border-radius: var(--radius-sm);
+      border: 1px solid var(--line); background: #fff; color: var(--text);
+      font-size: 14px; transition: border-color var(--transition), box-shadow var(--transition);
     }
-
-    .hero-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 20px;
-      flex-wrap: wrap;
+    input:focus, select:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79,70,229,.12);
     }
+    input::placeholder { color: #9ca3af; }
 
-    .hero h1 {
-      margin: 0;
-      font-size: 40px;
-      line-height: 1.1;
-      letter-spacing: -0.03em;
+    /* ---- Buttons ---- */
+    button {
+      border: none; border-radius: var(--radius-sm); padding: 8px 16px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all var(--transition); display: inline-flex; align-items: center;
+      justify-content: center; gap: 6px;
     }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-sm); }
+    .btn-primary:hover { background: var(--primary-hover); box-shadow: var(--shadow); }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+    .btn-secondary:hover { background: #f9fafb; border-color: #d1d5db; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    button:active:not(:disabled) { transform: scale(.98); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-    .hero p {
-      margin: 10px 0 0;
-      color: var(--muted);
-      font-size: 18px;
-    }
+    /* ---- Status Line ---- */
+    .status-line { min-height: 20px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .status-line.error { color: var(--danger); }
+    .status-line.success { color: var(--success); }
 
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: flex-end;
-      align-items: center;
-    }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
 
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    .chip.muted {
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    .toolbar-button, .primary-button, .ghost-button {
-      border-radius: 14px;
-      border: 1px solid transparent;
-      padding: 11px 18px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: .18s ease;
-    }
-
-    .primary-button {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: 0 8px 18px rgba(49, 94, 243, 0.2);
-    }
-
-    .primary-button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 22px rgba(49, 94, 243, 0.26);
-    }
-
-    .ghost-button, .toolbar-button {
-      background: #fff;
-      color: var(--text);
-      border-color: var(--line);
-    }
-
-    .layout {
-      margin-top: 18px;
-      display: grid;
-      gap: 18px;
-      align-items: start;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 18px;
-    }
-
-    .filter-panel {
-      padding: 14px 16px;
-    }
-
-    .panel h2 {
-      margin: 0 0 14px;
-      font-size: 24px;
-    }
-
+    /* ---- Filter Grid ---- */
     .filter-grid {
       display: grid;
       grid-template-columns: auto 1.35fr 0.9fr 0.9fr 0.9fr 0.9fr auto;
       gap: 10px;
       align-items: end;
     }
-
-    .filter-grid .actions-row,
+    .filter-grid .actions-col,
     .filter-grid .hint,
     .filter-grid .status-line {
       grid-column: 1 / -1;
     }
+    .field { display: grid; gap: 4px; }
+    .field.inline-field { gap: 4px; min-width: 0; }
 
-    .field {
-      display: grid;
-      gap: 8px;
-    }
-
-    .field.inline-field {
-      gap: 6px;
-      min-width: 0;
-    }
-
-    .field label {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--muted);
-    }
-
-    .field input, .field select {
-      width: 100%;
-      height: 40px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 0 12px;
-      background: #fff;
-      color: var(--text);
-    }
-
-    .switch-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .toolbar-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      min-height: 40px;
-      padding-bottom: 1px;
-    }
-
-    .toolbar-status-label {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .switch-tag {
+    /* ---- Status Filter Tags ---- */
+    .tag-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag-option {
       border: 1px solid var(--line);
       background: #fff;
       color: var(--muted);
       border-radius: 999px;
-      padding: 7px 12px;
-      font-weight: 800;
+      padding: 5px 12px;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
+      transition: all var(--transition);
+      user-select: none;
     }
-
-    .switch-tag.active {
-      background: var(--primary-soft);
-      border-color: rgba(49, 94, 243, 0.35);
+    .tag-option.active {
+      background: var(--primary-light);
+      border-color: var(--primary-border);
       color: var(--primary);
     }
 
-    .hint {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .actions-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
+    /* ---- Content Grid ---- */
     .content-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
-      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 14px;
       align-items: start;
     }
 
+    /* ---- List Header ---- */
     .list-head {
       display: flex;
       justify-content: space-between;
@@ -248,38 +161,35 @@
       margin-bottom: 14px;
       flex-wrap: wrap;
     }
-
-    .list-head h2 {
-      margin: 0;
-      font-size: 24px;
+    .list-head .card-title { margin: 0; }
+    .count-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 999px;
+      border: 1px solid var(--line); background: #fff;
+      font-size: 13px; font-weight: 700; color: var(--text);
     }
 
-    .project-list {
-      display: grid;
-      gap: 12px;
-    }
+    /* ---- Project Rows ---- */
+    .project-list { display: grid; gap: 10px; }
 
     .project-row {
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 16px;
-      background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      background: var(--card);
       display: grid;
-      gap: 12px;
+      gap: 10px;
       cursor: pointer;
-      transition: .18s ease;
+      transition: all var(--transition);
     }
-
     .project-row:hover {
-      border-color: rgba(49, 94, 243, 0.38);
-      box-shadow: 0 12px 22px rgba(49, 94, 243, 0.12);
-      transform: translateY(-1px);
+      border-color: var(--primary-border);
+      box-shadow: var(--shadow-md);
     }
-
     .project-row.selected {
-      border-color: rgba(49, 94, 243, 0.55);
-      background: linear-gradient(180deg, #fafdff 0%, #edf4ff 100%);
-      box-shadow: 0 12px 24px rgba(49, 94, 243, 0.14);
+      border-color: var(--primary-border);
+      background: var(--primary-light);
+      box-shadow: var(--shadow-md);
     }
 
     .project-row-top {
@@ -289,309 +199,148 @@
       align-items: flex-start;
     }
 
-    .project-title {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.25;
-    }
+    .project-title { font-size: 15px; font-weight: 700; line-height: 1.3; }
 
     .project-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       color: var(--muted);
-      font-size: 15px;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 6px 11px;
       font-size: 13px;
-      font-weight: 800;
-      white-space: nowrap;
-      background: #eef3fb;
-      color: #5f708e;
+      margin-top: 2px;
     }
 
-    .status-ongoing {
-      background: #eaf7ef;
-      color: #198754;
+    /* ---- Status Badges ---- */
+    .status-badge {
+      display: inline-flex; align-items: center;
+      border-radius: 999px; padding: 3px 9px;
+      font-size: 12px; font-weight: 700; white-space: nowrap;
+      background: #f2f4f8; color: #6c778d;
     }
-
-    .status-upcoming {
-      background: #eff4ff;
-      color: #315ef3;
-    }
-
-    .status-ended {
-      background: #f2f4f8;
-      color: #6c778d;
-    }
+    .status-ongoing  { background: #e6fcf5; color: var(--success); }
+    .status-upcoming { background: var(--primary-light); color: var(--primary); }
+    .status-ended    { background: #f2f4f8; color: #6c778d; }
 
     .project-row-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
     }
 
-    .select-button {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: .18s ease;
-      white-space: nowrap;
+    .select-btn {
+      border: 1px solid var(--line); background: #fff; color: #374151;
+      border-radius: 999px; padding: 4px 12px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: all var(--transition); white-space: nowrap;
+    }
+    .select-btn:hover { border-color: var(--primary-border); color: var(--primary); }
+    .select-btn.active {
+      background: var(--primary); border-color: var(--primary); color: #fff;
     }
 
-    .select-button:hover {
-      border-color: rgba(49, 94, 243, 0.38);
-      color: var(--primary);
-    }
-
-    .select-button.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-      box-shadow: 0 8px 18px rgba(49, 94, 243, 0.2);
-    }
-
-    .pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
+    /* ---- Pill Row ---- */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
     .value-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 32px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      background: #f5f8ff;
-      border: 1px solid #d6e0ff;
-      color: var(--primary);
-      font-weight: 800;
-      font-size: 14px;
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 999px;
+      background: var(--primary-light); border: 1px solid var(--primary-border);
+      color: var(--primary); font-weight: 700; font-size: 13px;
     }
-
     .value-pill.empty {
-      color: var(--muted);
-      background: #f7f9fc;
-      border-color: #e4eaf5;
+      color: var(--muted); background: #f7f9fc; border-color: var(--line);
     }
 
+    /* ---- Quick Edit Row ---- */
     .quick-edit-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      padding-top: 2px;
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
     }
-
     .quick-edit-row select {
-      min-width: 180px;
-      height: 38px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 0 12px;
-      background: #fff;
-      color: var(--text);
+      min-width: 160px; max-width: 240px; height: 34px; width: auto;
+      padding: 0 10px; font-size: 13px;
     }
 
-    .mini-button {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      border-radius: 12px;
-      padding: 8px 12px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: .18s ease;
-    }
+    /* ---- Side Panel ---- */
+    .side-panel { position: sticky; top: 18px; display: grid; gap: 14px; }
 
-    .mini-button:hover {
-      border-color: rgba(49, 94, 243, 0.38);
-      color: var(--primary);
-    }
-
-    .mini-button.primary {
-      background: var(--primary-soft);
-      color: var(--primary);
-      border-color: rgba(49, 94, 243, 0.28);
-    }
-
-    .side-panel {
-      position: sticky;
-      top: 18px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .summary-box {
-      display: grid;
-      gap: 10px;
-      padding: 16px;
-      border-radius: 18px;
-      background: linear-gradient(180deg, #fff 0%, #f7fbff 100%);
-      border: 1px solid var(--line);
-    }
-
-    .summary-box strong {
-      font-size: 16px;
-    }
-
+    /* ---- Summary Stats ---- */
     .summary-stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+      margin-top: 10px;
     }
-
     .summary-stat {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px;
-      background: #fff;
-      text-align: center;
+      border: 1px solid var(--line); border-radius: var(--radius); padding: 10px;
+      background: #fafbfc; text-align: center;
     }
+    .summary-stat-number { display: block; font-size: 22px; font-weight: 900; line-height: 1; }
+    .summary-stat-label { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); font-weight: 700; }
 
-    .summary-stat-number {
-      display: block;
-      font-size: 24px;
-      font-weight: 900;
-      line-height: 1;
-    }
+    /* ---- Assign Panel ---- */
+    .assign-panel { display: grid; gap: 12px; }
 
-    .summary-stat-label {
-      display: block;
-      margin-top: 6px;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 800;
-    }
-
-    .assign-panel {
-      display: grid;
-      gap: 14px;
-    }
-
+    /* ---- Check Grid (App Servers) ---- */
     .check-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 6px;
     }
-
     .check-card {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      user-select: none;
-      transition: .18s ease;
+      border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 8px 10px; background: #fff;
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; user-select: none; font-size: 13px; font-weight: 600;
+      transition: all var(--transition);
     }
-
     .check-card.active {
-      background: var(--primary-soft);
-      border-color: rgba(49, 94, 243, 0.36);
+      background: var(--primary-light); border-color: var(--primary-border);
       color: var(--primary);
-      font-weight: 800;
     }
+    .check-card input { width: 16px; height: 16px; margin: 0; flex: none; width: auto; }
 
-    .check-card input {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-    }
-
-    .status-line {
-      min-height: 24px;
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    .status-line.error { color: var(--danger); }
-    .status-line.success { color: var(--success); }
-
+    /* ---- Empty State ---- */
     .empty-state {
-      padding: 28px;
-      text-align: center;
-      color: var(--muted);
-      border: 1px dashed var(--line);
-      border-radius: 18px;
-      background: #fcfdff;
+      padding: 28px; text-align: center; color: var(--muted);
+      border: 1px dashed var(--line); border-radius: var(--radius-lg);
+      background: #fafbfc; font-size: 14px;
     }
 
     @media (max-width: 1240px) {
-      .content-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .side-panel {
-        position: static;
-      }
-
-      .filter-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
+      .content-grid { grid-template-columns: 1fr; }
+      .side-panel { position: static; }
+      .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
-
     @media (max-width: 980px) {
-      .hero h1 {
-        font-size: 34px;
-      }
-
-      .filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+      .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-
     @media (max-width: 640px) {
-      .filter-grid {
-        grid-template-columns: 1fr;
-      }
+      .page { padding: 14px 16px 32px; }
+      .filter-grid { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <section class="hero">
-      <div class="hero-top">
-        <div>
-          <h1>项目分配管理台</h1>
-          <p>本地实例只负责负责人和应用服务器分配，读取同一套中心表与项目元数据，不参与正式同步。</p>
-        </div>
-        <div class="hero-actions">
-          <span class="chip muted" id="auth-chip">未登录</span>
-          <button class="toolbar-button" id="open-main-btn" type="button">打开正式查询页</button>
-          <button class="toolbar-button" id="logout-btn" type="button">退出登录</button>
-        </div>
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>项目分配管理台</h1>
+        <span class="subtitle">负责人和应用服务器分配</span>
       </div>
-    </section>
+      <div class="page-header-right">
+        <span class="auth-user" id="auth-chip">未登录</span>
+        <button class="header-action-btn" id="open-main-btn" type="button">打开查询页</button>
+        <button class="header-action-btn" id="logout-btn" type="button">退出登录</button>
+      </div>
+    </div>
 
     <div class="layout">
-      <section class="panel filter-panel">
-        <h2>筛选</h2>
+      <section class="card">
+        <div class="card-title">筛选</div>
         <div class="filter-grid">
           <div class="field inline-field">
             <label>状态</label>
-            <div class="toolbar-status">
-              <button type="button" class="switch-tag active" data-status="正在进行">正在进行</button>
-              <button type="button" class="switch-tag active" data-status="即将开始">即将开始</button>
-              <button type="button" class="switch-tag active" data-status="已经结束">已结束</button>
+            <div class="tag-group">
+              <span class="tag-option active" data-status="正在进行">正在进行</span>
+              <span class="tag-option active" data-status="即将开始">即将开始</span>
+              <span class="tag-option active" data-status="已结束">已结束</span>
             </div>
           </div>
 
@@ -626,27 +375,27 @@
             </select>
           </div>
 
-          <div class="actions-row">
-            <button class="primary-button" type="button" id="query-btn">查询项目</button>
-            <button class="ghost-button" type="button" id="reset-btn">重置条件</button>
+          <div class="actions-col actions">
+            <button class="btn-primary" type="button" id="query-btn">查询项目</button>
+            <button class="btn-secondary" type="button" id="reset-btn">重置条件</button>
           </div>
-          <div class="hint">项目列表来自中心表查询结果；负责人和应用服务器来自项目元数据。先点项目卡右上角“选择”，再到右侧批量保存。</div>
+          <div class="hint">先点项目卡右上角"选择"，再到右侧批量保存；也可在每行直接修改负责人。</div>
           <div class="status-line" id="query-status"></div>
         </div>
       </section>
 
-      <section class="content-grid">
-        <div class="panel">
+      <div class="content-grid">
+        <div class="card">
           <div class="list-head">
-            <h2>项目列表</h2>
-            <span class="chip"><span id="result-count">0</span> 个项目</span>
+            <div class="card-title">项目列表</div>
+            <span class="count-chip"><span id="result-count">0</span> 个项目</span>
           </div>
           <div id="project-list" class="project-list"></div>
         </div>
 
         <aside class="side-panel">
-          <div class="summary-box">
-            <strong>当前选中</strong>
+          <div class="card">
+            <div class="card-title">当前选中</div>
             <div class="summary-stats">
               <div class="summary-stat">
                 <span class="summary-stat-number" id="selected-count">0</span>
@@ -654,7 +403,7 @@
               </div>
               <div class="summary-stat">
                 <span class="summary-stat-number" id="selected-servers">0</span>
-                <span class="summary-stat-label">数据库服务器</span>
+                <span class="summary-stat-label">数据库</span>
               </div>
               <div class="summary-stat">
                 <span class="summary-stat-number" id="selected-apps">0</span>
@@ -663,8 +412,8 @@
             </div>
           </div>
 
-          <div class="panel assign-panel">
-            <h2>批量分配</h2>
+          <div class="card assign-panel">
+            <div class="card-title">批量分配</div>
             <div class="field">
               <label for="batch-maintainer">负责人</label>
               <select id="batch-maintainer">
@@ -678,14 +427,14 @@
               <div class="hint" id="batch-app-hint">正在加载可选应用服务器...</div>
             </div>
 
-            <div class="actions-row">
-              <button class="primary-button" type="button" id="save-batch-btn">保存选中项目</button>
-              <button class="ghost-button" type="button" id="clear-selection-btn">清空选中</button>
+            <div class="actions">
+              <button class="btn-primary" type="button" id="save-batch-btn">保存选中项目</button>
+              <button class="btn-secondary" type="button" id="clear-selection-btn">清空选中</button>
             </div>
             <div class="status-line" id="batch-status"></div>
           </div>
         </aside>
-      </section>
+      </div>
     </div>
   </div>
 
@@ -766,7 +515,7 @@
     }
 
     function getSelectedStatuses() {
-      return Array.from(document.querySelectorAll(".switch-tag.active")).map(button => button.dataset.status);
+      return Array.from(document.querySelectorAll(".tag-option.active")).map(el => el.dataset.status);
     }
 
     function buildQueryRequest() {
@@ -866,7 +615,7 @@
           ? "正在进行"
           : statuses.includes("即将开始")
             ? "即将开始"
-            : "已经结束";
+            : "已结束";
         const statusClass = status === "正在进行"
           ? "status-ongoing"
           : status === "即将开始"
@@ -878,14 +627,14 @@
           <article class="project-row${selected}" data-key="${escapeHtml(key)}">
             <div class="project-row-top">
               <div>
-                <h3 class="project-title">${escapeHtml(project.projectName)}</h3>
+                <div class="project-title">${escapeHtml(project.projectName)}</div>
                 <div class="project-meta">
                   <span>${escapeHtml(project.serverName)} / ${escapeHtml(project.databaseName)}</span>
                   <span>考试代码：${escapeHtml(project.examCode)}</span>
                 </div>
               </div>
               <div class="project-row-actions">
-                <button type="button" class="select-button${state.selectedKeys.has(key) ? " active" : ""}" data-select-key="${escapeHtml(key)}">
+                <button type="button" class="select-btn${state.selectedKeys.has(key) ? " active" : ""}" data-select-key="${escapeHtml(key)}">
                   ${state.selectedKeys.has(key) ? "已选" : "选择"}
                 </button>
                 <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
@@ -907,7 +656,7 @@
                     ${escapeHtml(user.username)}（${escapeHtml(user.role)}）
                   </option>`).join("")}
               </select>
-              <button type="button" class="mini-button primary" data-save-maintainer="${escapeHtml(key)}">保存负责人</button>
+              <button type="button" class="btn-primary btn-sm" data-save-maintainer="${escapeHtml(key)}">保存负责人</button>
             </div>
           </article>
         `;
@@ -936,7 +685,7 @@
       }
 
       if (!(auth.role === "admin" || auth.role === "internal")) {
-        document.body.innerHTML = '<div class="page"><section class="hero"><h1>无权访问</h1><p>本地管理页仅开放给管理员和内部用户。</p></section></div>';
+        document.body.innerHTML = '<div class="page"><h1 style="margin-top:40px">无权访问</h1><p style="color:var(--muted);margin-top:8px">本地管理页仅开放给管理员和内部用户。</p></div>';
         return false;
       }
 
@@ -1006,9 +755,9 @@
       }
     }
 
-    document.querySelectorAll(".switch-tag").forEach(button => {
-      button.addEventListener("click", () => {
-        button.classList.toggle("active");
+    document.querySelectorAll(".tag-option").forEach(el => {
+      el.addEventListener("click", () => {
+        el.classList.toggle("active");
       });
     });
 
@@ -1019,7 +768,7 @@
       document.getElementById("exam-keyword").value = "";
       document.getElementById("maintainer-filter").value = "";
       document.getElementById("assignment-filter").value = "all";
-      document.querySelectorAll(".switch-tag").forEach(button => button.classList.add("active"));
+      document.querySelectorAll(".tag-option").forEach(el => el.classList.add("active"));
       renderProjectList();
       setStatus("query-status", "");
     });
