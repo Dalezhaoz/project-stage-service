@@ -46,30 +46,138 @@
     /* ---- Layout ---- */
     .page { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
     .page-header {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 16px; margin-bottom: 14px; padding: 0 2px;
-      background: none; border: none;
-      border-radius: 0; box-shadow: none;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      margin-bottom: 14px;
+      padding: 18px 20px;
+      background:
+        radial-gradient(circle at top right, rgba(59, 91, 219, 0.09), transparent 32%),
+        linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+      border: 1px solid #dbe3f5;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
     }
-    .page-header-left { display: flex; align-items: center; gap: 12px; }
+    .page-header-left {
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .header-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--primary-light);
+      border: 1px solid var(--primary-border);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+    .header-breadcrumb {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      color: #7a869c;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .header-breadcrumb strong {
+      color: #41506b;
+    }
+    .header-breadcrumb .sep {
+      color: #b0b8c8;
+    }
     .page-header-left h1 {
-      font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--text);
-      white-space: nowrap;
+      font-size: 28px;
+      line-height: 1.1;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: var(--text);
     }
     .page-header-left .subtitle {
-      color: var(--muted); font-size: 12px; border-left: 1px solid var(--line);
-      padding-left: 12px; line-height: 1.3;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
     }
-    .page-header-right { display: flex; align-items: center; gap: 8px; }
-    .page-header-right .auth-user {
-      padding: 4px 10px; background: #f0f4ff; border-radius: 999px;
-      font-size: 12px; font-weight: 600; color: var(--primary);
+    .header-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
     }
-    .header-action-btn {
-      border: none; background: none; color: var(--muted); font-size: 12px;
-      cursor: pointer; padding: 4px 8px; border-radius: 6px; font-weight: 500;
+    .header-note,
+    .auth-user {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
     }
-    .header-action-btn:hover { background: #f3f4f6; color: var(--text); }
+    .header-note {
+      color: #52607a;
+      background: #f6f8fc;
+      border: 1px solid #e3e8f2;
+    }
+    .auth-user {
+      color: var(--primary);
+      background: #f0f4ff;
+      border: 1px solid #d7e3ff;
+    }
+    .page-header-right {
+      display: grid;
+      gap: 10px;
+      justify-items: end;
+      align-content: start;
+    }
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .header-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(110px, 1fr));
+      gap: 10px;
+      min-width: min(100%, 420px);
+    }
+    .header-summary-card {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.82);
+      border: 1px solid #e1e7f2;
+      box-shadow: var(--shadow-sm);
+    }
+    .header-summary-label {
+      color: #6b7890;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .header-summary-value {
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+    .header-summary-meta {
+      margin-top: 4px;
+      color: #7f8aa0;
+      font-size: 11px;
+      line-height: 1.4;
+    }
     .page-title-row { display: none; }
     .layout { display: grid; gap: 16px; }
     .card {
@@ -119,11 +227,42 @@
 
     /* ---- Header Buttons ---- */
     .header-toggle {
-      background: transparent; color: var(--muted); border: none; box-shadow: none;
-      padding: 4px 10px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+      background: #fff;
+      color: #44506a;
+      border: 1px solid #d8dfeb;
+      box-shadow: none;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
     }
-    .header-toggle:hover { background: rgba(0,0,0,.05); color: var(--text); }
-    .auth-user { color: var(--muted); font-size: 13px; font-weight: 600; }
+    .header-toggle:hover {
+      background: #f8faff;
+      border-color: #c8d4ef;
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+    .header-toggle.header-toggle-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+    .header-toggle.header-toggle-primary:hover {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+      color: #fff;
+    }
+    .header-toggle.header-toggle-danger {
+      color: var(--danger);
+      border-color: #fecaca;
+      background: #fff;
+    }
+    .header-toggle.header-toggle-danger:hover {
+      background: #fff5f5;
+      border-color: #fca5a5;
+      color: #b42318;
+    }
 
     /* ---- Config Topbar ---- */
     .topbar {
@@ -229,6 +368,126 @@
 
     .range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .filter-helper { color: var(--muted); font-size: 12px; }
+    .filter-workbench {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+      border: 1px solid #e2e8f3;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fcfdff 0%, #f8faff 100%);
+    }
+    .filter-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .filter-head-copy {
+      display: grid;
+      gap: 6px;
+    }
+    .filter-eyebrow {
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .filter-head-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .filter-head-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      max-width: 760px;
+    }
+    .filter-head-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid #dbe4ff;
+      background: #eef3ff;
+      color: #3551c7;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .filter-sections {
+      display: grid;
+      gap: 12px;
+    }
+    .filter-section {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid #e5eaf3;
+      border-radius: 14px;
+      background: rgba(255,255,255,.9);
+    }
+    .filter-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .filter-section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .filter-section-desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .filter-row {
+      display: flex; gap: 8px; align-items: center;
+      padding: 0; background: transparent; border: none;
+      border-radius: 0;
+      flex-wrap: wrap;
+    }
+    .filter-actions-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 14px 16px;
+      border: 1px solid #dfe6f2;
+      border-radius: 14px;
+      background: #fff;
+    }
+    .filter-actions-copy {
+      display: grid;
+      gap: 6px;
+      min-width: 240px;
+      flex: 1;
+    }
+    .filter-actions-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .filter-actions-desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .query-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
 
     /* ---- Status Bar ---- */
     .status {
@@ -632,7 +891,30 @@
     /* ---- Responsive ---- */
     @media (max-width: 900px) {
       .page { padding: 16px; }
+      .page-header {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 14px;
+      }
+      .page-header-left h1 { font-size: 23px; }
+      .page-header-left .subtitle { font-size: 13px; }
+      .page-header-right {
+        width: 100%;
+        justify-items: stretch;
+      }
+      .header-summary {
+        min-width: 0;
+        width: 100%;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .header-actions .header-toggle {
+        flex: 1 1 calc(50% - 8px);
+      }
       .page-title h1 { font-size: 20px; }
+      .filter-workbench { padding: 16px; }
       .modal-grid { grid-template-columns: 1fr; }
       .summary { grid-template-columns: 1fr; }
       .summary-main { grid-template-columns: repeat(2, minmax(98px, 112px)); width: fit-content; }
@@ -654,6 +936,12 @@
     @media (max-width: 640px) {
       .card { padding: 16px; }
       .field-card { padding: 12px; }
+      .header-meta { align-items: stretch; }
+      .header-note, .auth-user { width: 100%; justify-content: center; }
+      .header-summary { grid-template-columns: 1fr; }
+      .filter-head-badge { width: 100%; justify-content: center; }
+      .filter-actions-bar { align-items: stretch; }
+      .query-actions { width: 100%; }
       .summary-main { grid-template-columns: minmax(98px, 112px); width: fit-content; }
       .filter-grid { grid-template-columns: 1fr; }
       .filter-item.status, .filter-item.stage, .filter-item.time,
@@ -669,17 +957,46 @@
   <div class="page">
     <div class="page-header">
       <div class="page-header-left">
-        <h1>项目阶段汇总</h1>
-        <span class="subtitle">跨库汇总 · 按考试代码聚合</span>
+        <span class="header-kicker">查询工作台</span>
+        <div class="header-breadcrumb">
+          <span>项目阶段服务</span>
+          <span class="sep">/</span>
+          <strong>查询中心</strong>
+        </div>
+        <h1>项目阶段查询中心</h1>
+        <span class="subtitle">统一查看跨库项目阶段、看板统计和导出结果，适合日常巡检、排期确认与汇总输出。</span>
+        <div class="header-meta">
+          <span class="header-note">默认基于缓存数据查询，支持手动更新后再检索</span>
+          <span class="auth-user" id="auth-user">当前未登录</span>
+        </div>
       </div>
       <div class="page-header-right">
-        <span class="auth-user" id="auth-user"></span>
-        <button id="toggle-config-panel" type="button" class="header-toggle">配置</button>
-        <button id="open-manage-page" type="button" class="header-toggle" style="display:none;">管理页</button>
-        <button id="open-user-modal" type="button" class="header-toggle" style="display:none;">用户</button>
-        <button id="open-my-dingtalk-modal" type="button" class="header-toggle" style="display:none;">钉钉推送</button>
-        <button id="open-password-modal" type="button" class="header-toggle" style="display:none;">密码</button>
-        <button id="logout-btn" type="button" class="header-toggle" style="display:none;">退出</button>
+        <div class="header-summary">
+          <div class="header-summary-card">
+            <div class="header-summary-label">已接入服务器</div>
+            <div class="header-summary-value" id="header-server-count">0</div>
+            <div class="header-summary-meta">当前配置总数</div>
+          </div>
+          <div class="header-summary-card">
+            <div class="header-summary-label">启用中服务器</div>
+            <div class="header-summary-value" id="header-enabled-count">0</div>
+            <div class="header-summary-meta">参与本次查询</div>
+          </div>
+          <div class="header-summary-card">
+            <div class="header-summary-label">缓存记录</div>
+            <div class="header-summary-value" id="header-cache-record-count">0</div>
+            <div class="header-summary-meta" id="header-cache-meta">缓存尚未更新</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="refresh-btn-header" type="button" class="header-toggle header-toggle-primary">立即更新数据</button>
+          <button id="toggle-config-panel" type="button" class="header-toggle">系统配置</button>
+          <button id="open-manage-page" type="button" class="header-toggle" style="display:none;">分配管理</button>
+          <button id="open-user-modal" type="button" class="header-toggle" style="display:none;">用户管理</button>
+          <button id="open-my-dingtalk-modal" type="button" class="header-toggle" style="display:none;">我的钉钉</button>
+          <button id="open-password-modal" type="button" class="header-toggle" style="display:none;">修改密码</button>
+          <button id="logout-btn" type="button" class="header-toggle header-toggle-danger" style="display:none;">退出账号</button>
+        </div>
       </div>
     </div>
 
@@ -705,74 +1022,105 @@
 
     <div class="layout">
       <div class="card">
-        <div class="filter-bar">
-          <div class="filter-row">
-            <div class="filter-group">
-              <label class="tag-option active">
-                <input type="checkbox" class="status-filter" value="正在进行" checked>
-                <span>正在进行</span>
-              </label>
-              <label class="tag-option active">
-                <input type="checkbox" class="status-filter" value="即将开始" checked>
-                <span>即将开始</span>
-              </label>
-              <label class="tag-option">
-                <input type="checkbox" class="status-filter" value="已结束">
-                <span>已结束</span>
-              </label>
+        <div class="filter-workbench">
+          <div class="filter-head">
+            <div class="filter-head-copy">
+              <div class="filter-eyebrow">Query Builder</div>
+              <div class="filter-head-title">先圈定范围，再执行查询</div>
+              <div class="filter-head-desc">第一步确定状态、服务器和时间范围；第二步补充关键词做精准定位；最后再执行查询或导出结果。</div>
             </div>
-            <div class="filter-sep"></div>
-            <div class="filter-group" id="server-filter-tags"></div>
-            <div class="filter-sep"></div>
-            <div class="filter-group" style="align-items:center;">
-              <input id="range-start" type="datetime-local" title="开始日期时间" class="filter-input" style="width:175px;">
-              <span style="color:var(--muted);font-size:12px;">至</span>
-              <input id="range-end" type="datetime-local" title="结束日期时间" class="filter-input" style="width:175px;">
-              <button id="range-clear-btn" type="button" class="ghost" title="清空时间，查询全部" style="padding:4px 8px;font-size:12px;color:var(--muted);">✕ 清空</button>
-            </div>
-            <div class="filter-sep"></div>
-            <div class="filter-group">
-              <label class="mini-option active">
-                <input type="radio" name="time-match-mode" class="time-match-mode" value="overlap" checked>
-                <span>时间段都看</span>
-              </label>
-              <label class="mini-option">
-                <input type="radio" name="time-match-mode" class="time-match-mode" value="start">
-                <span>只看开始</span>
-              </label>
-              <label class="mini-option">
-                <input type="radio" name="time-match-mode" class="time-match-mode" value="end">
-                <span>只看结束</span>
-              </label>
-            </div>
+            <div class="filter-head-badge">当前查询默认命中缓存数据</div>
           </div>
-          <div class="filter-row">
-            <div class="filter-group filter-inputs-row">
-              <input id="project-keyword" placeholder="项目关键字" class="filter-input" autocomplete="nope" name="project-keyword-filter">
-              <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input" autocomplete="nope" name="stage-keyword-filter">
-              <input id="database-keyword" placeholder="数据库关键字" class="filter-input" autocomplete="nope" name="database-keyword-filter">
-              <input
-                id="exam-code-keyword"
-                placeholder="考试代码"
-                class="filter-input"
-                autocomplete="off"
-                inputmode="numeric"
-                autocapitalize="off"
-                autocorrect="off"
-                spellcheck="false"
-                name="filter-exam-code"
-                data-lpignore="true"
-                readonly
-                onfocus="this.removeAttribute('readonly');">
+
+          <div class="filter-sections">
+            <section class="filter-section">
+              <div class="filter-section-head">
+                <div class="filter-section-title">范围条件</div>
+                <div class="filter-section-desc">用于先确定阶段状态、业务来源和时间区间。</div>
+              </div>
+              <div class="filter-row">
+                <div class="filter-group">
+                  <label class="tag-option active">
+                    <input type="checkbox" class="status-filter" value="正在进行" checked>
+                    <span>正在进行</span>
+                  </label>
+                  <label class="tag-option active">
+                    <input type="checkbox" class="status-filter" value="即将开始" checked>
+                    <span>即将开始</span>
+                  </label>
+                  <label class="tag-option">
+                    <input type="checkbox" class="status-filter" value="已结束">
+                    <span>已结束</span>
+                  </label>
+                </div>
+                <div class="filter-sep"></div>
+                <div class="filter-group" id="server-filter-tags"></div>
+                <div class="filter-sep"></div>
+                <div class="filter-group" style="align-items:center;">
+                  <input id="range-start" type="datetime-local" title="开始日期时间" class="filter-input" style="width:175px;">
+                  <span style="color:var(--muted);font-size:12px;">至</span>
+                  <input id="range-end" type="datetime-local" title="结束日期时间" class="filter-input" style="width:175px;">
+                  <button id="range-clear-btn" type="button" class="ghost" title="清空时间，查询全部" style="padding:4px 8px;font-size:12px;color:var(--muted);">✕ 清空</button>
+                </div>
+                <div class="filter-sep"></div>
+                <div class="filter-group">
+                  <label class="mini-option active">
+                    <input type="radio" name="time-match-mode" class="time-match-mode" value="overlap" checked>
+                    <span>时间段都看</span>
+                  </label>
+                  <label class="mini-option">
+                    <input type="radio" name="time-match-mode" class="time-match-mode" value="start">
+                    <span>只看开始</span>
+                  </label>
+                  <label class="mini-option">
+                    <input type="radio" name="time-match-mode" class="time-match-mode" value="end">
+                    <span>只看结束</span>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section class="filter-section">
+              <div class="filter-section-head">
+                <div class="filter-section-title">精准筛选</div>
+                <div class="filter-section-desc">按项目、阶段、数据库和考试代码继续收窄结果。</div>
+              </div>
+              <div class="filter-row">
+                <div class="filter-group filter-inputs-row">
+                  <input id="project-keyword" placeholder="项目关键字" class="filter-input" autocomplete="nope" name="project-keyword-filter">
+                  <input id="stage-keyword" placeholder="阶段关键字，/ 分隔" class="filter-input" autocomplete="nope" name="stage-keyword-filter">
+                  <input id="database-keyword" placeholder="数据库关键字" class="filter-input" autocomplete="nope" name="database-keyword-filter">
+                  <input
+                    id="exam-code-keyword"
+                    placeholder="考试代码"
+                    class="filter-input"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    name="filter-exam-code"
+                    data-lpignore="true"
+                    readonly
+                    onfocus="this.removeAttribute('readonly');">
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="filter-actions-bar">
+            <div class="filter-actions-copy">
+              <div class="filter-actions-title">执行查询</div>
+              <div class="filter-actions-desc">查询会刷新下方汇总和看板；导出仅在存在结果时可用。</div>
             </div>
-            <div class="filter-sep"></div>
-            <div class="filter-group">
+            <div class="query-actions">
               <button id="query-btn">开始查询</button>
               <button id="export-btn" class="secondary" disabled>导出</button>
             </div>
           </div>
+
+          <div class="status" id="query-status">未开始查询</div>
         </div>
-        <div class="status" id="query-status">未开始查询</div>
         <div class="summary" id="summary-panel"></div>
         <div class="board" id="board-panel"></div>
       </div>
@@ -1229,6 +1577,8 @@
       const servers = serversCache;
       document.getElementById("server-count").textContent = String(servers.length);
       document.getElementById("enabled-count").textContent = String(servers.filter(item => item.enabled).length);
+      document.getElementById("header-server-count").textContent = String(servers.length);
+      document.getElementById("header-enabled-count").textContent = String(servers.filter(item => item.enabled).length);
       container.innerHTML = "";
       if (!servers.length) {
         container.innerHTML = '<div class="server-empty">还没有添加服务器。</div>';
@@ -1269,13 +1619,16 @@
 
     function renderCacheInfo(info) {
       document.getElementById("cache-record-count").textContent = String(info?.recordCount || 0);
+      document.getElementById("header-cache-record-count").textContent = String(info?.recordCount || 0);
       if (!info?.hasData || !info?.refreshedAt) {
         document.getElementById("cache-info").textContent = "缓存尚未更新，请先点击“更新数据”。";
+        document.getElementById("header-cache-meta").textContent = "缓存尚未更新";
         return;
       }
 
       document.getElementById("cache-info").textContent =
         `上次更新：${formatDateTime(info.refreshedAt)}，启用服务器 ${info.enabledServers} 台，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
+      document.getElementById("header-cache-meta").textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
     }
 
     async function showServerModal() {
@@ -1338,7 +1691,9 @@
         ? "请输入登录账号后继续。"
         : "系统首次使用，请先设置一个本地管理员账号。";
       document.getElementById("auth-confirm-wrap").style.display = hasAccount ? "none" : "block";
-      document.getElementById("auth-user").textContent = username ? `${username}（${roleLabels[role] || role}）` : "";
+      document.getElementById("auth-user").textContent = username
+        ? `当前账号：${username}（${roleLabels[role] || role}）`
+        : "当前未登录";
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-manage-page").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
@@ -1355,6 +1710,7 @@
       // external 根据 allowUserRefresh 决定是否显示更新按钮
       const canRefresh = isAdminOrInternal() || allowUserRefresh;
       document.getElementById("refresh-btn").style.display = username && canRefresh ? "inline-flex" : "none";
+      document.getElementById("refresh-btn-header").style.display = username && canRefresh ? "inline-flex" : "none";
       // 配置面板：external 用户不显示
       document.getElementById("toggle-config-panel").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
     }
@@ -2606,6 +2962,7 @@
         if (!authReady) throw new Error("请先登录。");
         document.getElementById("cache-info").textContent = "正在更新缓存数据，请稍候...";
         document.getElementById("refresh-btn").disabled = true;
+        document.getElementById("refresh-btn-header").disabled = true;
         const result = await postJson(buildAppUrl("api/refresh"), { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
         if (result.agentResults && result.agentResults.length > 0) {
@@ -2631,7 +2988,11 @@
         document.getElementById("cache-info").textContent = error.message;
       } finally {
         document.getElementById("refresh-btn").disabled = false;
+        document.getElementById("refresh-btn-header").disabled = false;
       }
+    });
+    document.getElementById("refresh-btn-header").addEventListener("click", () => {
+      document.getElementById("refresh-btn").click();
     });
 
     document.getElementById("query-btn").addEventListener("click", async () => {
