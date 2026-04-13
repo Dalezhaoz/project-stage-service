@@ -48,9 +48,9 @@
     .page-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 20px;
-      margin-bottom: 14px;
-      padding: 18px 20px;
+      gap: 16px;
+      margin-bottom: 12px;
+      padding: 14px 16px;
       background:
         radial-gradient(circle at top right, rgba(59, 91, 219, 0.09), transparent 32%),
         linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
@@ -61,15 +61,15 @@
     .page-header-left {
       min-width: 0;
       display: grid;
-      gap: 10px;
+      gap: 6px;
       align-content: start;
     }
     .header-kicker {
       display: inline-flex;
       align-items: center;
       width: fit-content;
-      min-height: 28px;
-      padding: 0 12px;
+      min-height: 24px;
+      padding: 0 10px;
       border-radius: 999px;
       background: var(--primary-light);
       border: 1px solid var(--primary-border);
@@ -81,10 +81,10 @@
     .header-breadcrumb {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
       color: #7a869c;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
     }
     .header-breadcrumb strong {
@@ -94,17 +94,17 @@
       color: #b0b8c8;
     }
     .page-header-left h1 {
-      font-size: 28px;
-      line-height: 1.1;
-      font-weight: 900;
-      letter-spacing: -0.04em;
+      font-size: 20px;
+      line-height: 1.15;
+      font-weight: 850;
+      letter-spacing: -0.03em;
       color: var(--text);
     }
     .page-header-left .subtitle {
-      max-width: 760px;
+      max-width: 680px;
       color: var(--muted);
-      font-size: 14px;
-      line-height: 1.6;
+      font-size: 12px;
+      line-height: 1.5;
     }
     .header-meta {
       display: flex;
@@ -119,7 +119,7 @@
       min-height: 32px;
       padding: 0 12px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       white-space: nowrap;
     }
@@ -135,7 +135,7 @@
     }
     .page-header-right {
       display: grid;
-      gap: 10px;
+      gap: 8px;
       justify-items: end;
       align-content: start;
     }
@@ -148,34 +148,34 @@
     .header-summary {
       display: grid;
       grid-template-columns: repeat(3, minmax(110px, 1fr));
-      gap: 10px;
-      min-width: min(100%, 420px);
+      gap: 8px;
+      min-width: min(100%, 360px);
     }
     .header-summary-card {
-      padding: 12px 14px;
-      border-radius: 14px;
+      padding: 9px 11px;
+      border-radius: 12px;
       background: rgba(255,255,255,.82);
       border: 1px solid #e1e7f2;
       box-shadow: var(--shadow-sm);
     }
     .header-summary-label {
       color: #6b7890;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       line-height: 1.3;
     }
     .header-summary-value {
-      margin-top: 4px;
+      margin-top: 3px;
       color: var(--text);
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 900;
       line-height: 1;
       letter-spacing: -0.03em;
     }
     .header-summary-meta {
-      margin-top: 4px;
+      margin-top: 3px;
       color: #7f8aa0;
-      font-size: 11px;
+      font-size: 10px;
       line-height: 1.4;
     }
     .page-title-row { display: none; }
@@ -233,7 +233,7 @@
       box-shadow: none;
       padding: 8px 14px;
       border-radius: 999px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
     }
     .header-toggle:hover {
@@ -264,21 +264,161 @@
       color: #b42318;
     }
 
-    /* ---- Config Topbar ---- */
-    .topbar {
-      display: none; align-items: center; justify-content: space-between; gap: 10px;
-      margin-bottom: 14px; flex-wrap: wrap; padding: 10px 16px;
-      background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    /* ---- Config Drawer ---- */
+    .config-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.22);
+      backdrop-filter: blur(3px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+      z-index: 90;
+    }
+    .config-drawer-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .config-drawer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: min(360px, calc(100vw - 24px));
+      height: 100vh;
+      padding: 22px 18px 18px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+      border-right: 1px solid #dbe3f5;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+      transform: translateX(calc(-100% - 24px));
+      transition: transform var(--transition);
+      z-index: 100;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 16px;
+      overflow: auto;
+    }
+    .config-drawer.show {
+      transform: translateX(0);
+    }
+    .config-drawer-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .config-drawer-copy {
+      display: grid;
+      gap: 6px;
+    }
+    .config-drawer-eyebrow {
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .config-drawer-title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: var(--text);
+    }
+    .config-drawer-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .config-drawer-close {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid #d8dfeb;
+      background: #fff;
+      color: #52607a;
+      box-shadow: none;
+      flex: none;
+    }
+    .config-drawer-close:hover {
+      background: #f8faff;
+      border-color: #c8d4ef;
+      color: var(--text);
+    }
+    .config-drawer-section {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid #e3e8f2;
+      border-radius: 16px;
+      background: rgba(255,255,255,.92);
+    }
+    .config-drawer-section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .config-drawer-section-desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .config-drawer-actions {
+      display: grid;
+      gap: 8px;
+    }
+    .config-drawer-actions button {
+      width: 100%;
+      justify-content: flex-start;
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 12px;
+    }
+    .config-drawer-actions button.secondary {
+      background: #fff;
+      border: 1px solid #dce3f0;
+    }
+    .config-drawer-actions button.secondary:hover {
+      background: #f8faff;
+      border-color: #c8d4ef;
+    }
+    .config-drawer-actions #refresh-btn {
+      justify-content: center;
+    }
+    .config-drawer-metrics {
+      display: grid;
+      gap: 10px;
+    }
+    .config-drawer-metric {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid #e1e7f2;
+      background: #fff;
       box-shadow: var(--shadow-sm);
     }
-    .topbar.show { display: flex; }
-    .topbar-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .topbar-toggle {
-      background: #f3f4f6; color: #374151; box-shadow: none;
-      padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    .config-drawer-metric-label {
+      color: #6b7890;
+      font-size: 11px;
+      font-weight: 700;
     }
-    .topbar-toggle:hover { background: #e5e7eb; }
+    .config-drawer-metric-value {
+      color: var(--text);
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .config-drawer-metric-meta {
+      color: #7f8aa0;
+      font-size: 12px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .config-drawer-foot {
+      display: grid;
+      gap: 10px;
+      padding-top: 4px;
+    }
     .server-badge {
       display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
       background: #f9fafb; border: 1px solid var(--line); border-radius: 999px;
@@ -893,11 +1033,11 @@
       .page { padding: 16px; }
       .page-header {
         grid-template-columns: 1fr;
-        padding: 16px;
-        gap: 14px;
+        padding: 14px;
+        gap: 10px;
       }
-      .page-header-left h1 { font-size: 23px; }
-      .page-header-left .subtitle { font-size: 13px; }
+      .page-header-left h1 { font-size: 18px; }
+      .page-header-left .subtitle { font-size: 12px; }
       .page-header-right {
         width: 100%;
         justify-items: stretch;
@@ -915,6 +1055,9 @@
       }
       .page-title h1 { font-size: 20px; }
       .filter-workbench { padding: 16px; }
+      .config-drawer {
+        width: min(340px, calc(100vw - 16px));
+      }
       .modal-grid { grid-template-columns: 1fr; }
       .summary { grid-template-columns: 1fr; }
       .summary-main { grid-template-columns: repeat(2, minmax(98px, 112px)); width: fit-content; }
@@ -936,12 +1079,17 @@
     @media (max-width: 640px) {
       .card { padding: 16px; }
       .field-card { padding: 12px; }
+      .page-header-left .subtitle { display: none; }
       .header-meta { align-items: stretch; }
       .header-note, .auth-user { width: 100%; justify-content: center; }
       .header-summary { grid-template-columns: 1fr; }
       .filter-head-badge { width: 100%; justify-content: center; }
       .filter-actions-bar { align-items: stretch; }
       .query-actions { width: 100%; }
+      .config-drawer {
+        width: 100vw;
+        border-right: none;
+      }
       .summary-main { grid-template-columns: minmax(98px, 112px); width: fit-content; }
       .filter-grid { grid-template-columns: 1fr; }
       .filter-item.status, .filter-item.stage, .filter-item.time,
@@ -1000,25 +1148,58 @@
       </div>
     </div>
 
-    <div class="topbar" id="config-panel">
-      <div class="topbar-left">
-        <button id="open-server-modal" class="secondary">管理服务器</button>
-        <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
-        <button id="open-app-server-options-modal" class="secondary" style="display:none;">应用服务器</button>
-        <button id="open-schedule-modal" class="secondary" style="display:none;">定时任务</button>
-        <button id="refresh-btn">更新数据</button>
+    <div class="config-drawer-overlay" id="config-panel-overlay"></div>
+    <aside class="config-drawer" id="config-panel" aria-hidden="true">
+      <div class="config-drawer-head">
+        <div class="config-drawer-copy">
+          <div class="config-drawer-eyebrow">System Settings</div>
+          <div class="config-drawer-title">系统配置</div>
+          <div class="config-drawer-desc">配置数据源、中心库、应用服务器和定时任务。需要时展开，用完即可收起。</div>
+        </div>
+        <button id="close-config-panel" type="button" class="config-drawer-close" aria-label="关闭配置面板">×</button>
       </div>
-      <div class="topbar-right">
-        <div class="server-badge">服务器：<strong id="server-count">0</strong></div>
-        <div class="server-badge">已启用：<strong id="enabled-count">0</strong></div>
-        <div class="server-badge">缓存记录：<strong id="cache-record-count">0</strong></div>
-        <div class="cache-info" id="cache-info">缓存尚未更新</div>
+
+      <section class="config-drawer-section">
+        <div class="config-drawer-section-title">配置入口</div>
+        <div class="config-drawer-section-desc">左侧集中维护系统参数，右侧保留查询和结果区域。</div>
+        <div class="config-drawer-actions">
+          <button id="open-server-modal" class="secondary">管理服务器</button>
+          <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
+          <button id="open-app-server-options-modal" class="secondary" style="display:none;">应用服务器</button>
+          <button id="open-schedule-modal" class="secondary" style="display:none;">定时任务</button>
+          <button id="refresh-btn">更新数据</button>
+        </div>
+      </section>
+
+      <section class="config-drawer-section">
+        <div class="config-drawer-section-title">当前状态</div>
+        <div class="config-drawer-section-desc">这里显示已接入服务和最近一次缓存刷新状态。</div>
+        <div class="config-drawer-metrics">
+          <div class="config-drawer-metric">
+            <div class="config-drawer-metric-label">已接入服务器</div>
+            <div class="config-drawer-metric-value" id="drawer-server-count">0</div>
+            <div class="config-drawer-metric-meta">当前配置总数</div>
+          </div>
+          <div class="config-drawer-metric">
+            <div class="config-drawer-metric-label">启用中服务器</div>
+            <div class="config-drawer-metric-value" id="drawer-enabled-count">0</div>
+            <div class="config-drawer-metric-meta">参与本次查询</div>
+          </div>
+          <div class="config-drawer-metric">
+            <div class="config-drawer-metric-label">缓存记录</div>
+            <div class="config-drawer-metric-value" id="drawer-cache-record-count">0</div>
+            <div class="config-drawer-metric-meta" id="drawer-cache-info">缓存尚未更新</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="config-drawer-foot">
         <label id="allow-refresh-toggle" class="plain-check" style="display:none;margin-left:4px;">
           <input type="checkbox" id="allow-user-refresh" checked>
           <span>允许用户更新</span>
         </label>
       </div>
-    </div>
+    </aside>
 
     <div class="layout">
       <div class="card">
@@ -1579,6 +1760,8 @@
       document.getElementById("enabled-count").textContent = String(servers.filter(item => item.enabled).length);
       document.getElementById("header-server-count").textContent = String(servers.length);
       document.getElementById("header-enabled-count").textContent = String(servers.filter(item => item.enabled).length);
+      document.getElementById("drawer-server-count").textContent = String(servers.length);
+      document.getElementById("drawer-enabled-count").textContent = String(servers.filter(item => item.enabled).length);
       container.innerHTML = "";
       if (!servers.length) {
         container.innerHTML = '<div class="server-empty">还没有添加服务器。</div>';
@@ -1620,15 +1803,19 @@
     function renderCacheInfo(info) {
       document.getElementById("cache-record-count").textContent = String(info?.recordCount || 0);
       document.getElementById("header-cache-record-count").textContent = String(info?.recordCount || 0);
+      document.getElementById("drawer-cache-record-count").textContent = String(info?.recordCount || 0);
       if (!info?.hasData || !info?.refreshedAt) {
         document.getElementById("cache-info").textContent = "缓存尚未更新，请先点击“更新数据”。";
         document.getElementById("header-cache-meta").textContent = "缓存尚未更新";
+        document.getElementById("drawer-cache-info").textContent = "缓存尚未更新，请先点击“更新数据”。";
         return;
       }
 
       document.getElementById("cache-info").textContent =
         `上次更新：${formatDateTime(info.refreshedAt)}，启用服务器 ${info.enabledServers} 台，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
       document.getElementById("header-cache-meta").textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
+      document.getElementById("drawer-cache-info").textContent =
+        `上次更新：${formatDateTime(info.refreshedAt)}，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
     }
 
     async function showServerModal() {
@@ -2400,12 +2587,22 @@
       return data;
     }
 
+    function setConfigPanelOpen(open) {
+      const panel = document.getElementById("config-panel");
+      const overlay = document.getElementById("config-panel-overlay");
+      const button = document.getElementById("toggle-config-panel");
+      panel.classList.toggle("show", open);
+      overlay.classList.toggle("show", open);
+      panel.setAttribute("aria-hidden", open ? "false" : "true");
+      button.textContent = open ? "收起配置" : "系统配置";
+    }
+
     document.getElementById("toggle-config-panel").addEventListener("click", () => {
       const panel = document.getElementById("config-panel");
-      const button = document.getElementById("toggle-config-panel");
-      const visible = panel.classList.toggle("show");
-      button.textContent = visible ? "收起配置" : "配置";
+      setConfigPanelOpen(!panel.classList.contains("show"));
     });
+    document.getElementById("close-config-panel").addEventListener("click", () => setConfigPanelOpen(false));
+    document.getElementById("config-panel-overlay").addEventListener("click", () => setConfigPanelOpen(false));
     document.getElementById("open-server-modal").addEventListener("click", showServerModal);
     document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
     document.getElementById("allow-user-refresh").addEventListener("change", async (event) => {
