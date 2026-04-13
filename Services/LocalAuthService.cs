@@ -168,6 +168,23 @@ public sealed class LocalAuthService
         await SaveStoreAsync(store, cancellationToken);
     }
 
+    public async Task DeleteUserAsync(string username, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            throw new InvalidOperationException("用户名不能为空。");
+
+        var store = await LoadStoreAsync(cancellationToken);
+        var user = store.Users.FirstOrDefault(item =>
+            string.Equals(item.Username, username.Trim(), StringComparison.Ordinal));
+        if (user is null)
+            throw new InvalidOperationException("用户不存在。");
+        if (user.IsAdmin)
+            throw new InvalidOperationException("不能删除管理员账户。");
+
+        store.Users.Remove(user);
+        await SaveStoreAsync(store, cancellationToken);
+    }
+
     public async Task<List<UserDingTalkConfig>> GetAllDingTalkConfigsAsync(CancellationToken cancellationToken)
     {
         var store = await LoadStoreAsync(cancellationToken);

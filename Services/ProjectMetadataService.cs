@@ -91,6 +91,21 @@ public sealed class ProjectMetadataService
         return records;
     }
 
+    public async Task ClearMaintainerAsync(string username, CancellationToken cancellationToken)
+    {
+        var config = await _configStore.LoadAsync(cancellationToken);
+        if (!config.Enabled) return;
+
+        await using var connection = OpenConnection(config);
+        await connection.OpenAsync(cancellationToken);
+        await EnsureSchemaAsync(connection, cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"UPDATE dbo.{TableName} SET maintainer = '', updated_at = GETDATE() WHERE maintainer = @username;";
+        command.Parameters.AddWithValue("@username", username?.Trim() ?? "");
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task SaveAsync(string serverName, string examCode, string maintainer, string appServers, CancellationToken cancellationToken)
     {
         var config = await _configStore.LoadAsync(cancellationToken);

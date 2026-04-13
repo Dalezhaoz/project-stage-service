@@ -48,6 +48,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
 builder.Services.AddHostedService<DingTalkNotifyHostedService>();
+builder.Services.AddHostedService<KeepAliveHostedService>();
 
 var app = builder.Build();
 
@@ -75,6 +76,7 @@ app.Use(async (context, next) =>
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/api/ping", () => Results.Ok("pong"));
 
 app.MapGet("/api/auth/status", async (HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
@@ -168,6 +170,20 @@ app.MapGet("/api/auth/users", async (LocalAuthService authService, CancellationT
 {
     return Results.Ok(await authService.GetUsersAsync(cancellationToken));
 }).RequireAuthorization("InternalOrAbove");
+
+app.MapDelete("/api/auth/users/{username}", async (string username, LocalAuthService authService, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await authService.DeleteUserAsync(username, cancellationToken);
+        await metadataService.ClearMaintainerAsync(username, cancellationToken);
+        return Results.Ok(new { username });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
 
 app.MapPost("/api/auth/change-password", async (ChangePasswordRequest request, HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
 {

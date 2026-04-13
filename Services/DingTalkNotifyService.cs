@@ -349,6 +349,115 @@ public sealed class DingTalkNotifyService
         return count;
     }
 
+    public async Task<int> SendUnassignedProjectsReportAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig dingTalkConfig,
+        CancellationToken cancellationToken)
+    {
+        var projects = await QueryUnassignedProjectsAsync(summaryConfig, cancellationToken);
+        if (projects.Count == 0)
+        {
+            _logger.LogInformation("No unassigned projects, skipping notification.");
+            return 0;
+        }
+
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        var title = $"⚠️ 尚未指定负责人的项目 ({today})";
+        var sb = new StringBuilder();
+        sb.AppendLine($"### ⚠️ 尚未指定负责人的项目");
+        sb.AppendLine($"> 日期：**{today}**，共 **{projects.Count}** 个项目尚未指定负责人  ");
+        sb.AppendLine();
+
+        var index = 1;
+        foreach (var proj in projects)
+        {
+            sb.AppendLine($"**{index++}. {proj.ProjectName}**");
+            sb.AppendLine($"> {proj.ServerName} / 考试代码：{proj.ExamCode}  ");
+            foreach (var stage in proj.Stages)
+            {
+                var start = stage.StartTime.ToString("MM-dd HH:mm");
+                var end = stage.EndTime.ToString("MM-dd HH:mm");
+                var status = stage.StartTime > DateTime.Now ? "即将开始" : "进行中";
+                sb.AppendLine($"- **{stage.StageName}** {start} 至 {end}（{status}）");
+            }
+            sb.AppendLine();
+        }
+
+        await SendDingTalkMessageAsync(dingTalkConfig, title, sb.ToString(), cancellationToken);
+        _logger.LogInformation("DingTalk unassigned projects report sent: {Count} projects.", projects.Count);
+        return projects.Count;
+    }
+
+    private async Task<List<UnassignedProjectInfo>> QueryUnassignedProjectsAsync(
+        SummaryStoreConfig config, CancellationToken cancellationToken)
+    {
+        var builder = new SqlConnectionStringBuilder
+        {
+            DataSource = $"{config.Host},{config.Port}",
+            InitialCatalog = config.DatabaseName,
+            UserID = config.Username,
+            Password = config.Password,
+            TrustServerCertificate = true,
+            Encrypt = false,
+            ConnectTimeout = 20
+        };
+
+        await using var connection = new SqlConnection(builder.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT s.project_name, s.source_server_name, s.exam_code,
+                   s.stage_name, s.stage_start_time, s.stage_end_time
+            FROM dbo.project_stage_summary s
+            LEFT JOIN dbo.project_metadata m
+                ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
+            WHERE ISNULL(m.maintainer, '') = ''
+              AND s.stage_end_time > @now
+            ORDER BY s.stage_start_time, s.project_name, s.stage_name
+            """;
+        command.Parameters.AddWithValue("@now", DateTime.Now);
+
+        var rows = new List<(string Project, string Server, string ExamCode, string Stage, DateTime Start, DateTime End)>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                      reader.GetString(3), reader.GetDateTime(4), reader.GetDateTime(5)));
+        }
+
+        return rows
+            .GroupBy(r => (r.Server, r.ExamCode))
+            .Select(g => new UnassignedProjectInfo
+            {
+                ProjectName = g.First().Project,
+                ServerName = g.Key.Server,
+                ExamCode = g.Key.ExamCode,
+                Stages = g.Select(r => new UnassignedStageInfo
+                {
+                    StageName = r.Stage,
+                    StartTime = r.Start,
+                    EndTime = r.End
+                }).ToList()
+            })
+            .ToList();
+    }
+
+    private sealed class UnassignedProjectInfo
+    {
+        public string ProjectName { get; set; } = "";
+        public string ServerName { get; set; } = "";
+        public string ExamCode { get; set; } = "";
+        public List<UnassignedStageInfo> Stages { get; set; } = [];
+    }
+
+    private sealed class UnassignedStageInfo
+    {
+        public string StageName { get; set; } = "";
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+    }
+
     public async Task SendDirectMessageAsync(
         DingTalkConfig config,
         string title,

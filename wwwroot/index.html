@@ -988,6 +988,15 @@
         </div>
         <label style="margin-top:12px;">次日预告时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
         <textarea id="dingtalk-nextday-notify-times" rows="2" placeholder="20:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-unassigned-enabled">
+            <span>启用未指定负责人项目提醒（推送给 admin）</span>
+          </label>
+        </div>
+        <label style="margin-top:12px;">提醒时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
+        <textarea id="unassigned-notify-times" rows="2" placeholder="09:00" style="font-family:inherit;resize:vertical;"></textarea>
         <div class="auth-actions" style="margin-top:16px;">
           <button id="save-schedule-btn">保存配置</button>
           <button id="test-dingtalk-btn" class="secondary">测试钉钉推送</button>
@@ -1527,6 +1536,8 @@
       document.getElementById("dingtalk-notify-times").value = (config.dingTalkNotifyTimes || ["08:00"]).join("\n");
       document.getElementById("schedule-dingtalk-nextday-enabled").checked = Boolean(config.dingTalkNextDayEnabled);
       document.getElementById("dingtalk-nextday-notify-times").value = (config.dingTalkNextDayNotifyTimes || ["20:00"]).join("\n");
+      document.getElementById("schedule-unassigned-enabled").checked = Boolean(config.unassignedNotifyEnabled);
+      document.getElementById("unassigned-notify-times").value = (config.unassignedNotifyTimes || ["09:00"]).join("\n");
       // Load proxy heartbeat status
       try {
         const proxyResp = await apiFetch(buildAppUrl("api/dingtalk/proxy-status"));
@@ -1557,6 +1568,8 @@
         dingTalkNotifyTimes: document.getElementById("dingtalk-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
         dingTalkNextDayEnabled: document.getElementById("schedule-dingtalk-nextday-enabled").checked,
         dingTalkNextDayNotifyTimes: document.getElementById("dingtalk-nextday-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        unassignedNotifyEnabled: document.getElementById("schedule-unassigned-enabled").checked,
+        unassignedNotifyTimes: document.getElementById("unassigned-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
         dingTalkConfig: {
           webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
           secret: document.getElementById("dingtalk-secret").value.trim(),
@@ -1625,7 +1638,10 @@
             </div>
           </div>
           <div class="user-actions">
-            ${user.role === "admin" ? "" : `<button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>`}
+            ${user.role === "admin" ? "" : `
+              <button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>
+              <button type="button" class="ghost" style="color:#e53e3e;border-color:#e53e3e;" data-delete-user="${escapeHtml(user.username)}">删除</button>
+            `}
           </div>
         </div>
       `).join("") || '<div class="server-empty">还没有用户。</div>';
@@ -2243,6 +2259,23 @@
           setUserStatus(`正在重置 ${resetUser} 的密码...`);
           const result = await postJson(buildAppUrl("api/auth/reset-password"), { username: resetUser });
           setUserStatus(`用户 ${result.username} 的密码已重置为 ${result.defaultPassword}。`);
+        } catch (error) {
+          setUserStatus(error.message);
+        }
+        return;
+      }
+
+      // Delete user
+      const deleteUser = target.dataset.deleteUser;
+      if (deleteUser) {
+        if (!confirm(`确定删除用户 "${deleteUser}"？该用户负责的项目将自动清除负责人。`)) return;
+        try {
+          setUserStatus(`正在删除用户 ${deleteUser}...`);
+          await apiFetch(buildAppUrl(`api/auth/users/${encodeURIComponent(deleteUser)}`), { method: "DELETE" });
+          setUserStatus(`用户 ${deleteUser} 已删除，相关项目负责人已清除。`);
+          await loadUsersForAdmin();
+          await loadProjectMetadata();
+          if (allBoardGroups.length) renderBoard(allBoardGroups);
         } catch (error) {
           setUserStatus(error.message);
         }

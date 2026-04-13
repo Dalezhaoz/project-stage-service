@@ -33,10 +33,12 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
 
             var todayTimes = config.DingTalkNotifyTimes ?? [];
             var nextDayTimes = config.DingTalkNextDayNotifyTimes ?? [];
+            var unassignedTimes = config.UnassignedNotifyTimes ?? [];
             var hasTodayNotify = config.DingTalkEnabled && todayTimes.Count > 0;
             var hasNextDayNotify = config.DingTalkNextDayEnabled && nextDayTimes.Count > 0;
+            var hasUnassignedNotify = config.UnassignedNotifyEnabled && unassignedTimes.Count > 0;
 
-            if ((!hasTodayNotify && !hasNextDayNotify) ||
+            if ((!hasTodayNotify && !hasNextDayNotify && !hasUnassignedNotify) ||
                 string.IsNullOrWhiteSpace(config.DingTalkConfig?.WebhookUrl))
             {
                 _logger.LogInformation("DingTalk notify is disabled. Waiting for config change.");
@@ -94,6 +96,10 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
                 {
                     await notifyService.SendNextDayPreviewAsync(summaryConfig, config.DingTalkConfig!, userDingTalkConfigs, stoppingToken);
                 }
+                else if (nextRun.Kind == DingTalkNotifyKind.Unassigned)
+                {
+                    await notifyService.SendUnassignedProjectsReportAsync(summaryConfig, config.DingTalkConfig!, stoppingToken);
+                }
                 else
                 {
                     await notifyService.SendDailyReportAsync(summaryConfig, config.DingTalkConfig!, userDingTalkConfigs, stoppingToken);
@@ -135,6 +141,16 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
             }
         }
 
+        foreach (var t in config.UnassignedNotifyTimes ?? [])
+        {
+            if (TimeSpan.TryParse(t, out var ts))
+            {
+                var candidate = DateTime.Today.Add(ts);
+                if (candidate <= now) candidate = candidate.AddDays(1);
+                candidates.Add(new ScheduledRun(candidate, DingTalkNotifyKind.Unassigned));
+            }
+        }
+
         return candidates.Count > 0
             ? candidates.OrderBy(item => item.Time).First()
             : new ScheduledRun(DateTime.Today.AddDays(1).AddHours(8), DingTalkNotifyKind.Today);
@@ -145,6 +161,7 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
     private enum DingTalkNotifyKind
     {
         Today,
-        NextDay
+        NextDay,
+        Unassigned
     }
 }
