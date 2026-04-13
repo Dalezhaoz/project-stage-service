@@ -3,12 +3,16 @@
 服务器发消息到这个代理，代理转发到钉钉 API
 启动后自动向主服务注册，定时心跳保活，VPN IP 变化自动更新。
 
-用法: python dingtalk_proxy.py [--port 9100] [--server http://主服务地址] [--token 密钥] [--detect-target 内网IP]
+配置优先级: config.ini > 环境变量 > 命令行参数
 
-也可以通过环境变量配置:
-  PROXY_PORT=9100
-  MAIN_SERVER=http://xxx.xxx.xxx.xxx:5000
-  PROXY_TOKEN=你的钉钉签名密钥
+config.ini 示例:
+  [proxy]
+  port = 9100
+  server = http://your-server-ip:5000
+  token = your_dingtalk_secret
+
+命令行用法:
+  python dingtalk_proxy.py [--port 9100] [--server http://主服务地址] [--token 密钥]
 """
 
 import sys
@@ -21,38 +25,63 @@ import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+HEARTBEAT_INTERVAL = 30  # seconds
+
+
+# ---------- Logging ----------
+
+def log(tag, msg):
+    now = time.strftime("%H:%M:%S")
+    print(f"[{now}] [{tag}] {msg}", flush=True)
+
 
 # ---------- Configuration ----------
 
+def load_config_ini():
+    """Load config.ini from the same directory as this script."""
+    ini_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
+    if not os.path.exists(ini_path):
+        return {}
+
+    config = {}
+    try:
+        import configparser
+        cp = configparser.ConfigParser()
+        cp.read(ini_path, encoding="utf-8")
+        if cp.has_section("proxy"):
+            for key in ("port", "server", "token", "proxy_ip", "detect_target"):
+                if cp.has_option("proxy", key):
+                    config[key] = cp.get("proxy", key).strip()
+    except Exception as e:
+        log("配置", f"读取 config.ini 失败: {e}")
+    return config
+
+
 def parse_args():
-    """Parse command line arguments."""
-    port = int(os.environ.get("PROXY_PORT", "9100"))
-    server = os.environ.get("MAIN_SERVER", "")
-    token = os.environ.get("PROXY_TOKEN", "")
-    proxy_ip = os.environ.get("PROXY_IP", "")
-    detect_target = os.environ.get("DETECT_TARGET", "")
+    """Merge config.ini, environment variables, and CLI arguments (later overrides earlier)."""
+    ini = load_config_ini()
+
+    port = int(ini.get("port") or os.environ.get("PROXY_PORT") or 9100)
+    server = ini.get("server") or os.environ.get("MAIN_SERVER") or ""
+    token = ini.get("token") or os.environ.get("PROXY_TOKEN") or ""
+    proxy_ip = ini.get("proxy_ip") or os.environ.get("PROXY_IP") or ""
+    detect_target = ini.get("detect_target") or os.environ.get("DETECT_TARGET") or ""
 
     args = sys.argv[1:]
     i = 0
     while i < len(args):
         if args[i] == "--port" and i + 1 < len(args):
-            port = int(args[i + 1])
-            i += 2
+            port = int(args[i + 1]); i += 2
         elif args[i] == "--server" and i + 1 < len(args):
-            server = args[i + 1]
-            i += 2
+            server = args[i + 1]; i += 2
         elif args[i] == "--token" and i + 1 < len(args):
-            token = args[i + 1]
-            i += 2
+            token = args[i + 1]; i += 2
         elif args[i] == "--proxy-ip" and i + 1 < len(args):
-            proxy_ip = args[i + 1]
-            i += 2
+            proxy_ip = args[i + 1]; i += 2
         elif args[i] == "--detect-target" and i + 1 < len(args):
-            detect_target = args[i + 1]
-            i += 2
+            detect_target = args[i + 1]; i += 2
         elif args[i].isdigit():
-            port = int(args[i])  # backward compatible: positional port
-            i += 1
+            port = int(args[i]); i += 1
         else:
             i += 1
 
@@ -64,12 +93,9 @@ def parse_args():
 def get_local_ip(target_host):
     """Get the local IP address used to reach the target host."""
     try:
-        # Parse host from URL
         host = target_host.split("://")[-1].split("/")[0].split(":")[0]
-        port = 80
         parts = target_host.split("://")[-1].split("/")[0].split(":")
-        if len(parts) == 2:
-            port = int(parts[1])
+        port = int(parts[1]) if len(parts) == 2 else 80
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect((host, port))
             return s.getsockname()[0]
@@ -80,7 +106,7 @@ def get_local_ip(target_host):
 def heartbeat_loop(port, server_url, token, proxy_ip="", detect_target=""):
     """Periodically register this proxy with the main server."""
     if not server_url:
-        print("[心跳] 未配置 --server，跳过自动注册。需手动在主服务配置 ProxyUrl。")
+        log("心跳", "未配置 server，跳过自动注册。需手动在主服务配置 ProxyUrl。")
         return
 
     register_url = server_url.rstrip("/") + "/api/dingtalk/register-proxy"
@@ -89,20 +115,14 @@ def heartbeat_loop(port, server_url, token, proxy_ip="", detect_target=""):
 
     while True:
         try:
-            # detect_target 用内网 IP 探测本机 VPN 地址，避免域名走公网出口
             local_ip = proxy_ip or get_local_ip(detect_target or server_url)
             if not local_ip:
-                print("[心跳] 无法获取本机 IP，等待重试...")
-                time.sleep(30)
+                log("心跳", "无法获取本机 IP，等待重试...")
+                time.sleep(HEARTBEAT_INTERVAL)
                 continue
 
             proxy_url = f"http://{local_ip}:{port}"
-
-            payload = json.dumps({
-                "proxyUrl": proxy_url,
-                "token": token
-            }).encode("utf-8")
-
+            payload = json.dumps({"proxyUrl": proxy_url, "token": token}).encode("utf-8")
             req = urllib.request.Request(
                 register_url,
                 data=payload,
@@ -114,18 +134,18 @@ def heartbeat_loop(port, server_url, token, proxy_ip="", detect_target=""):
 
             if local_ip != last_ip:
                 if last_ip:
-                    print(f"[心跳] ✅ IP 已变更 {last_ip} → {local_ip}，已更新注册")
+                    log("心跳", f"✅ IP 已变更 {last_ip} → {local_ip}，已更新注册")
                 else:
-                    print(f"[心跳] ✅ 已注册到主服务: {proxy_url}")
+                    log("心跳", f"✅ 已注册到主服务: {proxy_url}")
                 last_ip = local_ip
             fail_count = 0
 
         except Exception as e:
             fail_count += 1
             if fail_count <= 3 or fail_count % 10 == 0:
-                print(f"[心跳] ❌ 注册失败 (#{fail_count}): {e}")
+                log("心跳", f"❌ 注册失败 (#{fail_count}): {e}")
 
-        time.sleep(60)
+        time.sleep(HEARTBEAT_INTERVAL)
 
 
 # ---------- Proxy Handler ----------
@@ -136,7 +156,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            # Support both Content-Length and chunked transfer encoding
             transfer_encoding = self.headers.get("Transfer-Encoding", "")
             content_length = int(self.headers.get("Content-Length", 0))
 
@@ -145,11 +164,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
             else:
                 body = self.rfile.read(content_length)
 
-            print(f"[REQ] {self.command} {self.path} len={len(body)} TE={transfer_encoding}")
-
             if not body:
                 self._respond(400, {"error": "请求体为空"})
-                print("[ERR] Empty body")
                 return
 
             payload = json.loads(body)
@@ -158,12 +174,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
             if not target_url:
                 self._respond(400, {"error": "缺少 targetUrl"})
-                print("[ERR] Missing targetUrl")
                 return
 
-            print(f"[FWD] -> {target_url[:80]}...")
+            log("转发", f"-> {target_url[:80]}...")
 
-            # Forward to DingTalk
             data = json.dumps(message).encode("utf-8")
             req = urllib.request.Request(
                 target_url,
@@ -175,30 +189,33 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 result = json.loads(resp.read())
 
             self._respond(200, result)
-            print(f"[OK] Forwarded -> errcode={result.get('errcode', '?')}")
+            errcode = result.get("errcode", "?")
+            if errcode == 0:
+                log("转发", f"✅ 成功")
+            else:
+                log("转发", f"⚠️  钉钉返回 errcode={errcode}: {result.get('errmsg', '')}")
 
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8", errors="replace")
             self._respond(e.code, {"error": error_body})
-            print(f"[ERR] DingTalk returned {e.code}: {error_body}")
+            log("转发", f"❌ 钉钉返回 {e.code}: {error_body}")
         except json.JSONDecodeError as e:
             self._respond(400, {"error": f"JSON 解析失败: {e}"})
-            print(f"[ERR] JSON decode failed: {e}")
+            log("转发", f"❌ JSON 解析失败: {e}")
         except Exception as e:
             self._respond(500, {"error": str(e)})
-            print(f"[ERR] {e}")
+            log("转发", f"❌ {e}")
 
     def _read_chunked(self):
-        """Read chunked transfer encoding body."""
         data = b""
         while True:
             line = self.rfile.readline().strip()
             chunk_size = int(line, 16)
             if chunk_size == 0:
-                self.rfile.readline()  # trailing CRLF
+                self.rfile.readline()
                 break
             data += self.rfile.read(chunk_size)
-            self.rfile.readline()  # trailing CRLF after chunk
+            self.rfile.readline()
         return data
 
     def _respond(self, code, data):
@@ -218,26 +235,28 @@ class ProxyHandler(BaseHTTPRequestHandler):
 def main():
     port, server, token, proxy_ip, detect_target = parse_args()
 
-    print(f"钉钉转发代理已启动: http://0.0.0.0:{port}")
+    log("启动", f"钉钉转发代理 http://0.0.0.0:{port}")
     if proxy_ip:
-        print(f"指定注册 IP: {proxy_ip}")
+        log("启动", f"指定注册 IP: {proxy_ip}")
     if detect_target:
-        print(f"IP 探测目标: {detect_target}")
+        log("启动", f"IP 探测目标: {detect_target}")
     if server:
-        print(f"主服务地址: {server}")
-        print(f"心跳间隔: 60 秒")
-        # Start heartbeat in background thread
-        t = threading.Thread(target=heartbeat_loop, args=(port, server, token, proxy_ip, detect_target), daemon=True)
+        log("启动", f"主服务: {server}，心跳间隔: {HEARTBEAT_INTERVAL}s")
+        t = threading.Thread(
+            target=heartbeat_loop,
+            args=(port, server, token, proxy_ip, detect_target),
+            daemon=True,
+        )
         t.start()
     else:
-        print("未配置 --server，仅作为转发代理运行（手动配置模式）")
+        log("启动", "未配置 server，仅转发模式（手动在主服务填写 ProxyUrl）")
 
-    print("等待服务器消息...")
+    log("启动", "等待消息...")
     http_server = HTTPServer(("0.0.0.0", port), ProxyHandler)
     try:
         http_server.serve_forever()
     except KeyboardInterrupt:
-        print("\n已停止")
+        log("启动", "已停止")
 
 
 if __name__ == "__main__":
