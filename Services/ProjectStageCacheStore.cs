@@ -226,7 +226,7 @@ public sealed class ProjectStageCacheStore
             EnabledServers = cacheInfo.EnabledServers,
             VisitedDatabases = cacheInfo.VisitedDatabases,
             MatchedDatabases = cacheInfo.MatchedDatabases,
-            EndedCount = filtered.Count(item => item.Status == "已经结束"),
+            EndedCount = filtered.Count(item => item.Status == "已结束" || item.Status == "已经结束"),
             OngoingCount = filtered.Count(item => item.Status == "正在进行"),
             UpcomingCount = filtered.Count(item => item.Status == "即将开始")
         };

@@ -161,7 +161,7 @@ public sealed class SummaryStoreService
             EnabledServers = enabledServerCount,
             VisitedDatabases = matchedDatabaseCount,
             MatchedDatabases = matchedDatabaseCount,
-            EndedCount = filtered.Count(item => item.Status == "已经结束"),
+            EndedCount = filtered.Count(item => item.Status == "已结束" || item.Status == "已经结束"),
             OngoingCount = filtered.Count(item => item.Status == "正在进行"),
             UpcomingCount = filtered.Count(item => item.Status == "即将开始")
         };

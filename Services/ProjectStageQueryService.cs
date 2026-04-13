@@ -165,7 +165,7 @@ public sealed class ProjectStageQueryService
             summary.Records.AddRange(result.Records);
         }
 
-        summary.EndedCount = summary.Records.Count(item => item.Status == "已经结束");
+        summary.EndedCount = summary.Records.Count(item => string.Equals(item.Status, ProjectStageStatuses.Ended, StringComparison.OrdinalIgnoreCase) || item.Status == "已经结束");
         summary.OngoingCount = summary.Records.Count(item => item.Status == "正在进行");
         summary.UpcomingCount = summary.Records.Count(item => item.Status == "即将开始");
         summary.Groups = summary.Records
@@ -992,7 +992,7 @@ public sealed class ProjectStageQueryService
         }
 
         if (request.StatusFilters.Count > 0 &&
-            !request.StatusFilters.Any(item => string.Equals(item, record.Status, StringComparison.OrdinalIgnoreCase)))
+            !request.StatusFilters.Any(item => StatusMatches(item, record.Status)))
         {
             return false;
         }
@@ -1071,6 +1071,17 @@ public sealed class ProjectStageQueryService
 
     private static string EscapeMySqlIdentifier(string value) => value.Replace("`", "``");
 
+    // "已结束" and "已经结束" are treated as the same status for filtering purposes
+    private static bool StatusMatches(string filter, string recordStatus)
+    {
+        if (string.Equals(filter, recordStatus, StringComparison.OrdinalIgnoreCase)) return true;
+        var isEndedFilter = string.Equals(filter, "已结束", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(filter, "已经结束", StringComparison.OrdinalIgnoreCase);
+        var isEndedRecord = string.Equals(recordStatus, "已结束", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(recordStatus, "已经结束", StringComparison.OrdinalIgnoreCase);
+        return isEndedFilter && isEndedRecord;
+    }
+
     private static string GetStatus(DateTime now, DateTime startTime, DateTime endTime)
     {
         if (now < startTime)
@@ -1080,7 +1091,7 @@ public sealed class ProjectStageQueryService
 
         if (now > endTime)
         {
-            return "已经结束";
+            return ProjectStageStatuses.Ended;
         }
 
         return "正在进行";
