@@ -2703,7 +2703,18 @@
 
         setMetadataStatus("正在保存项目配置...");
         await saveProjectMetadata(serverName, examCode, maintainer, joinAppServerValues(selected));
-        if (allBoardGroups.length) renderBoard(allBoardGroups);
+        if (allBoardGroups.length) {
+          const scrollMap = {};
+          document.querySelectorAll('#board-panel .board-column[data-column-key]').forEach(col => {
+            const list = col.querySelector('.board-list');
+            if (list) scrollMap[col.dataset.columnKey] = list.scrollTop;
+          });
+          renderBoard(allBoardGroups);
+          document.querySelectorAll('#board-panel .board-column[data-column-key]').forEach(col => {
+            const list = col.querySelector('.board-list');
+            if (list && scrollMap[col.dataset.columnKey]) list.scrollTop = scrollMap[col.dataset.columnKey];
+          });
+        }
         hideMetadataOverlay();
       } catch (error) {
         setMetadataStatus(error.message);

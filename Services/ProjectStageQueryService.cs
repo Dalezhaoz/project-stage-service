@@ -1000,7 +1000,9 @@ public sealed class ProjectStageQueryService
         if (request.RangeStart.HasValue || request.RangeEnd.HasValue)
         {
             var rangeStart = request.RangeStart ?? DateTime.MinValue;
-            var rangeEnd = request.RangeEnd ?? DateTime.MaxValue;
+            var rangeEnd = request.RangeEnd.HasValue
+                ? request.RangeEnd.Value.Date.AddDays(1).AddTicks(-1)
+                : DateTime.MaxValue;
             if (!MatchesTimeRange(record, rangeStart, rangeEnd, request.TimeMatchMode))
             {
                 return false;
