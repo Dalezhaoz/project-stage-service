@@ -141,9 +141,19 @@
     }
     .header-actions {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 8px;
       justify-content: flex-end;
+      align-items: center;
+      width: 100%;
+    }
+    .header-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      width: 100%;
+      text-align: right;
     }
     .header-summary {
       display: grid;
@@ -230,11 +240,13 @@
       background: #fff;
       color: #44506a;
       border: 1px solid #d8dfeb;
-      box-shadow: none;
-      padding: 8px 14px;
+      box-shadow: var(--shadow-sm);
+      padding: 8px 16px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
+      min-height: 40px;
+      white-space: nowrap;
     }
     .header-toggle:hover {
       background: #f8faff;
@@ -262,6 +274,16 @@
       background: #fff5f5;
       border-color: #fca5a5;
       color: #b42318;
+    }
+    .header-toggle.secondary {
+      background: #fff;
+      color: #44506a;
+      border: 1px solid #d8dfeb;
+    }
+    .header-toggle.secondary:hover {
+      background: #f8faff;
+      border-color: #c8d4ef;
+      color: var(--text);
     }
 
     /* ---- Config Drawer ---- */
@@ -507,47 +529,6 @@
       display: grid;
       gap: 12px;
       align-content: start;
-    }
-    .query-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      padding: 14px 16px;
-      border: 1px solid #e2e8f3;
-      border-radius: 16px;
-      background: linear-gradient(180deg, #fcfdff 0%, #f8faff 100%);
-      margin-bottom: 14px;
-    }
-    .query-toolbar-copy {
-      display: grid;
-      gap: 4px;
-      flex: 1;
-      min-width: 220px;
-    }
-    .query-toolbar-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--text);
-    }
-    .query-toolbar-desc {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .query-toolbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .query-toolbar-status {
-      min-height: 18px;
-      color: var(--muted);
-      font-size: 12px;
-      width: 100%;
     }
     .server-badge {
       display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
@@ -1202,9 +1183,13 @@
       .header-actions {
         width: 100%;
         justify-content: flex-start;
+        flex-wrap: wrap;
       }
       .header-actions .header-toggle {
         flex: 1 1 calc(50% - 8px);
+      }
+      .header-status {
+        text-align: left;
       }
       .page-title h1 { font-size: 20px; }
       .filter-workbench { padding: 16px; }
@@ -1242,8 +1227,6 @@
       .filter-head-badge { width: 100%; justify-content: center; }
       .filter-actions-bar { align-items: stretch; }
       .query-actions { width: 100%; }
-      .query-toolbar { align-items: stretch; }
-      .query-toolbar-actions { width: 100%; justify-content: flex-start; }
       .query-drawer {
         width: 100vw;
         border-right: none;
@@ -1299,8 +1282,12 @@
           </div>
         </div>
         <div class="header-actions">
-          <button id="toggle-config-panel" type="button" class="header-toggle header-toggle-primary">系统配置</button>
+          <button id="toggle-query-panel" type="button" class="header-toggle">查询条件</button>
+          <button id="query-btn" class="header-toggle header-toggle-primary">开始查询</button>
+          <button id="export-btn" class="header-toggle secondary" disabled>导出</button>
+          <button id="toggle-config-panel" type="button" class="header-toggle">系统配置</button>
         </div>
+        <div class="header-status" id="query-status">缓存查询说明：默认基于缓存数据查询，支持手动更新后再检索。</div>
       </div>
     </div>
 
@@ -1481,18 +1468,6 @@
 
     <div class="layout">
       <div class="card">
-        <div class="query-toolbar">
-          <div class="query-toolbar-copy">
-            <div class="query-toolbar-title">查询与结果</div>
-            <div class="query-toolbar-desc">点击左侧展开查询条件，主界面保留查询、导出和结果浏览。</div>
-          </div>
-          <div class="query-toolbar-actions">
-            <button id="toggle-query-panel" type="button" class="header-toggle">查询条件</button>
-            <button id="query-btn">开始查询</button>
-            <button id="export-btn" class="secondary" disabled>导出</button>
-          </div>
-          <div class="query-toolbar-status" id="query-status">未开始查询</div>
-        </div>
         <div class="summary" id="summary-panel"></div>
         <div class="board" id="board-panel"></div>
       </div>
