@@ -718,9 +718,9 @@
             <div class="filter-group" id="server-filter-tags"></div>
             <div class="filter-sep"></div>
             <div class="filter-group">
-              <input id="range-start" type="date" title="开始日期" class="filter-input" style="width:130px;">
+              <input id="range-start" type="datetime-local" title="开始日期时间" class="filter-input" style="width:175px;">
               <span style="color:var(--muted);font-size:12px;">至</span>
-              <input id="range-end" type="date" title="结束日期" class="filter-input" style="width:130px;">
+              <input id="range-end" type="datetime-local" title="结束日期时间" class="filter-input" style="width:175px;">
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
@@ -771,7 +771,7 @@
     </div>
 
     <!-- Auth Overlay -->
-    <div class="overlay auth-overlay" id="auth-overlay">
+    <div class="overlay auth-overlay show" id="auth-overlay">
       <div class="modal auth-modal">
         <div class="modal-head">
           <h2 id="auth-title">登录验证</h2>
