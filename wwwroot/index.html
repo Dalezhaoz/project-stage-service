@@ -570,6 +570,13 @@
     .auth-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .plain-check { display: inline-flex; align-items: center; gap: 6px; color: #374151; font-size: 13px; font-weight: 600; }
     .plain-check input { width: auto; margin: 0; }
+    .time-chip-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; min-height: 36px; }
+    .time-chip { display: inline-flex; align-items: center; gap: 2px; background: #edf0f5; border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; }
+    .time-chip input[type="time"] { border: none; background: transparent; font-size: 13px; width: 76px; padding: 0; color: #374151; font-weight: 600; outline: none; }
+    .time-chip-del { background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 15px; line-height: 1; padding: 0 3px; border-radius: 4px; }
+    .time-chip-del:hover { color: #e53e3e; background: #fee2e2; }
+    .time-chip-add { background: none; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 12px; padding: 3px 10px; cursor: pointer; }
+    .time-chip-add:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
     .config-textarea {
       width: 100%; min-height: 88px; padding: 10px 12px; resize: vertical;
       border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff;
@@ -952,8 +959,8 @@
             <span>启用阶段数据自动更新</span>
           </label>
         </div>
-        <label style="margin-top:12px;">更新时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
-        <textarea id="schedule-stage-times" rows="3" class="config-textarea" placeholder="04:00&#10;12:00&#10;20:00"></textarea>
+        <label style="margin-top:12px;">更新时间点</label>
+        <div class="time-chip-list" id="schedule-stage-times"></div>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
         <div class="auth-actions">
           <label class="plain-check">
@@ -962,7 +969,7 @@
           </label>
         </div>
         <label style="margin-top:12px;">更新时间点</label>
-        <textarea id="schedule-count-times" rows="3" class="config-textarea" placeholder="06:00"></textarea>
+        <div class="time-chip-list" id="schedule-count-times"></div>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
         <div class="auth-actions">
           <label class="plain-check">
@@ -977,16 +984,16 @@
         <label style="margin-top:12px;">转发代理地址 <span style="font-weight:normal;color:var(--muted);">（手动配置，代理心跳注册后自动覆盖）</span></label>
         <input id="dingtalk-proxy" placeholder="例如：http://10.10.11.38:9100">
         <div id="proxy-status-line" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
-        <label style="margin-top:12px;">当天推送时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
-        <textarea id="dingtalk-notify-times" rows="2" placeholder="08:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <label style="margin-top:12px;">当天推送时间点</label>
+        <div class="time-chip-list" id="dingtalk-notify-times"></div>
         <div class="auth-actions" style="margin-top:12px;">
           <label class="plain-check">
             <input type="checkbox" id="schedule-dingtalk-nextday-enabled">
             <span>启用前一晚次日预告</span>
           </label>
         </div>
-        <label style="margin-top:12px;">次日预告时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
-        <textarea id="dingtalk-nextday-notify-times" rows="2" placeholder="20:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <label style="margin-top:12px;">次日预告时间点</label>
+        <div class="time-chip-list" id="dingtalk-nextday-notify-times"></div>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
         <div class="auth-actions">
           <label class="plain-check">
@@ -994,8 +1001,8 @@
             <span>启用未指定负责人项目提醒（推送给 admin）</span>
           </label>
         </div>
-        <label style="margin-top:12px;">提醒时间点 <span style="font-weight:normal;color:var(--muted);">（每行一个，格式 HH:mm）</span></label>
-        <textarea id="unassigned-notify-times" rows="2" placeholder="09:00" style="font-family:inherit;resize:vertical;"></textarea>
+        <label style="margin-top:12px;">提醒时间点</label>
+        <div class="time-chip-list" id="unassigned-notify-times"></div>
         <div class="auth-actions" style="margin-top:16px;">
           <button id="save-schedule-btn">保存配置</button>
           <button id="test-dingtalk-btn" class="secondary">测试钉钉推送</button>
@@ -1449,6 +1456,37 @@
       return allAppServerOptions;
     }
 
+    function renderTimeChipList(containerId, times) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      (times || []).forEach(t => {
+        const chip = document.createElement("span");
+        chip.className = "time-chip";
+        chip.innerHTML = `<input type="time" value="${escapeHtml(t)}"><button class="time-chip-del" title="删除">×</button>`;
+        chip.querySelector(".time-chip-del").addEventListener("click", () => chip.remove());
+        container.appendChild(chip);
+      });
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "time-chip-add";
+      addBtn.textContent = "+ 新增";
+      addBtn.addEventListener("click", () => {
+        const chip = document.createElement("span");
+        chip.className = "time-chip";
+        chip.innerHTML = `<input type="time"><button class="time-chip-del" title="删除">×</button>`;
+        chip.querySelector(".time-chip-del").addEventListener("click", () => chip.remove());
+        container.insertBefore(chip, addBtn);
+        chip.querySelector("input").focus();
+      });
+      container.appendChild(addBtn);
+    }
+
+    function getTimesFromChipList(containerId) {
+      return [...document.querySelectorAll(`#${containerId} .time-chip input[type="time"]`)]
+        .map(input => input.value.trim())
+        .filter(Boolean);
+    }
+
     function renderAppServerList(names) {
       const container = document.getElementById("app-server-list");
       container.innerHTML = names.map(name => `
@@ -1552,18 +1590,18 @@
       const response = await apiFetch(buildAppUrl("api/schedule"));
       const config = await response.json();
       document.getElementById("schedule-stage-enabled").checked = Boolean(config.stageRefreshEnabled);
-      document.getElementById("schedule-stage-times").value = (config.stageRefreshTimes || ["04:00"]).join("\n");
+      renderTimeChipList("schedule-stage-times", config.stageRefreshTimes || ["04:00"]);
       document.getElementById("schedule-count-enabled").checked = Boolean(config.countRefreshEnabled);
-      document.getElementById("schedule-count-times").value = (config.countRefreshTimes || ["06:00"]).join("\n");
+      renderTimeChipList("schedule-count-times", config.countRefreshTimes || ["06:00"]);
       document.getElementById("schedule-dingtalk-enabled").checked = Boolean(config.dingTalkEnabled);
       document.getElementById("dingtalk-webhook").value = config.dingTalkConfig?.webhookUrl || "";
       document.getElementById("dingtalk-secret").value = config.dingTalkConfig?.secret || "";
       document.getElementById("dingtalk-proxy").value = config.dingTalkConfig?.proxyUrl || "";
-      document.getElementById("dingtalk-notify-times").value = (config.dingTalkNotifyTimes || ["08:00"]).join("\n");
+      renderTimeChipList("dingtalk-notify-times", config.dingTalkNotifyTimes || ["08:00"]);
       document.getElementById("schedule-dingtalk-nextday-enabled").checked = Boolean(config.dingTalkNextDayEnabled);
-      document.getElementById("dingtalk-nextday-notify-times").value = (config.dingTalkNextDayNotifyTimes || ["20:00"]).join("\n");
+      renderTimeChipList("dingtalk-nextday-notify-times", config.dingTalkNextDayNotifyTimes || ["20:00"]);
       document.getElementById("schedule-unassigned-enabled").checked = Boolean(config.unassignedNotifyEnabled);
-      document.getElementById("unassigned-notify-times").value = (config.unassignedNotifyTimes || ["09:00"]).join("\n");
+      renderTimeChipList("unassigned-notify-times", config.unassignedNotifyTimes || ["09:00"]);
       // Load proxy heartbeat status
       try {
         const proxyResp = await apiFetch(buildAppUrl("api/dingtalk/proxy-status"));
@@ -1587,15 +1625,15 @@
     function buildSchedulePayload() {
       return {
         stageRefreshEnabled: document.getElementById("schedule-stage-enabled").checked,
-        stageRefreshTimes: document.getElementById("schedule-stage-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        stageRefreshTimes: getTimesFromChipList("schedule-stage-times"),
         countRefreshEnabled: document.getElementById("schedule-count-enabled").checked,
-        countRefreshTimes: document.getElementById("schedule-count-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        countRefreshTimes: getTimesFromChipList("schedule-count-times"),
         dingTalkEnabled: document.getElementById("schedule-dingtalk-enabled").checked,
-        dingTalkNotifyTimes: document.getElementById("dingtalk-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        dingTalkNotifyTimes: getTimesFromChipList("dingtalk-notify-times"),
         dingTalkNextDayEnabled: document.getElementById("schedule-dingtalk-nextday-enabled").checked,
-        dingTalkNextDayNotifyTimes: document.getElementById("dingtalk-nextday-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        dingTalkNextDayNotifyTimes: getTimesFromChipList("dingtalk-nextday-notify-times"),
         unassignedNotifyEnabled: document.getElementById("schedule-unassigned-enabled").checked,
-        unassignedNotifyTimes: document.getElementById("unassigned-notify-times").value.split("\n").map(s => s.trim()).filter(Boolean),
+        unassignedNotifyTimes: getTimesFromChipList("unassigned-notify-times"),
         dingTalkConfig: {
           webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
           secret: document.getElementById("dingtalk-secret").value.trim(),
