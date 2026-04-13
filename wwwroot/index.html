@@ -724,10 +724,11 @@
             <div class="filter-sep"></div>
             <div class="filter-group" id="server-filter-tags"></div>
             <div class="filter-sep"></div>
-            <div class="filter-group">
+            <div class="filter-group" style="align-items:center;">
               <input id="range-start" type="datetime-local" title="开始日期时间" class="filter-input" style="width:175px;">
               <span style="color:var(--muted);font-size:12px;">至</span>
               <input id="range-end" type="datetime-local" title="结束日期时间" class="filter-input" style="width:175px;">
+              <button id="range-clear-btn" type="button" class="ghost" title="清空时间，查询全部" style="padding:4px 8px;font-size:12px;color:var(--muted);">✕ 清空</button>
             </div>
             <div class="filter-sep"></div>
             <div class="filter-group">
@@ -2125,6 +2126,10 @@
       if (event.target === document.getElementById("metadata-overlay") && overlayMouseDownTarget === event.target) {
         hideMetadataOverlay();
       }
+    });
+    document.getElementById("range-clear-btn").addEventListener("click", () => {
+      document.getElementById("range-start").value = "";
+      document.getElementById("range-end").value = "";
     });
     document.getElementById("close-schedule-modal").addEventListener("click", hideScheduleOverlay);
     document.getElementById("schedule-overlay").addEventListener("click", (event) => {
