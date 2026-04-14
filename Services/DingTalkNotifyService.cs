@@ -270,7 +270,7 @@ public sealed class DingTalkNotifyService
 
             foreach (var stage in group.OrderBy(s => s.StartTime))
             {
-                var startStr = stage.StartTime.ToString("HH:mm");
+                var startStr = stage.StartTime.ToString("MM-dd HH:mm");
                 var endStr = stage.EndTime.ToString("MM-dd HH:mm");
                 sb.AppendLine($"- **{stage.StageName}** {startStr} 至 {endStr}");
 
