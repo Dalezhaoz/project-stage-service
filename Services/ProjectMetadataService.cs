@@ -348,18 +348,22 @@ public sealed class ProjectMetadataService
                 IF @pkName IS NOT NULL
                 BEGIN
                     DECLARE @pkColumns NVARCHAR(MAX);
-                    SELECT @pkColumns = STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY ic.key_ordinal)
-                    FROM sys.index_columns ic
-                    INNER JOIN sys.columns c
-                      ON c.object_id = ic.object_id
-                     AND c.column_id = ic.column_id
-                    WHERE ic.object_id = OBJECT_ID(N'dbo.{TableName}')
-                      AND ic.index_id = (
-                          SELECT unique_index_id
-                          FROM sys.key_constraints
-                          WHERE parent_object_id = OBJECT_ID(N'dbo.{TableName}')
-                            AND name = @pkName
-                      );
+                    SELECT @pkColumns = STUFF((
+                        SELECT ',' + c.name
+                        FROM sys.index_columns ic
+                        INNER JOIN sys.columns c
+                          ON c.object_id = ic.object_id
+                         AND c.column_id = ic.column_id
+                        WHERE ic.object_id = OBJECT_ID(N'dbo.{TableName}')
+                          AND ic.index_id = (
+                              SELECT unique_index_id
+                              FROM sys.key_constraints
+                              WHERE parent_object_id = OBJECT_ID(N'dbo.{TableName}')
+                                AND name = @pkName
+                          )
+                        ORDER BY ic.key_ordinal
+                        FOR XML PATH('')
+                    ), 1, 1, '');
 
                     IF ISNULL(@pkColumns, '') <> 'server_name,database_name,exam_code'
                     BEGIN
