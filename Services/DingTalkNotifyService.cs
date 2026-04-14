@@ -366,32 +366,7 @@ public sealed class DingTalkNotifyService
         var today = DateTime.Today.ToString("yyyy-MM-dd");
         var endTimeStr = targetEndTime.ToString("MM-dd HH:mm");
 
-        // ── Main group ────────────────────────────────────────────────────
-        if (!string.IsNullOrWhiteSpace(mainConfig.WebhookUrl))
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine($"### ⏰ 阶段即将结束提醒");
-            sb.AppendLine($"> 日期：**{today}**，以下项目最后阶段将于 **{endTimeStr}** 结束  ");
-            sb.AppendLine();
-
-            var index = 0;
-            foreach (var s in stages)
-            {
-                index++;
-                sb.AppendLine($"**{index}. {s.ProjectName}**");
-                sb.AppendLine($"> {s.ServerName} / 考试代码：{s.ExamCode}  ");
-                sb.AppendLine($"- **{s.StageName}** 结束时间：{s.EndTime:MM-dd HH:mm}");
-                if (!string.IsNullOrWhiteSpace(s.Maintainer))
-                    sb.AppendLine($"  - 负责人：{s.Maintainer}");
-                sb.AppendLine();
-            }
-            sb.AppendLine("> 请检查是否有后续阶段或收尾工作需要处理。");
-
-            await SendDingTalkMessageAsync(mainConfig, $"阶段即将结束提醒 ({today})", sb.ToString(), cancellationToken);
-            _logger.LogInformation("Ending reminder sent to main group: {Count} stages.", stages.Count);
-        }
-
-        // ── Personal ──────────────────────────────────────────────────────
+        // ── Personal only ─────────────────────────────────────────────────
         foreach (var userConfig in userDingTalkConfigs)
         {
             var userStages = stages
