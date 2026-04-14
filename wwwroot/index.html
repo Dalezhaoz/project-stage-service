@@ -1965,15 +1965,15 @@
     }
 
     function renderCacheInfo(info) {
-      document.getElementById(“header-cache-record-count”).textContent = String(info?.recordCount || 0);
-      document.getElementById(“drawer-cache-record-count”).textContent = String(info?.recordCount || 0);
+      document.getElementById("header-cache-record-count").textContent = String(info?.recordCount || 0);
+      document.getElementById("drawer-cache-record-count").textContent = String(info?.recordCount || 0);
       if (!info?.hasData || !info?.refreshedAt) {
-        document.getElementById(“header-cache-meta”).textContent = “缓存尚未更新”;
-        document.getElementById(“drawer-cache-info”).textContent = “缓存尚未更新，请先点击”更新数据”。”;
+        document.getElementById("header-cache-meta").textContent = “缓存尚未更新”;
+        document.getElementById("drawer-cache-info").textContent = “缓存尚未更新，请先点击”更新数据”。”;
         return;
       }
-      document.getElementById(“header-cache-meta”).textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
-      document.getElementById(“drawer-cache-info”).textContent =
+      document.getElementById("header-cache-meta").textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
+      document.getElementById("drawer-cache-info").textContent =
         `上次更新：${formatDateTime(info.refreshedAt)}，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
     }
 
