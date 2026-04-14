@@ -3260,7 +3260,7 @@
             if (ar.success) {
               agentMsg += `${ar.serverName}：${ar.databases}库/${ar.records}条 `;
             } else {
-              agentMsg += `${ar.serverName}：失败 `;
+              agentMsg += `${ar.serverName}：失败（${ar.error || "未知错误"}） `;
             }
           }
           const drawerInfo = document.getElementById("drawer-cache-info");
