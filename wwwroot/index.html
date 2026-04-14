@@ -1874,7 +1874,7 @@
       document.getElementById("drawer-cache-record-count").textContent = String(info?.recordCount || 0);
       if (!info?.hasData || !info?.refreshedAt) {
         document.getElementById("header-cache-meta").textContent = "未更新";
-        document.getElementById("drawer-cache-info").textContent = "缓存尚未更新，请先点击"更新数据"。";
+        document.getElementById("drawer-cache-info").textContent = `缓存尚未更新，请先点击"更新数据"。`;
         return;
       }
       document.getElementById("header-cache-meta").textContent = formatDateTime(info.refreshedAt);
@@ -2177,7 +2177,7 @@
       if (!canEditAppServers) {
         hint.textContent = "当前项目未分配给你，不能修改应用服务器。";
       } else if (!allAppServerOptions.length) {
-        hint.textContent = "还没有可选应用服务器，请先在"应用服务器"里配置。";
+        hint.textContent = `还没有可选应用服务器，请先在"应用服务器"里配置。`;
       } else {
         const selectedValues = new Set(parseAppServerValues(meta.appServers).map(item => item.toLowerCase()));
         optionContainer.innerHTML = allAppServerOptions.map(name => `
