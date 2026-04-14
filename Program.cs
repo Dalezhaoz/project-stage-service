@@ -258,7 +258,13 @@ app.MapGet("/api/auth/my-dingtalk", async (HttpContext httpContext, LocalAuthSer
     if (string.IsNullOrWhiteSpace(username)) return Results.Unauthorized();
     var users = await authService.GetUsersAsync(cancellationToken);
     var me = users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.Ordinal));
-    return Results.Ok(new { webhookUrl = me?.DingTalkWebhook ?? "", secret = me?.DingTalkSecret ?? "" });
+    return Results.Ok(new
+    {
+        webhookUrl = me?.DingTalkWebhook ?? "",
+        secret = me?.DingTalkSecret ?? "",
+        todayNotifyTimes = me?.TodayNotifyTimes ?? [],
+        nextDayNotifyTimes = me?.NextDayNotifyTimes ?? []
+    });
 }).RequireAuthorization();
 
 app.MapPost("/api/auth/my-dingtalk", async (UpdateUserDingTalkRequest request, HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
@@ -267,7 +273,8 @@ app.MapPost("/api/auth/my-dingtalk", async (UpdateUserDingTalkRequest request, H
     if (string.IsNullOrWhiteSpace(username)) return Results.Unauthorized();
     try
     {
-        await authService.UpdateUserDingTalkAsync(username, request.WebhookUrl, request.Secret, cancellationToken);
+        await authService.UpdateUserDingTalkAsync(username, request.WebhookUrl, request.Secret, cancellationToken,
+            request.TodayNotifyTimes, request.NextDayNotifyTimes);
         return Results.Ok(new { ok = true });
     }
     catch (Exception ex)

@@ -1085,6 +1085,23 @@
     .auth-modal { width: min(420px, 100%); }
     .auth-status { min-height: 20px; margin-top: 10px; color: #6b7280; font-size: 12px; line-height: 1.5; }
     .auth-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .dingtalk-schedule-section { margin-top: 14px; }
+    .dingtalk-schedule-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .time-tag-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; margin-bottom: 6px; }
+    .time-tag {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 3px 6px 3px 10px; border-radius: 999px;
+      background: var(--primary-light); border: 1px solid var(--primary-border);
+      color: var(--primary); font-size: 13px; font-weight: 600;
+    }
+    .time-tag-remove {
+      background: none; border: none; padding: 0 2px; cursor: pointer;
+      color: var(--primary); font-size: 15px; line-height: 1; opacity: 0.6;
+    }
+    .time-tag-remove:hover { opacity: 1; }
+    .time-add-row { display: flex; gap: 6px; align-items: center; }
+    .time-pick-input { width: auto !important; padding: 5px 8px; font-size: 13px; }
+    .time-add-btn { padding: 5px 10px; font-size: 13px; }
     .plain-check { display: inline-flex; align-items: center; gap: 6px; color: #374151; font-size: 13px; font-weight: 600; }
     .plain-check input { width: auto; margin: 0; }
     .time-chip-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; min-height: 36px; }
@@ -1460,12 +1477,34 @@
           <h2>我的钉钉推送</h2>
           <button id="close-my-dingtalk-modal" class="close-btn">关闭</button>
         </div>
-        <div class="hint" style="margin-bottom:12px;">配置后，系统会在定时推送时单独给你发送属于你的项目通知。</div>
+        <div class="hint" style="margin-bottom:12px;">配置 Webhook 后，可设置个人推送时间，系统会在指定时刻单独推送你负责的项目。</div>
+
         <label>Webhook URL</label>
         <input id="my-dingtalk-webhook" type="text" placeholder="请粘贴钉钉机器人 Webhook 地址">
         <label style="margin-top:12px;">签名密钥（选填）</label>
         <input id="my-dingtalk-secret" type="text" placeholder="如果机器人启用了签名，请填写密钥">
-        <div class="auth-actions" style="gap:8px;">
+
+        <div class="dingtalk-schedule-section">
+          <div class="dingtalk-schedule-label">今日推送时间</div>
+          <div class="hint" style="margin-bottom:6px;">在这些时刻推送今天负责的项目</div>
+          <div class="time-tag-list" id="my-today-times"></div>
+          <div class="time-add-row">
+            <input type="time" id="add-today-time" class="time-pick-input">
+            <button type="button" id="add-today-time-btn" class="ghost time-add-btn">+ 添加</button>
+          </div>
+        </div>
+
+        <div class="dingtalk-schedule-section">
+          <div class="dingtalk-schedule-label">明日预告时间</div>
+          <div class="hint" style="margin-bottom:6px;">在这些时刻推送明天负责的项目预告</div>
+          <div class="time-tag-list" id="my-nextday-times"></div>
+          <div class="time-add-row">
+            <input type="time" id="add-nextday-time" class="time-pick-input">
+            <button type="button" id="add-nextday-time-btn" class="ghost time-add-btn">+ 添加</button>
+          </div>
+        </div>
+
+        <div class="auth-actions" style="gap:8px;margin-top:16px;">
           <button id="save-my-dingtalk-btn">保存</button>
           <button id="test-my-dingtalk-btn" class="secondary">测试推送</button>
         </div>
@@ -2887,15 +2926,55 @@
     document.getElementById("close-user-modal").addEventListener("click", hideUserOverlay);
     document.getElementById("close-password-modal").addEventListener("click", hidePasswordOverlay);
     document.getElementById("close-summary-store-modal").addEventListener("click", hideSummaryStoreOverlay);
+    // ── My DingTalk time-tag state ──
+    const myDingTalkTimes = { today: new Set(), nextday: new Set() };
+
+    function renderTimeTags(listId, times, key) {
+      const el = document.getElementById(listId);
+      if (times.size === 0) {
+        el.innerHTML = "<span style=\"color:var(--muted);font-size:12px;\">未设置</span>";
+        return;
+      }
+      el.innerHTML = [...times].sort().map(t =>
+        `<span class="time-tag">${t}<button class="time-tag-remove" data-key="${key}" data-time="${t}" title="移除" type="button">×</button></span>`
+      ).join("");
+      el.querySelectorAll(".time-tag-remove").forEach(btn => {
+        btn.addEventListener("click", () => {
+          myDingTalkTimes[btn.dataset.key].delete(btn.dataset.time);
+          renderTimeTags(listId, myDingTalkTimes[btn.dataset.key], key);
+        });
+      });
+    }
+
+    function renderAllTimeTags() {
+      renderTimeTags("my-today-times", myDingTalkTimes.today, "today");
+      renderTimeTags("my-nextday-times", myDingTalkTimes.nextday, "nextday");
+    }
+
+    document.getElementById("add-today-time-btn").addEventListener("click", () => {
+      const val = document.getElementById("add-today-time").value;
+      if (val) { myDingTalkTimes.today.add(val); renderAllTimeTags(); document.getElementById("add-today-time").value = ""; }
+    });
+    document.getElementById("add-nextday-time-btn").addEventListener("click", () => {
+      const val = document.getElementById("add-nextday-time").value;
+      if (val) { myDingTalkTimes.nextday.add(val); renderAllTimeTags(); document.getElementById("add-nextday-time").value = ""; }
+    });
+
     document.getElementById("open-my-dingtalk-modal").addEventListener("click", async () => {
       document.getElementById("my-dingtalk-overlay").classList.add("show");
       document.getElementById("my-dingtalk-status").textContent = "";
+      myDingTalkTimes.today.clear();
+      myDingTalkTimes.nextday.clear();
+      renderAllTimeTags();
       try {
         const resp = await apiFetch(buildAppUrl("api/auth/my-dingtalk"));
         if (resp.ok) {
           const data = await resp.json();
           document.getElementById("my-dingtalk-webhook").value = data.webhookUrl || "";
           document.getElementById("my-dingtalk-secret").value = data.secret || "";
+          (data.todayNotifyTimes || []).forEach(t => myDingTalkTimes.today.add(t));
+          (data.nextDayNotifyTimes || []).forEach(t => myDingTalkTimes.nextday.add(t));
+          renderAllTimeTags();
         }
       } catch (e) { /* ignore */ }
     });
@@ -2909,7 +2988,9 @@
         await postJson(buildAppUrl("api/auth/my-dingtalk"), {
           username: currentUsername,
           webhookUrl: document.getElementById("my-dingtalk-webhook").value.trim(),
-          secret: document.getElementById("my-dingtalk-secret").value.trim()
+          secret: document.getElementById("my-dingtalk-secret").value.trim(),
+          todayNotifyTimes: [...myDingTalkTimes.today].sort(),
+          nextDayNotifyTimes: [...myDingTalkTimes.nextday].sort()
         });
         statusEl.textContent = "已保存。";
       } catch (error) {

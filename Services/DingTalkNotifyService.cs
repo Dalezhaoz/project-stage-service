@@ -349,6 +349,54 @@ public sealed class DingTalkNotifyService
         return count;
     }
 
+    public async Task SendPersonalDailyAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig proxyConfig,
+        LocalAuthService.UserDingTalkConfig userConfig,
+        CancellationToken cancellationToken)
+    {
+        await SendSingleUserReportAsync(summaryConfig, proxyConfig, userConfig, DateTime.Today, "今日", cancellationToken);
+    }
+
+    public async Task SendPersonalNextDayAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig proxyConfig,
+        LocalAuthService.UserDingTalkConfig userConfig,
+        CancellationToken cancellationToken)
+    {
+        await SendSingleUserReportAsync(summaryConfig, proxyConfig, userConfig, DateTime.Today.AddDays(1), "明日", cancellationToken);
+    }
+
+    private async Task SendSingleUserReportAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig proxyConfig,
+        LocalAuthService.UserDingTalkConfig userConfig,
+        DateTime targetDate,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        var allStages = await QueryStartingStagesAsync(summaryConfig, targetDate, cancellationToken);
+        var userStages = allStages
+            .Where(s => string.Equals(s.Maintainer, userConfig.Username, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (userStages.Count == 0)
+        {
+            _logger.LogInformation("Personal {Label} push for {User}: no stages, skipped.", label, userConfig.Username);
+            return;
+        }
+
+        var markdown = BuildMaintainerMarkdownMessage(userConfig.Username, userStages, targetDate, label);
+        var config = new DingTalkConfig
+        {
+            WebhookUrl = userConfig.WebhookUrl,
+            Secret = userConfig.Secret,
+            ProxyUrl = proxyConfig.ProxyUrl
+        };
+        await SendDingTalkMessageAsync(config, markdown.title, markdown.text, cancellationToken);
+        _logger.LogInformation("Personal {Label} push sent to {User}: {Count} stages.", label, userConfig.Username, userStages.Count);
+    }
+
     public async Task<int> SendUnassignedProjectsReportAsync(
         SummaryStoreConfig summaryConfig,
         DingTalkConfig dingTalkConfig,

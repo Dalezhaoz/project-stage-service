@@ -60,6 +60,8 @@ public sealed class UpdateUserDingTalkRequest
     public string Username { get; set; } = "";
     public string WebhookUrl { get; set; } = "";
     public string Secret { get; set; } = "";
+    public string[]? TodayNotifyTimes { get; set; }
+    public string[]? NextDayNotifyTimes { get; set; }
 }
 
 public sealed class TestUserDingTalkRequest

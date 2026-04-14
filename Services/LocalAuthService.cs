@@ -73,7 +73,8 @@ public sealed class LocalAuthService
         return store.Users
             .OrderBy(item => roleOrder.GetValueOrDefault(ResolveRole(item), 9))
             .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
-            .Select(item => new UserInfo(item.Username, ResolveRole(item), item.DingTalkWebhook, item.DingTalkSecret))
+            .Select(item => new UserInfo(item.Username, ResolveRole(item), item.DingTalkWebhook, item.DingTalkSecret,
+                item.ParsedTodayTimes, item.ParsedNextDayTimes))
             .ToList();
     }
 
@@ -154,7 +155,9 @@ public sealed class LocalAuthService
         await SaveStoreAsync(store, cancellationToken);
     }
 
-    public async Task UpdateUserDingTalkAsync(string username, string webhookUrl, string secret, CancellationToken cancellationToken)
+    public async Task UpdateUserDingTalkAsync(string username, string webhookUrl, string secret,
+        CancellationToken cancellationToken,
+        string[]? todayNotifyTimes = null, string[]? nextDayNotifyTimes = null)
     {
         var store = await LoadStoreAsync(cancellationToken);
         var user = store.Users.FirstOrDefault(item => string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal));
@@ -165,6 +168,10 @@ public sealed class LocalAuthService
 
         user.DingTalkWebhook = webhookUrl?.Trim() ?? "";
         user.DingTalkSecret = secret?.Trim() ?? "";
+        if (todayNotifyTimes is not null)
+            user.DingTalkTodayTimes = string.Join(",", todayNotifyTimes.Select(t => t.Trim()).Where(t => t.Length > 0));
+        if (nextDayNotifyTimes is not null)
+            user.DingTalkNextDayTimes = string.Join(",", nextDayNotifyTimes.Select(t => t.Trim()).Where(t => t.Length > 0));
         await SaveStoreAsync(store, cancellationToken);
     }
 
@@ -190,7 +197,8 @@ public sealed class LocalAuthService
         var store = await LoadStoreAsync(cancellationToken);
         return store.Users
             .Where(item => !string.IsNullOrWhiteSpace(item.DingTalkWebhook))
-            .Select(item => new UserDingTalkConfig(item.Username, item.DingTalkWebhook, item.DingTalkSecret))
+            .Select(item => new UserDingTalkConfig(item.Username, item.DingTalkWebhook, item.DingTalkSecret,
+                item.ParsedTodayTimes, item.ParsedNextDayTimes))
             .ToList();
     }
 
@@ -229,7 +237,8 @@ public sealed class LocalAuthService
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = """
-                SELECT username, salt, password_hash, iterations, role, force_password_change, dingtalk_webhook, dingtalk_secret
+                SELECT username, salt, password_hash, iterations, role, force_password_change, dingtalk_webhook, dingtalk_secret,
+                       dingtalk_today_times, dingtalk_nextday_times
                 FROM dbo.auth_users;
                 """;
 
@@ -246,7 +255,9 @@ public sealed class LocalAuthService
                     IsAdmin = string.Equals(reader.IsDBNull(4) ? "" : reader.GetString(4), RoleAdmin, StringComparison.Ordinal),
                     ForcePasswordChange = !reader.IsDBNull(5) && reader.GetBoolean(5),
                     DingTalkWebhook = reader.IsDBNull(6) ? "" : reader.GetString(6),
-                    DingTalkSecret = reader.IsDBNull(7) ? "" : reader.GetString(7)
+                    DingTalkSecret = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                    DingTalkTodayTimes = reader.IsDBNull(8) ? "" : reader.GetString(8),
+                    DingTalkNextDayTimes = reader.IsDBNull(9) ? "" : reader.GetString(9)
                 });
             }
         }
@@ -373,6 +384,8 @@ public sealed class LocalAuthService
                         force_password_change,
                         dingtalk_webhook,
                         dingtalk_secret,
+                        dingtalk_today_times,
+                        dingtalk_nextday_times,
                         updated_at
                     )
                     VALUES
@@ -385,6 +398,8 @@ public sealed class LocalAuthService
                         @force_password_change,
                         @dingtalk_webhook,
                         @dingtalk_secret,
+                        @dingtalk_today_times,
+                        @dingtalk_nextday_times,
                         GETDATE()
                     );
                     """;
@@ -396,6 +411,8 @@ public sealed class LocalAuthService
                 insertUser.Parameters.AddWithValue("@force_password_change", user.ForcePasswordChange);
                 insertUser.Parameters.AddWithValue("@dingtalk_webhook", user.DingTalkWebhook ?? "");
                 insertUser.Parameters.AddWithValue("@dingtalk_secret", user.DingTalkSecret ?? "");
+                insertUser.Parameters.AddWithValue("@dingtalk_today_times", user.DingTalkTodayTimes ?? "");
+                insertUser.Parameters.AddWithValue("@dingtalk_nextday_times", user.DingTalkNextDayTimes ?? "");
                 await insertUser.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -534,8 +551,17 @@ public sealed class LocalAuthService
                     force_password_change BIT NOT NULL DEFAULT 0,
                     dingtalk_webhook NVARCHAR(1000) NOT NULL DEFAULT '',
                     dingtalk_secret NVARCHAR(500) NOT NULL DEFAULT '',
+                    dingtalk_today_times NVARCHAR(500) NOT NULL DEFAULT '',
+                    dingtalk_nextday_times NVARCHAR(500) NOT NULL DEFAULT '',
                     updated_at DATETIME NOT NULL DEFAULT GETDATE()
                 );
+            END
+            ELSE
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.auth_users') AND name = 'dingtalk_today_times')
+                    ALTER TABLE dbo.auth_users ADD dingtalk_today_times NVARCHAR(500) NOT NULL DEFAULT '';
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.auth_users') AND name = 'dingtalk_nextday_times')
+                    ALTER TABLE dbo.auth_users ADD dingtalk_nextday_times NVARCHAR(500) NOT NULL DEFAULT '';
             END;
 
             IF OBJECT_ID(N'dbo.auth_settings', N'U') IS NULL
@@ -567,8 +593,10 @@ public sealed class LocalAuthService
     }
 
     public sealed record AuthValidationResult(bool Success, string Role, bool ForcePasswordChange);
-    public sealed record UserInfo(string Username, string Role, string DingTalkWebhook = "", string DingTalkSecret = "");
-    public sealed record UserDingTalkConfig(string Username, string WebhookUrl, string Secret);
+    public sealed record UserInfo(string Username, string Role, string DingTalkWebhook = "", string DingTalkSecret = "",
+        string[] TodayNotifyTimes = default!, string[] NextDayNotifyTimes = default!);
+    public sealed record UserDingTalkConfig(string Username, string WebhookUrl, string Secret,
+        string[]? TodayNotifyTimes = null, string[]? NextDayNotifyTimes = null);
 
     private sealed class AuthStore
     {
@@ -587,6 +615,16 @@ public sealed class LocalAuthService
         public bool ForcePasswordChange { get; set; }
         public string DingTalkWebhook { get; set; } = "";
         public string DingTalkSecret { get; set; } = "";
+        public string DingTalkTodayTimes { get; set; } = "";
+        public string DingTalkNextDayTimes { get; set; } = "";
+
+        public string[] ParsedTodayTimes =>
+            string.IsNullOrWhiteSpace(DingTalkTodayTimes) ? [] :
+            DingTalkTodayTimes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        public string[] ParsedNextDayTimes =>
+            string.IsNullOrWhiteSpace(DingTalkNextDayTimes) ? [] :
+            DingTalkNextDayTimes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private sealed class LegacyAuthRecord
