@@ -10,6 +10,7 @@ public sealed class ProjectMetadataRecord
     public string ExamCode { get; set; } = "";
     public string Maintainer { get; set; } = "";
     public string AppServers { get; set; } = "";
+    public bool AllowOthersView { get; set; } = true;
     public DateTime? UpdatedAt { get; set; }
 }
 
@@ -42,7 +43,7 @@ public sealed class ProjectMetadataService
         await EnsureSchemaAsync(connection, cancellationToken);
 
         await using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT server_name, database_name, exam_code, maintainer, app_servers, updated_at FROM dbo.{TableName};";
+        command.CommandText = $"SELECT server_name, database_name, exam_code, maintainer, app_servers, allow_others_view, updated_at FROM dbo.{TableName};";
 
         var records = new List<ProjectMetadataRecord>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -55,7 +56,8 @@ public sealed class ProjectMetadataService
                 ExamCode = reader.GetString(2),
                 Maintainer = reader.IsDBNull(3) ? "" : reader.GetString(3),
                 AppServers = reader.IsDBNull(4) ? "" : reader.GetString(4),
-                UpdatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
+                AllowOthersView = reader.IsDBNull(5) || reader.GetBoolean(5),
+                UpdatedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6)
             });
         }
 
@@ -73,7 +75,7 @@ public sealed class ProjectMetadataService
         await EnsureSchemaAsync(connection, cancellationToken);
 
         await using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT server_name, database_name, exam_code, maintainer, app_servers, updated_at FROM dbo.{TableName} WHERE maintainer = @maintainer;";
+        command.CommandText = $"SELECT server_name, database_name, exam_code, maintainer, app_servers, allow_others_view, updated_at FROM dbo.{TableName} WHERE maintainer = @maintainer;";
         command.Parameters.AddWithValue("@maintainer", username);
 
         var records = new List<ProjectMetadataRecord>();
@@ -87,7 +89,8 @@ public sealed class ProjectMetadataService
                 ExamCode = reader.GetString(2),
                 Maintainer = reader.IsDBNull(3) ? "" : reader.GetString(3),
                 AppServers = reader.IsDBNull(4) ? "" : reader.GetString(4),
-                UpdatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
+                AllowOthersView = reader.IsDBNull(5) || reader.GetBoolean(5),
+                UpdatedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6)
             });
         }
 
@@ -162,7 +165,8 @@ public sealed class ProjectMetadataService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task SaveAsync(string serverName, string databaseName, string examCode, string maintainer, string appServers, CancellationToken cancellationToken)
+    public async Task SaveAsync(string serverName, string databaseName, string examCode, string maintainer, string appServers,
+        CancellationToken cancellationToken, bool? allowOthersView = null)
     {
         var config = await _configStore.LoadAsync(cancellationToken);
         if (!config.Enabled)
@@ -187,16 +191,20 @@ public sealed class ProjectMetadataService
             USING (SELECT @server_name AS server_name, @database_name AS database_name, @exam_code AS exam_code) AS source
             ON target.server_name = source.server_name AND target.database_name = source.database_name AND target.exam_code = source.exam_code
             WHEN MATCHED THEN
-                UPDATE SET maintainer = @maintainer, app_servers = @app_servers, updated_at = GETDATE()
+                UPDATE SET maintainer = @maintainer, app_servers = @app_servers,
+                    allow_others_view = CASE WHEN @allow_others_view_set = 1 THEN @allow_others_view ELSE allow_others_view END,
+                    updated_at = GETDATE()
             WHEN NOT MATCHED THEN
-                INSERT (server_name, database_name, exam_code, maintainer, app_servers, updated_at)
-                VALUES (@server_name, @database_name, @exam_code, @maintainer, @app_servers, GETDATE());
+                INSERT (server_name, database_name, exam_code, maintainer, app_servers, allow_others_view, updated_at)
+                VALUES (@server_name, @database_name, @exam_code, @maintainer, @app_servers, ISNULL(@allow_others_view, 1), GETDATE());
             """;
         command.Parameters.AddWithValue("@server_name", serverName);
         command.Parameters.AddWithValue("@database_name", databaseName);
         command.Parameters.AddWithValue("@exam_code", examCode);
         command.Parameters.AddWithValue("@maintainer", maintainer ?? "");
         command.Parameters.AddWithValue("@app_servers", appServers ?? "");
+        command.Parameters.AddWithValue("@allow_others_view_set", allowOthersView.HasValue ? 1 : 0);
+        command.Parameters.AddWithValue("@allow_others_view", allowOthersView ?? true);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -328,6 +336,7 @@ public sealed class ProjectMetadataService
                     exam_code NVARCHAR(50) NOT NULL,
                     maintainer NVARCHAR(100) NOT NULL DEFAULT '',
                     app_servers NVARCHAR(500) NOT NULL DEFAULT '',
+                    allow_others_view BIT NOT NULL DEFAULT 1,
                     updated_at DATETIME NOT NULL DEFAULT GETDATE(),
                     CONSTRAINT PK_{TableName} PRIMARY KEY (server_name, database_name, exam_code)
                 );
@@ -337,6 +346,11 @@ public sealed class ProjectMetadataService
                 IF COL_LENGTH(N'dbo.{TableName}', N'database_name') IS NULL
                 BEGIN
                     ALTER TABLE dbo.{TableName} ADD database_name NVARCHAR(200) NOT NULL CONSTRAINT DF_{TableName}_database_name DEFAULT '';
+                END;
+
+                IF COL_LENGTH(N'dbo.{TableName}', N'allow_others_view') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.{TableName} ADD allow_others_view BIT NOT NULL CONSTRAINT DF_{TableName}_allow_others_view DEFAULT 1 WITH VALUES;
                 END;
 
                 DECLARE @pkName SYSNAME;

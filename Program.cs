@@ -703,7 +703,7 @@ app.MapPost("/api/refresh", async (HttpContext httpContext, ProjectStageRefreshR
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/query", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+app.MapPost("/api/query", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectMetadataService metadataService, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -715,7 +715,7 @@ app.MapPost("/api/query", async (HttpContext httpContext, ProjectStageQueryReque
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
-        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, authService, summary, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -724,7 +724,7 @@ app.MapPost("/api/query", async (HttpContext httpContext, ProjectStageQueryReque
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/board-counts", async (HttpContext httpContext, BoardCountRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+app.MapPost("/api/board-counts", async (HttpContext httpContext, BoardCountRequest request, ProjectMetadataService metadataService, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -736,7 +736,7 @@ app.MapPost("/api/board-counts", async (HttpContext httpContext, BoardCountReque
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request.Query, cancellationToken);
-        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, authService, summary, cancellationToken);
         return Results.Ok(summary);
     }
     catch (Exception ex)
@@ -745,7 +745,7 @@ app.MapPost("/api/board-counts", async (HttpContext httpContext, BoardCountReque
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/stages", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+app.MapPost("/api/stages", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectMetadataService metadataService, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -757,7 +757,7 @@ app.MapPost("/api/stages", async (HttpContext httpContext, ProjectStageQueryRequ
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
-        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, authService, summary, cancellationToken);
         var stageNames = summary.Records
             .Select(item => item.StageName?.Trim() ?? "")
             .Where(item => !string.IsNullOrWhiteSpace(item))
@@ -772,7 +772,7 @@ app.MapPost("/api/stages", async (HttpContext httpContext, ProjectStageQueryRequ
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/export", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectStageExportService exportService, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+app.MapPost("/api/export", async (HttpContext httpContext, ProjectStageQueryRequest request, ProjectStageExportService exportService, ProjectMetadataService metadataService, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -784,7 +784,7 @@ app.MapPost("/api/export", async (HttpContext httpContext, ProjectStageQueryRequ
             throw new InvalidOperationException("请先在中心库中配置并启用中心表。");
 
         var summary = await summaryStoreService.QueryAsync(summaryStoreConfig, request, cancellationToken);
-        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, summary, cancellationToken);
+        summary = await FilterSummaryForCurrentUserAsync(httpContext, metadataService, authService, summary, cancellationToken);
         var content = exportService.Export(summary);
         return Results.File(
             content,
@@ -797,17 +797,39 @@ app.MapPost("/api/export", async (HttpContext httpContext, ProjectStageQueryRequ
     }
 }).RequireAuthorization();
 
-app.MapGet("/api/project-metadata", async (HttpContext httpContext, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+app.MapPost("/api/auth/user-can-assign", async (UpdateUserCanAssignRequest request, LocalAuthService authService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await authService.UpdateUserCanAssignAsync(request.Username, request.CanAssign, cancellationToken);
+        return Results.Ok(new { username = request.Username, canAssign = request.CanAssign });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
+app.MapGet("/api/project-metadata", async (HttpContext httpContext, ProjectMetadataService metadataService, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
         var role = httpContext.User.FindFirst("role")?.Value ?? "external";
+        var username = httpContext.User.Identity?.Name ?? "";
+
         if (role == "admin" || role == "internal")
         {
             return Results.Ok(await metadataService.GetAllAsync(cancellationToken));
         }
 
-        var username = httpContext.User.Identity?.Name ?? "";
+        // External with can_assign: see all allow_others_view=true metadata
+        var canAssign = await authService.GetCanAssignAsync(username, cancellationToken);
+        if (canAssign)
+        {
+            var all = await metadataService.GetAllAsync(cancellationToken);
+            return Results.Ok(all.Where(m => m.AllowOthersView).ToList());
+        }
+
         return Results.Ok(await metadataService.GetByMaintainerAsync(username, cancellationToken));
     }
     catch (Exception ex)
@@ -816,20 +838,40 @@ app.MapGet("/api/project-metadata", async (HttpContext httpContext, ProjectMetad
     }
 }).RequireAuthorization();
 
-app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMetadataRecord request, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
+app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMetadataRecord request, ProjectMetadataService metadataService, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
     try
     {
         var role = httpContext.User.FindFirst("role")?.Value ?? "external";
         var username = httpContext.User.Identity?.Name ?? "";
 
-        if (role == "admin" || role == "internal")
+        if (role == "admin")
         {
-            await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode, request.Maintainer, request.AppServers, cancellationToken);
+            // Admin can set all fields including allow_others_view
+            await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode,
+                request.Maintainer, request.AppServers, cancellationToken, request.AllowOthersView);
             return Results.Ok(new { saved = true });
         }
 
-        // External users can only update app_servers for their assigned projects
+        if (role == "internal")
+        {
+            // Internal users can set maintainer/app_servers but not allow_others_view
+            await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode,
+                request.Maintainer, request.AppServers, cancellationToken);
+            return Results.Ok(new { saved = true });
+        }
+
+        // External: check can_assign
+        var canAssign = await authService.GetCanAssignAsync(username, cancellationToken);
+        if (canAssign)
+        {
+            // can_assign users can set maintainer, no allow_others_view control
+            await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode,
+                request.Maintainer, request.AppServers, cancellationToken);
+            return Results.Ok(new { saved = true });
+        }
+
+        // Regular external: can only update app_servers for their assigned projects
         var existing = await metadataService.GetByMaintainerAsync(username, cancellationToken);
         var match = existing.FirstOrDefault(m =>
             string.Equals(m.ServerName, request.ServerName, StringComparison.OrdinalIgnoreCase) &&
@@ -843,7 +885,8 @@ app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMeta
         }
 
         // External can only change app_servers, keep existing maintainer
-        await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode, match.Maintainer, request.AppServers, cancellationToken);
+        await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode,
+            match.Maintainer, request.AppServers, cancellationToken);
         return Results.Ok(new { saved = true });
     }
     catch (Exception ex)
@@ -898,16 +941,28 @@ static string GetCurrentRole(HttpContext httpContext)
 static async Task<ProjectStageSummary> FilterSummaryForCurrentUserAsync(
     HttpContext httpContext,
     ProjectMetadataService metadataService,
+    LocalAuthService authService,
     ProjectStageSummary summary,
     CancellationToken cancellationToken)
 {
     var role = GetCurrentRole(httpContext);
-    if (role == LocalAuthService.RoleAdmin || role == LocalAuthService.RoleInternal)
-    {
+    var username = httpContext.User.Identity?.Name ?? "";
+
+    // Admin sees everything
+    if (role == LocalAuthService.RoleAdmin)
         return summary;
+
+    // Internal users: regular internal sees all; can_assign internal sees only allow_others_view=true
+    if (role == LocalAuthService.RoleInternal)
+    {
+        var canAssign = await authService.GetCanAssignAsync(username, cancellationToken);
+        if (!canAssign)
+            return summary;
+
+        return await BuildAllowOthersViewSummaryAsync(metadataService, summary, cancellationToken);
     }
 
-    var username = httpContext.User.Identity?.Name ?? "";
+    // External users
     if (string.IsNullOrWhiteSpace(username))
     {
         return BuildFilteredSummary(
@@ -927,6 +982,44 @@ static async Task<ProjectStageSummary> FilterSummaryForCurrentUserAsync(
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     return BuildFilteredSummary(summary, allowedKeys, legacyAllowedKeys);
+}
+
+static async Task<ProjectStageSummary> BuildAllowOthersViewSummaryAsync(
+    ProjectMetadataService metadataService,
+    ProjectStageSummary summary,
+    CancellationToken cancellationToken)
+{
+    var allMetadata = await metadataService.GetAllAsync(cancellationToken);
+    // Build sets of keys where allow_others_view = false
+    var hiddenKeys = allMetadata
+        .Where(m => !m.AllowOthersView && !string.IsNullOrWhiteSpace(m.DatabaseName))
+        .Select(m => BuildProjectKey(m.ServerName, m.DatabaseName, m.ExamCode))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var hiddenLegacyKeys = allMetadata
+        .Where(m => !m.AllowOthersView && string.IsNullOrWhiteSpace(m.DatabaseName))
+        .Select(m => BuildLegacyProjectKey(m.ServerName, m.ExamCode))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var groups = (summary.Groups ?? [])
+        .Where(g => !hiddenKeys.Contains(BuildProjectKey(g.ServerName, g.DatabaseName, g.ExamCode)) &&
+                    !hiddenLegacyKeys.Contains(BuildLegacyProjectKey(g.ServerName, g.ExamCode)))
+        .ToList();
+    var records = (summary.Records ?? [])
+        .Where(r => !hiddenKeys.Contains(BuildProjectKey(r.ServerName, r.DatabaseName, r.ExamCode)) &&
+                    !hiddenLegacyKeys.Contains(BuildLegacyProjectKey(r.ServerName, r.ExamCode)))
+        .ToList();
+
+    return new ProjectStageSummary
+    {
+        Records = records,
+        Groups = groups,
+        EnabledServers = groups.Select(g => g.ServerName).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        VisitedDatabases = groups.Select(g => $"{g.ServerName}|{g.DatabaseName}").Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        MatchedDatabases = records.Select(r => $"{r.ServerName}|{r.DatabaseName}").Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        EndedCount = groups.Count(g => g.Statuses.Any(s => string.Equals(s, "已结束", StringComparison.OrdinalIgnoreCase) || string.Equals(s, "已经结束", StringComparison.OrdinalIgnoreCase))),
+        OngoingCount = groups.Count(g => g.Statuses.Any(s => string.Equals(s, "正在进行", StringComparison.OrdinalIgnoreCase))),
+        UpcomingCount = groups.Count(g => g.Statuses.Any(s => string.Equals(s, "即将开始", StringComparison.OrdinalIgnoreCase)))
+    };
 }
 
 static ProjectStageSummary BuildFilteredSummary(ProjectStageSummary source, HashSet<string> allowedKeys, HashSet<string> legacyAllowedKeys)

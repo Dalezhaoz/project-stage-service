@@ -517,6 +517,19 @@
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
     }
 
+    .visibility-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 700;
+      border: 1px solid; cursor: pointer; transition: all var(--transition);
+    }
+    .visibility-btn.visible {
+      background: #e6fcf5; color: var(--success); border-color: #b2f2d7;
+    }
+    .visibility-btn.hidden {
+      background: #fff5f5; color: var(--danger); border-color: #ffc9c9;
+    }
+    .visibility-btn:hover { opacity: 0.8; }
+
     .select-btn {
       border: 1px solid var(--line); background: #fff; color: #374151;
       border-radius: 999px; padding: 4px 12px;
@@ -980,6 +993,8 @@
         const key = getProjectKey(project);
         const maintainer = getProjectMaintainer(project);
         const appServers = getProjectAppServers(project);
+        const meta = state.metadataMap.get(key);
+        const allowOthersView = meta ? (meta.allowOthersView !== false) : true;
         const statuses = Array.isArray(project.statuses) ? project.statuses : [];
         const status = statuses.includes("正在进行")
           ? "正在进行"
@@ -1004,6 +1019,11 @@
                 </div>
               </div>
               <div class="project-row-actions">
+                ${state.auth?.isAdmin ? `
+                  <button type="button" class="visibility-btn ${allowOthersView ? "visible" : "hidden"}" data-toggle-visibility="${escapeHtml(key)}" title="${allowOthersView ? "点击隐藏（不允许他人查看）" : "点击开放（允许他人查看）"}">
+                    ${allowOthersView ? "允许他人查看" : "已隐藏"}
+                  </button>
+                ` : ""}
                 <button type="button" class="select-btn${state.selectedKeys.has(key) ? " active" : ""}" data-select-key="${escapeHtml(key)}">
                   ${state.selectedKeys.has(key) ? "已选" : "选择"}
                 </button>
@@ -1072,8 +1092,8 @@
         return false;
       }
 
-      if (!(auth.role === "admin" || auth.role === "internal")) {
-        document.body.innerHTML = '<div class="page"><h1 style="margin-top:40px">无权访问</h1><p style="color:var(--muted);margin-top:8px">本地管理页仅开放给管理员和内部用户。</p></div>';
+      if (!(auth.role === "admin" || auth.role === "internal" || auth.canAssign)) {
+        document.body.innerHTML = '<div class="page"><h1 style="margin-top:40px">无权访问</h1><p style="color:var(--muted);margin-top:8px">本页仅开放给管理员、内部用户或有分配权限的用户。</p></div>';
         return false;
       }
 
@@ -1165,7 +1185,38 @@
     document.getElementById("maintainer-filter").addEventListener("change", renderProjectList);
     document.getElementById("assignment-filter").addEventListener("change", renderProjectList);
 
-    document.getElementById("project-list").addEventListener("click", (event) => {
+    document.getElementById("project-list").addEventListener("click", async (event) => {
+      const visibilityBtn = event.target.closest("[data-toggle-visibility]");
+      if (visibilityBtn) {
+        event.stopPropagation();
+        const key = visibilityBtn.dataset.toggleVisibility;
+        const project = state.filteredProjects.find(p => getProjectKey(p) === key);
+        if (!project) return;
+
+        const meta = state.metadataMap.get(key);
+        const currentAllow = meta ? (meta.allowOthersView !== false) : true;
+        const newAllow = !currentAllow;
+
+        visibilityBtn.disabled = true;
+        try {
+          await postJson(buildAppUrl("/api/project-metadata"), {
+            serverName: project.serverName,
+            databaseName: project.databaseName,
+            examCode: project.examCode,
+            maintainer: meta?.maintainer || "",
+            appServers: meta?.appServers || "",
+            allowOthersView: newAllow
+          });
+          state.metadata = await getJson(buildAppUrl("/api/project-metadata"));
+          syncMetadataMap();
+          renderProjectList();
+        } catch (error) {
+          visibilityBtn.disabled = false;
+          alert(error.message || "操作失败");
+        }
+        return;
+      }
+
       const selectButton = event.target.closest("[data-select-key]");
       if (selectButton) {
         event.stopPropagation();

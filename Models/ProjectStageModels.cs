@@ -75,6 +75,12 @@ public sealed class DingTalkProxyRegistrationRequest
     public string Token { get; set; } = "";
 }
 
+public sealed class UpdateUserCanAssignRequest
+{
+    public string Username { get; set; } = "";
+    public bool CanAssign { get; set; }
+}
+
 public sealed class RenameAppServerRequest
 {
     public string OldName { get; set; } = "";

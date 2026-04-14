@@ -2402,6 +2402,9 @@
           </div>
           <div class="user-actions">
             ${user.role === "admin" ? "" : `
+              <button type="button" class="ghost${user.canAssign ? " active" : ""}" data-toggle-can-assign="${escapeHtml(user.username)}" title="${user.canAssign ? "撤销分配权限" : "授予分配权限"}" style="${user.canAssign ? "color:#099268;border-color:#b2f2d7;background:#e6fcf5;" : ""}">
+                ${user.canAssign ? "可分配" : "分配权限"}
+              </button>
               <button type="button" class="ghost" data-reset-user="${escapeHtml(user.username)}">重置密码</button>
               <button type="button" class="ghost" style="color:#e53e3e;border-color:#e53e3e;" data-delete-user="${escapeHtml(user.username)}">删除</button>
             `}
@@ -3127,6 +3130,22 @@
     document.getElementById("user-list").addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+
+      // Toggle can_assign
+      const toggleCanAssign = target.dataset.toggleCanAssign;
+      if (toggleCanAssign) {
+        const currentlyActive = target.classList.contains("active");
+        const newValue = !currentlyActive;
+        try {
+          setUserStatus(`正在${newValue ? "授予" : "撤销"} ${toggleCanAssign} 的分配权限...`);
+          await postJson(buildAppUrl("api/auth/user-can-assign"), { username: toggleCanAssign, canAssign: newValue });
+          setUserStatus(`已${newValue ? "授予" : "撤销"} ${toggleCanAssign} 的分配权限。`);
+          await loadUsersForAdmin();
+        } catch (error) {
+          setUserStatus(error.message);
+        }
+        return;
+      }
 
       // Reset password
       const resetUser = target.dataset.resetUser;

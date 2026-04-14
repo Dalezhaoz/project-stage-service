@@ -74,7 +74,7 @@ public sealed class LocalAuthService
             .OrderBy(item => roleOrder.GetValueOrDefault(ResolveRole(item), 9))
             .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
             .Select(item => new UserInfo(item.Username, ResolveRole(item), item.DingTalkWebhook, item.DingTalkSecret,
-                item.ParsedTodayTimes, item.ParsedNextDayTimes))
+                item.ParsedTodayTimes, item.ParsedNextDayTimes, item.CanAssign))
             .ToList();
     }
 
@@ -202,6 +202,28 @@ public sealed class LocalAuthService
             .ToList();
     }
 
+    public async Task<bool> GetCanAssignAsync(string username, CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        var user = store.Users.FirstOrDefault(item =>
+            string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal));
+        return user?.CanAssign ?? false;
+    }
+
+    public async Task UpdateUserCanAssignAsync(string username, bool canAssign, CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(cancellationToken);
+        var user = store.Users.FirstOrDefault(item =>
+            string.Equals(item.Username, username?.Trim(), StringComparison.Ordinal));
+        if (user is null)
+            throw new InvalidOperationException("用户不存在。");
+        if (user.IsAdmin)
+            throw new InvalidOperationException("管理员不需要单独授权。");
+
+        user.CanAssign = canAssign;
+        await SaveStoreAsync(store, cancellationToken);
+    }
+
     public async Task<bool> GetAllowUserRefreshAsync(CancellationToken cancellationToken)
     {
         var store = await LoadStoreAsync(cancellationToken);
@@ -238,7 +260,7 @@ public sealed class LocalAuthService
         {
             command.CommandText = """
                 SELECT username, salt, password_hash, iterations, role, force_password_change, dingtalk_webhook, dingtalk_secret,
-                       dingtalk_today_times, dingtalk_nextday_times
+                       dingtalk_today_times, dingtalk_nextday_times, can_assign
                 FROM dbo.auth_users;
                 """;
 
@@ -257,7 +279,8 @@ public sealed class LocalAuthService
                     DingTalkWebhook = reader.IsDBNull(6) ? "" : reader.GetString(6),
                     DingTalkSecret = reader.IsDBNull(7) ? "" : reader.GetString(7),
                     DingTalkTodayTimes = reader.IsDBNull(8) ? "" : reader.GetString(8),
-                    DingTalkNextDayTimes = reader.IsDBNull(9) ? "" : reader.GetString(9)
+                    DingTalkNextDayTimes = reader.IsDBNull(9) ? "" : reader.GetString(9),
+                    CanAssign = !reader.IsDBNull(10) && reader.GetBoolean(10)
                 });
             }
         }
@@ -386,6 +409,7 @@ public sealed class LocalAuthService
                         dingtalk_secret,
                         dingtalk_today_times,
                         dingtalk_nextday_times,
+                        can_assign,
                         updated_at
                     )
                     VALUES
@@ -400,6 +424,7 @@ public sealed class LocalAuthService
                         @dingtalk_secret,
                         @dingtalk_today_times,
                         @dingtalk_nextday_times,
+                        @can_assign,
                         GETDATE()
                     );
                     """;
@@ -413,6 +438,7 @@ public sealed class LocalAuthService
                 insertUser.Parameters.AddWithValue("@dingtalk_secret", user.DingTalkSecret ?? "");
                 insertUser.Parameters.AddWithValue("@dingtalk_today_times", user.DingTalkTodayTimes ?? "");
                 insertUser.Parameters.AddWithValue("@dingtalk_nextday_times", user.DingTalkNextDayTimes ?? "");
+                insertUser.Parameters.AddWithValue("@can_assign", user.CanAssign);
                 await insertUser.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -553,6 +579,7 @@ public sealed class LocalAuthService
                     dingtalk_secret NVARCHAR(500) NOT NULL DEFAULT '',
                     dingtalk_today_times NVARCHAR(500) NOT NULL DEFAULT '',
                     dingtalk_nextday_times NVARCHAR(500) NOT NULL DEFAULT '',
+                    can_assign BIT NOT NULL DEFAULT 0,
                     updated_at DATETIME NOT NULL DEFAULT GETDATE()
                 );
             END
@@ -562,6 +589,8 @@ public sealed class LocalAuthService
                     ALTER TABLE dbo.auth_users ADD dingtalk_today_times NVARCHAR(500) NOT NULL DEFAULT '';
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.auth_users') AND name = 'dingtalk_nextday_times')
                     ALTER TABLE dbo.auth_users ADD dingtalk_nextday_times NVARCHAR(500) NOT NULL DEFAULT '';
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.auth_users') AND name = 'can_assign')
+                    ALTER TABLE dbo.auth_users ADD can_assign BIT NOT NULL CONSTRAINT DF_auth_users_can_assign DEFAULT 0 WITH VALUES;
             END;
 
             IF OBJECT_ID(N'dbo.auth_settings', N'U') IS NULL
@@ -594,7 +623,7 @@ public sealed class LocalAuthService
 
     public sealed record AuthValidationResult(bool Success, string Role, bool ForcePasswordChange);
     public sealed record UserInfo(string Username, string Role, string DingTalkWebhook = "", string DingTalkSecret = "",
-        string[] TodayNotifyTimes = default!, string[] NextDayNotifyTimes = default!);
+        string[] TodayNotifyTimes = default!, string[] NextDayNotifyTimes = default!, bool CanAssign = false);
     public sealed record UserDingTalkConfig(string Username, string WebhookUrl, string Secret,
         string[]? TodayNotifyTimes = null, string[]? NextDayNotifyTimes = null);
 
@@ -617,6 +646,7 @@ public sealed class LocalAuthService
         public string DingTalkSecret { get; set; } = "";
         public string DingTalkTodayTimes { get; set; } = "";
         public string DingTalkNextDayTimes { get; set; } = "";
+        public bool CanAssign { get; set; }
 
         public string[] ParsedTodayTimes =>
             string.IsNullOrWhiteSpace(DingTalkTodayTimes) ? [] :
