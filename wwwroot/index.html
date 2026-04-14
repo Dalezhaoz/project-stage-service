@@ -1922,8 +1922,6 @@
     function renderServers() {
       const container = document.getElementById("server-list");
       const servers = serversCache;
-      document.getElementById("server-count").textContent = String(servers.length);
-      document.getElementById("enabled-count").textContent = String(servers.filter(item => item.enabled).length);
       document.getElementById("header-server-count").textContent = String(servers.length);
       document.getElementById("header-enabled-count").textContent = String(servers.filter(item => item.enabled).length);
       document.getElementById("drawer-server-count").textContent = String(servers.length);
@@ -1967,20 +1965,15 @@
     }
 
     function renderCacheInfo(info) {
-      document.getElementById("cache-record-count").textContent = String(info?.recordCount || 0);
-      document.getElementById("header-cache-record-count").textContent = String(info?.recordCount || 0);
-      document.getElementById("drawer-cache-record-count").textContent = String(info?.recordCount || 0);
+      document.getElementById(“header-cache-record-count”).textContent = String(info?.recordCount || 0);
+      document.getElementById(“drawer-cache-record-count”).textContent = String(info?.recordCount || 0);
       if (!info?.hasData || !info?.refreshedAt) {
-        document.getElementById("cache-info").textContent = "缓存尚未更新，请先点击“更新数据”。";
-        document.getElementById("header-cache-meta").textContent = "缓存尚未更新";
-        document.getElementById("drawer-cache-info").textContent = "缓存尚未更新，请先点击“更新数据”。";
+        document.getElementById(“header-cache-meta”).textContent = “缓存尚未更新”;
+        document.getElementById(“drawer-cache-info”).textContent = “缓存尚未更新，请先点击”更新数据”。”;
         return;
       }
-
-      document.getElementById("cache-info").textContent =
-        `上次更新：${formatDateTime(info.refreshedAt)}，启用服务器 ${info.enabledServers} 台，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
-      document.getElementById("header-cache-meta").textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
-      document.getElementById("drawer-cache-info").textContent =
+      document.getElementById(“header-cache-meta”).textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
+      document.getElementById(“drawer-cache-info”).textContent =
         `上次更新：${formatDateTime(info.refreshedAt)}，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
     }
 
@@ -3341,7 +3334,8 @@
     document.getElementById("refresh-btn").addEventListener("click", async () => {
       try {
         if (!authReady) throw new Error("请先登录。");
-        document.getElementById("cache-info").textContent = "正在更新缓存数据，请稍候...";
+        document.getElementById("drawer-cache-info").textContent = "正在更新缓存数据，请稍候...";
+        document.getElementById("header-cache-meta").textContent = "正在更新...";
         document.getElementById("refresh-btn").disabled = true;
         const result = await postJson(buildAppUrl("api/refresh"), { servers: enabledServers() });
         renderCacheInfo(await loadCacheInfo());
@@ -3354,8 +3348,8 @@
               agentMsg += `${ar.serverName}：失败 `;
             }
           }
-          const cacheEl = document.getElementById("cache-info");
-          cacheEl.textContent += ` | Agent：${agentMsg.trim()}`;
+          const drawerInfo = document.getElementById("drawer-cache-info");
+          drawerInfo.textContent += ` | Agent：${agentMsg.trim()}`;
         }
         if (lastPayload) {
           const queryResult = await postJson(buildAppUrl("api/query"), lastPayload);
@@ -3365,7 +3359,8 @@
           document.getElementById("export-btn").disabled = (queryResult.records || []).length === 0;
         }
       } catch (error) {
-        document.getElementById("cache-info").textContent = error.message;
+        document.getElementById("drawer-cache-info").textContent = error.message;
+        document.getElementById("header-cache-meta").textContent = "更新失败";
       } finally {
         document.getElementById("refresh-btn").disabled = false;
       }
