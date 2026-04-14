@@ -79,6 +79,14 @@ public sealed class DingTalkNotifyHostedService : BackgroundService
                         "unassigned report");
                 }
 
+                // ── Ending reminder (1 hour before last stage end) ────────
+                if (hasMainWebhook && scheduleConfig.EndingReminderEnabled)
+                {
+                    var userConfigs = await authService.GetAllDingTalkConfigsAsync(stoppingToken);
+                    await SafeRun(() => notifyService.SendEndingReminderAsync(summaryConfig, mainConfig!, userConfigs, stoppingToken),
+                        "ending reminder");
+                }
+
                 // ── Per-user personal times ───────────────────────────────
                 var allUsers = await authService.GetAllDingTalkConfigsAsync(stoppingToken);
                 foreach (var user in allUsers)

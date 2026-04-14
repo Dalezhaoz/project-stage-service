@@ -1660,6 +1660,14 @@
         </div>
         <label style="margin-top:12px;">提醒时间点</label>
         <div class="time-chip-list" id="unassigned-notify-times"></div>
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-ending-reminder-enabled">
+            <span>启用阶段即将结束提醒</span>
+          </label>
+        </div>
+        <div class="hint" style="margin-top:6px;">每分钟检测：若某项目今日最后阶段恰好在 1 小时后结束，自动推送提醒（主群 + 负责人）。</div>
         <div class="auth-actions" style="margin-top:16px;">
           <button id="save-schedule-btn">保存配置</button>
           <button id="test-dingtalk-btn" class="secondary">测试钉钉推送</button>
@@ -2289,6 +2297,7 @@
       renderTimeChipList("dingtalk-nextday-notify-times", config.dingTalkNextDayNotifyTimes || ["20:00"]);
       document.getElementById("schedule-unassigned-enabled").checked = Boolean(config.unassignedNotifyEnabled);
       renderTimeChipList("unassigned-notify-times", config.unassignedNotifyTimes || ["09:00"]);
+      document.getElementById("schedule-ending-reminder-enabled").checked = Boolean(config.endingReminderEnabled);
       // Load proxy heartbeat status
       try {
         const proxyResp = await apiFetch(buildAppUrl("api/dingtalk/proxy-status"));
@@ -2323,6 +2332,7 @@
         dingTalkNextDayNotifyTimes: getTimesFromChipList("dingtalk-nextday-notify-times"),
         unassignedNotifyEnabled: document.getElementById("schedule-unassigned-enabled").checked,
         unassignedNotifyTimes: getTimesFromChipList("unassigned-notify-times"),
+        endingReminderEnabled: document.getElementById("schedule-ending-reminder-enabled").checked,
         dingTalkConfig: {
           webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
           secret: document.getElementById("dingtalk-secret").value.trim(),

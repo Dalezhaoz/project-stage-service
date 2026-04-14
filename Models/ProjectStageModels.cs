@@ -110,6 +110,7 @@ public sealed class ScheduleConfig
     public List<string> DingTalkNextDayNotifyTimes { get; set; } = ["20:00"];
     public bool UnassignedNotifyEnabled { get; set; }
     public List<string> UnassignedNotifyTimes { get; set; } = ["09:00"];
+    public bool EndingReminderEnabled { get; set; }
     public DingTalkConfig? DingTalkConfig { get; set; }
 }
 

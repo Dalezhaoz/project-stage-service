@@ -349,6 +349,154 @@ public sealed class DingTalkNotifyService
         return count;
     }
 
+    public async Task SendEndingReminderAsync(
+        SummaryStoreConfig summaryConfig,
+        DingTalkConfig mainConfig,
+        List<LocalAuthService.UserDingTalkConfig> userDingTalkConfigs,
+        CancellationToken cancellationToken)
+    {
+        var targetEndTime = DateTime.Now.AddHours(1);
+        var stages = await QueryEndingSoonStagesAsync(summaryConfig, targetEndTime, cancellationToken);
+        if (stages.Count == 0)
+        {
+            _logger.LogInformation("Ending reminder: no stages ending around {Time}, skipped.", targetEndTime.ToString("HH:mm"));
+            return;
+        }
+
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        var endTimeStr = targetEndTime.ToString("MM-dd HH:mm");
+
+        // ── Main group ────────────────────────────────────────────────────
+        if (!string.IsNullOrWhiteSpace(mainConfig.WebhookUrl))
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"### ⏰ 阶段即将结束提醒");
+            sb.AppendLine($"> 日期：**{today}**，以下项目最后阶段将于 **{endTimeStr}** 结束  ");
+            sb.AppendLine();
+
+            var index = 0;
+            foreach (var s in stages)
+            {
+                index++;
+                sb.AppendLine($"**{index}. {s.ProjectName}**");
+                sb.AppendLine($"> {s.ServerName} / 考试代码：{s.ExamCode}  ");
+                sb.AppendLine($"- **{s.StageName}** 结束时间：{s.EndTime:MM-dd HH:mm}");
+                if (!string.IsNullOrWhiteSpace(s.Maintainer))
+                    sb.AppendLine($"  - 负责人：{s.Maintainer}");
+                sb.AppendLine();
+            }
+            sb.AppendLine("> 请检查是否有后续阶段或收尾工作需要处理。");
+
+            await SendDingTalkMessageAsync(mainConfig, $"阶段即将结束提醒 ({today})", sb.ToString(), cancellationToken);
+            _logger.LogInformation("Ending reminder sent to main group: {Count} stages.", stages.Count);
+        }
+
+        // ── Personal ──────────────────────────────────────────────────────
+        foreach (var userConfig in userDingTalkConfigs)
+        {
+            var userStages = stages
+                .Where(s => string.Equals(s.Maintainer, userConfig.Username, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (userStages.Count == 0) continue;
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"### ⏰ {userConfig.Username}，你负责的项目即将收尾");
+            sb.AppendLine($"> 以下项目最后阶段将于 **{endTimeStr}** 结束，请确认是否有后续工作  ");
+            sb.AppendLine();
+
+            var index = 0;
+            foreach (var s in userStages)
+            {
+                index++;
+                sb.AppendLine($"**{index}. {s.ProjectName}**");
+                sb.AppendLine($"> {s.ServerName} / 考试代码：{s.ExamCode}  ");
+                sb.AppendLine($"- **{s.StageName}** 结束时间：{s.EndTime:MM-dd HH:mm}");
+                sb.AppendLine();
+            }
+
+            var config = new DingTalkConfig
+            {
+                WebhookUrl = userConfig.WebhookUrl,
+                Secret = userConfig.Secret,
+                ProxyUrl = mainConfig.ProxyUrl
+            };
+            await SendDingTalkMessageAsync(config, $"项目即将收尾提醒 ({today})", sb.ToString(), cancellationToken);
+            _logger.LogInformation("Ending reminder sent to {User}: {Count} stages.", userConfig.Username, userStages.Count);
+        }
+    }
+
+    private async Task<List<EndingSoonStageInfo>> QueryEndingSoonStagesAsync(
+        SummaryStoreConfig config,
+        DateTime targetEndTime,
+        CancellationToken cancellationToken)
+    {
+        var builder = new SqlConnectionStringBuilder
+        {
+            DataSource = $"{config.Host},{config.Port}",
+            InitialCatalog = config.DatabaseName,
+            UserID = config.Username,
+            Password = config.Password,
+            TrustServerCertificate = true,
+            Encrypt = false,
+            ConnectTimeout = 20
+        };
+
+        await using var connection = new SqlConnection(builder.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+
+        // Find stages whose end time matches targetEndTime (HH:mm),
+        // AND are the LAST stage of their project today.
+        command.CommandText = """
+            SELECT s.project_name, s.stage_name, s.stage_end_time,
+                   s.source_server_name, s.exam_code,
+                   ISNULL(m.maintainer, '') AS maintainer
+            FROM dbo.project_stage_summary s
+            LEFT JOIN dbo.project_metadata m
+                ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
+            WHERE DATEPART(HOUR,   s.stage_end_time) = @end_hour
+              AND DATEPART(MINUTE, s.stage_end_time) = @end_minute
+              AND CAST(s.stage_end_time AS DATE) = @today
+              AND s.stage_end_time = (
+                  SELECT MAX(s2.stage_end_time)
+                  FROM dbo.project_stage_summary s2
+                  WHERE s2.source_server_name = s.source_server_name
+                    AND s2.exam_code = s.exam_code
+                    AND CAST(s2.stage_end_time AS DATE) = @today
+              )
+            ORDER BY s.stage_end_time, s.project_name
+            """;
+        command.Parameters.AddWithValue("@end_hour", targetEndTime.Hour);
+        command.Parameters.AddWithValue("@end_minute", targetEndTime.Minute);
+        command.Parameters.AddWithValue("@today", DateTime.Today);
+
+        var results = new List<EndingSoonStageInfo>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(new EndingSoonStageInfo
+            {
+                ProjectName = reader.GetString(0),
+                StageName = reader.GetString(1),
+                EndTime = reader.GetDateTime(2),
+                ServerName = reader.GetString(3),
+                ExamCode = reader.GetString(4),
+                Maintainer = reader.GetString(5)
+            });
+        }
+        return results;
+    }
+
+    private sealed class EndingSoonStageInfo
+    {
+        public string ProjectName { get; set; } = "";
+        public string StageName { get; set; } = "";
+        public DateTime EndTime { get; set; }
+        public string ServerName { get; set; } = "";
+        public string ExamCode { get; set; } = "";
+        public string Maintainer { get; set; } = "";
+    }
+
     public async Task SendPersonalDailyAsync(
         SummaryStoreConfig summaryConfig,
         DingTalkConfig proxyConfig,
