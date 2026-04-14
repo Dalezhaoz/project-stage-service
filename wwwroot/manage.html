@@ -364,63 +364,22 @@
     .field.inline-field { gap: 4px; min-width: 0; }
     .filter-workbench {
       display: grid;
-      gap: 16px;
-      padding: 18px;
-      border: 1px solid #e2e8f3;
-      border-radius: 18px;
-      background: linear-gradient(180deg, #fcfdff 0%, #f8faff 100%);
-    }
-    .filter-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .filter-head-copy {
-      display: grid;
-      gap: 6px;
-    }
-    .filter-eyebrow {
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .03em;
-      text-transform: uppercase;
-    }
-    .filter-head-title {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--text);
-    }
-    .filter-head-desc {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-      max-width: 760px;
-    }
-    .filter-head-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid #dbe4ff;
-      background: #eef3ff;
-      color: #3551c7;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
+      gap: 10px;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
     }
     .filter-sections {
       display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
       gap: 12px;
+      align-items: start;
     }
     .filter-section {
       display: grid;
-      gap: 12px;
-      padding: 14px;
+      gap: 8px;
+      padding: 12px;
       border: 1px solid #e5eaf3;
       border-radius: 14px;
       background: rgba(255,255,255,.9);
@@ -442,39 +401,19 @@
       font-size: 12px;
       line-height: 1.5;
     }
-    .filter-grid.compact {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .filter-grid.compact .field.status-field {
-      grid-column: 1 / -1;
-    }
-    .filter-actions-bar {
+    .filter-row {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      padding: 14px 16px;
-      border: 1px solid #dfe6f2;
-      border-radius: 14px;
-      background: #fff;
-    }
-    .filter-actions-copy {
-      display: grid;
       gap: 6px;
-      min-width: 240px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filter-input {
       flex: 1;
-    }
-    .filter-actions-title {
-      font-size: 14px;
-      font-weight: 800;
-      color: var(--text);
-    }
-    .filter-actions-desc {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
+      min-width: 90px;
+      padding: 7px 10px;
+      font-size: 13px;
+      min-height: 36px;
+      width: auto;
     }
 
     /* ---- Status Filter Tags ---- */
@@ -698,8 +637,7 @@
       .header-summary {
         grid-template-columns: 1fr;
       }
-      .filter-head-badge { width: 100%; justify-content: center; }
-      .filter-actions-bar { align-items: stretch; }
+      .filter-sections { grid-template-columns: 1fr; }
       .assign-drawer {
         width: 100vw;
         border-right: none;
@@ -803,90 +741,57 @@
           <div class="status-line" id="batch-status"></div>
         </section>
       </aside>
-    <div class="layout">
-      <section class="card">
-        <div class="filter-workbench">
-          <div class="filter-head">
-            <div class="filter-head-copy">
-              <div class="filter-eyebrow">Assignment Filters</div>
-              <div class="filter-head-title">先筛出项目，再做批量分配</div>
-              <div class="filter-head-desc">推荐先用状态、项目关键词和负责人筛出目标范围，再选择项目并在左侧分配面板里统一保存负责人或应用服务器。</div>
-            </div>
-            <div class="filter-head-badge">适合管理员和内部用户做日常运营配置</div>
-          </div>
-
-          <div class="filter-sections">
-            <section class="filter-section">
-              <div class="filter-section-head">
-                <div class="filter-section-title">基础筛选</div>
-                <div class="filter-section-desc">先定义项目状态、项目名称和来源库范围。</div>
+    <div class=”layout”>
+      <div class=”card”>
+        <div class=”filter-workbench”>
+          <div class=”filter-sections”>
+            <section class=”filter-section”>
+              <div class=”filter-section-head”>
+                <div class=”filter-section-title”>基础筛选</div>
+                <div class=”filter-section-desc”>状态、项目名称、来源库范围</div>
               </div>
-              <div class="filter-grid compact">
-                <div class="field inline-field status-field">
-                  <label>状态</label>
-                  <div class="tag-group">
-                    <span class="tag-option active" data-status="正在进行">正在进行</span>
-                    <span class="tag-option active" data-status="即将开始">即将开始</span>
-                    <span class="tag-option active" data-status="已结束">已结束</span>
-                  </div>
+              <div class=”filter-row”>
+                <div class=”tag-group”>
+                  <span class=”tag-option active” data-status=”正在进行”>正在进行</span>
+                  <span class=”tag-option active” data-status=”即将开始”>即将开始</span>
+                  <span class=”tag-option active” data-status=”已结束”>已结束</span>
                 </div>
-
-                <div class="field">
-                  <label for="project-keyword">项目关键词</label>
-                  <input id="project-keyword" placeholder="按项目名称筛选">
-                </div>
-
-                <div class="field">
-                  <label for="server-keyword">数据库服务器</label>
-                  <input id="server-keyword" placeholder="如：162">
-                </div>
-
-                <div class="field">
-                  <label for="exam-keyword">考试代码</label>
-                  <input id="exam-keyword" placeholder="如：39">
-                </div>
+              </div>
+              <div class=”filter-row”>
+                <input id=”project-keyword” placeholder=”项目关键词” class=”filter-input”>
+                <input id=”server-keyword” placeholder=”数据库服务器” class=”filter-input”>
+                <input id=”exam-keyword” placeholder=”考试代码” class=”filter-input” style=”max-width:120px;”>
               </div>
             </section>
 
-            <section class="filter-section">
-              <div class="filter-section-head">
-                <div class="filter-section-title">分配筛选</div>
-                <div class="filter-section-desc">按负责人和分配状态快速定位待处理项目。</div>
+            <section class=”filter-section”>
+              <div class=”filter-section-head”>
+                <div class=”filter-section-title”>分配筛选</div>
+                <div class=”filter-section-desc”>负责人、分配状态</div>
               </div>
-              <div class="filter-grid compact">
-                <div class="field">
-                  <label for="maintainer-filter">负责人</label>
-                  <select id="maintainer-filter">
-                    <option value="">全部负责人</option>
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label for="assignment-filter">分配状态</label>
-                  <select id="assignment-filter">
-                    <option value="all">全部项目</option>
-                    <option value="unassigned">仅未分配负责人</option>
-                    <option value="assigned">仅已分配负责人</option>
-                  </select>
-                </div>
+              <div class=”field”>
+                <label for=”maintainer-filter”>负责人</label>
+                <select id=”maintainer-filter”>
+                  <option value=””>全部负责人</option>
+                </select>
               </div>
+              <div class=”field”>
+                <label for=”assignment-filter”>分配状态</label>
+                <select id=”assignment-filter”>
+                  <option value=”all”>全部项目</option>
+                  <option value=”unassigned”>仅未分配负责人</option>
+                  <option value=”assigned”>仅已分配负责人</option>
+                </select>
+              </div>
+              <div class=”actions” style=”margin-top:4px;”>
+                <button class=”btn-primary btn-sm” type=”button” id=”query-btn”>查询项目</button>
+                <button class=”btn-secondary btn-sm” type=”button” id=”reset-btn”>重置</button>
+              </div>
+              <div class=”status-line” id=”query-status”></div>
             </section>
           </div>
-
-          <div class="filter-actions-bar">
-            <div class="filter-actions-copy">
-              <div class="filter-actions-title">执行筛选</div>
-              <div class="filter-actions-desc">先点项目卡右上角“选择”，再打开批量分配面板统一保存；也可以在每一行直接修改负责人。</div>
-            </div>
-            <div class="actions-col actions">
-              <button class="btn-primary" type="button" id="query-btn">查询项目</button>
-              <button class="btn-secondary" type="button" id="reset-btn">重置条件</button>
-            </div>
-          </div>
-
-          <div class="status-line" id="query-status"></div>
         </div>
-      </section>
+      </div>
 
       <div class="content-grid">
         <div class="card">
