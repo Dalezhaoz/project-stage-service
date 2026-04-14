@@ -46,148 +46,94 @@
     /* ---- Layout ---- */
     .page { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
     .page-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 16px;
       margin-bottom: 12px;
-      padding: 14px 16px;
-      background:
-        radial-gradient(circle at top right, rgba(59, 91, 219, 0.09), transparent 32%),
-        linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
-      border: 1px solid #dbe3f5;
-      border-radius: 18px;
+      padding: 12px 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
+      min-height: 56px;
+      flex-wrap: wrap;
     }
     .page-header-left {
-      min-width: 0;
-      display: grid;
-      gap: 6px;
-      align-content: start;
-    }
-    .header-kicker {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      min-height: 24px;
-      padding: 0 10px;
-      border-radius: 999px;
-      background: var(--primary-light);
-      border: 1px solid var(--primary-border);
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .02em;
-    }
-    .header-breadcrumb {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
       align-items: center;
-      color: #7a869c;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .header-breadcrumb strong {
-      color: #41506b;
-    }
-    .header-breadcrumb .sep {
-      color: #b0b8c8;
+      gap: 12px;
+      min-width: 0;
+      flex-shrink: 1;
     }
     .page-header-left h1 {
-      font-size: 20px;
-      line-height: 1.15;
-      font-weight: 850;
-      letter-spacing: -0.03em;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
       color: var(--text);
+      white-space: nowrap;
     }
     .page-header-left .subtitle {
-      max-width: 680px;
       color: var(--muted);
       font-size: 12px;
-      line-height: 1.5;
+      border-left: 1px solid var(--line);
+      padding-left: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .header-meta {
+    .page-header-right {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
       align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
-    .header-note,
+    .header-stats {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .header-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .header-stat strong {
+      color: var(--text);
+      font-weight: 700;
+    }
     .auth-user {
       display: inline-flex;
       align-items: center;
-      min-height: 32px;
-      padding: 0 12px;
+      padding: 4px 10px;
+      background: var(--primary-light);
+      border: 1px solid var(--primary-border);
       border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    .header-note {
-      color: #52607a;
-      background: #f6f8fc;
-      border: 1px solid #e3e8f2;
-    }
-    .auth-user {
+      font-size: 12px;
+      font-weight: 600;
       color: var(--primary);
-      background: #f0f4ff;
-      border: 1px solid #d7e3ff;
-    }
-    .page-header-right {
-      display: grid;
-      gap: 8px;
-      justify-items: end;
-      align-content: start;
+      white-space: nowrap;
     }
     .header-actions {
       display: flex;
-      flex-wrap: nowrap;
-      gap: 8px;
-      justify-content: flex-end;
       align-items: center;
-      width: 100%;
+      gap: 6px;
     }
-    .header-status {
-      min-height: 18px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-      width: 100%;
-      text-align: right;
-    }
-    .header-summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(110px, 1fr));
-      gap: 8px;
-      min-width: min(100%, 360px);
-    }
-    .header-summary-card {
-      padding: 9px 11px;
-      border-radius: 12px;
-      background: rgba(255,255,255,.82);
-      border: 1px solid #e1e7f2;
-      box-shadow: var(--shadow-sm);
-    }
-    .header-summary-label {
-      color: #6b7890;
-      font-size: 10px;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-    .header-summary-value {
-      margin-top: 3px;
-      color: var(--text);
-      font-size: 18px;
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: -0.03em;
-    }
-    .header-summary-meta {
-      margin-top: 3px;
-      color: #7f8aa0;
-      font-size: 10px;
-      line-height: 1.4;
-    }
+    .header-status { display: none; }
+    .header-summary { display: none; }
+    .header-note { display: none; }
+    .header-breadcrumb { display: none; }
+    .header-kicker { display: none; }
+    .header-meta { display: none; }
     .page-title-row { display: none; }
     .layout { display: grid; gap: 16px; }
     .card {
@@ -1165,31 +1111,12 @@
     /* ---- Responsive ---- */
     @media (max-width: 900px) {
       .page { padding: 16px; }
-      .page-header {
-        grid-template-columns: 1fr;
-        padding: 14px;
-        gap: 10px;
-      }
-      .page-header-left h1 { font-size: 18px; }
-      .page-header-left .subtitle { font-size: 12px; }
-      .page-header-right {
-        width: 100%;
-        justify-items: stretch;
-      }
-      .header-summary {
-        min-width: 0;
-        width: 100%;
-      }
-      .header-actions {
-        width: 100%;
-        justify-content: flex-start;
-        flex-wrap: wrap;
-      }
+      .page-header { padding: 10px 14px; gap: 10px; }
+      .page-header-left h1 { font-size: 15px; }
+      .page-header-left .subtitle { display: none; }
+      .header-actions { flex-wrap: wrap; }
       .header-actions .header-toggle {
-        flex: 1 1 calc(50% - 8px);
-      }
-      .header-status {
-        text-align: left;
+        flex: 1 1 auto;
       }
       .page-title h1 { font-size: 20px; }
       .filter-workbench { padding: 16px; }
@@ -1220,10 +1147,9 @@
     @media (max-width: 640px) {
       .card { padding: 16px; }
       .field-card { padding: 12px; }
-      .page-header-left .subtitle { display: none; }
-      .header-meta { align-items: stretch; }
-      .header-note, .auth-user { width: 100%; justify-content: center; }
-      .header-summary { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; align-items: flex-start; }
+      .page-header-right { width: 100%; }
+      .header-stats { flex-wrap: wrap; }
       .filter-head-badge { width: 100%; justify-content: center; }
       .filter-actions-bar { align-items: stretch; }
       .query-actions { width: 100%; }
@@ -1250,44 +1176,23 @@
   <div class="page">
     <div class="page-header">
       <div class="page-header-left">
-        <span class="header-kicker">查询工作台</span>
-        <div class="header-breadcrumb">
-          <span>项目阶段服务</span>
-          <span class="sep">/</span>
-          <strong>查询中心</strong>
-        </div>
-        <h1>项目阶段查询中心</h1>
-        <span class="subtitle">统一查看跨库项目阶段、看板统计和导出结果，适合日常巡检、排期确认与汇总输出。</span>
-        <div class="header-meta">
-          <span class="header-note">默认基于缓存数据查询，支持手动更新后再检索</span>
-          <span class="auth-user" id="auth-user">当前未登录</span>
-        </div>
+        <h1>项目阶段汇总</h1>
+        <span class="subtitle">跨库汇总 · 按考试代码聚合</span>
       </div>
       <div class="page-header-right">
-        <div class="header-summary">
-          <div class="header-summary-card">
-            <div class="header-summary-label">已接入服务器</div>
-            <div class="header-summary-value" id="header-server-count">0</div>
-            <div class="header-summary-meta">当前配置总数</div>
-          </div>
-          <div class="header-summary-card">
-            <div class="header-summary-label">启用中服务器</div>
-            <div class="header-summary-value" id="header-enabled-count">0</div>
-            <div class="header-summary-meta">参与本次查询</div>
-          </div>
-          <div class="header-summary-card">
-            <div class="header-summary-label">缓存记录</div>
-            <div class="header-summary-value" id="header-cache-record-count">0</div>
-            <div class="header-summary-meta" id="header-cache-meta">缓存尚未更新</div>
-          </div>
+        <div class="header-stats">
+          <span class="header-stat">服务器 <strong id="header-server-count">0</strong></span>
+          <span class="header-stat">启用 <strong id="header-enabled-count">0</strong></span>
+          <span class="header-stat">缓存 <strong id="header-cache-record-count">0</strong> 条 · <span id="header-cache-meta">未更新</span></span>
         </div>
+        <span class="auth-user" id="auth-user" style="display:none;">未登录</span>
         <div class="header-actions">
           <button id="toggle-query-panel" type="button" class="header-toggle">查询条件</button>
           <button id="query-btn" class="header-toggle header-toggle-primary">开始查询</button>
           <button id="export-btn" class="header-toggle secondary" disabled>导出</button>
           <button id="toggle-config-panel" type="button" class="header-toggle">系统配置</button>
         </div>
-        <div class="header-status" id="query-status">缓存查询说明：默认基于缓存数据查询，支持手动更新后再检索。</div>
+        <span id="query-status" style="display:none;"></span>
       </div>
     </div>
 
@@ -1968,11 +1873,11 @@
       document.getElementById("header-cache-record-count").textContent = String(info?.recordCount || 0);
       document.getElementById("drawer-cache-record-count").textContent = String(info?.recordCount || 0);
       if (!info?.hasData || !info?.refreshedAt) {
-        document.getElementById("header-cache-meta").textContent = “缓存尚未更新”;
-        document.getElementById("drawer-cache-info").textContent = “缓存尚未更新，请先点击”更新数据”。”;
+        document.getElementById(“header-cache-meta”).textContent = “未更新”;
+        document.getElementById(“drawer-cache-info”).textContent = “缓存尚未更新，请先点击”更新数据”。”;
         return;
       }
-      document.getElementById("header-cache-meta").textContent = `上次更新：${formatDateTime(info.refreshedAt)}`;
+      document.getElementById(“header-cache-meta”).textContent = formatDateTime(info.refreshedAt);
       document.getElementById("drawer-cache-info").textContent =
         `上次更新：${formatDateTime(info.refreshedAt)}，遍历数据库 ${info.visitedDatabases} 个，业务库 ${info.matchedDatabases} 个。`;
     }
@@ -2037,9 +1942,13 @@
         ? "请输入登录账号后继续。"
         : "系统首次使用，请先设置一个本地管理员账号。";
       document.getElementById("auth-confirm-wrap").style.display = hasAccount ? "none" : "block";
-      document.getElementById("auth-user").textContent = username
-        ? `当前账号：${username}（${roleLabels[role] || role}）`
-        : "当前未登录";
+      const authUserEl = document.getElementById("auth-user");
+      if (username) {
+        authUserEl.textContent = `${username}（${roleLabels[role] || role}）`;
+        authUserEl.style.display = "inline-flex";
+      } else {
+        authUserEl.style.display = "none";
+      }
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-manage-page").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
