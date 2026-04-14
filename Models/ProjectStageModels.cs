@@ -100,6 +100,8 @@ public sealed class ScheduleConfig
 {
     public bool StageRefreshEnabled { get; set; }
     public List<string> StageRefreshTimes { get; set; } = ["04:00"];
+    public bool RefreshIntervalEnabled { get; set; }
+    public int RefreshIntervalMinutes { get; set; } = 60;
     public bool CountRefreshEnabled { get; set; }
     public List<string> CountRefreshTimes { get; set; } = ["06:00"];
     public bool DingTalkEnabled { get; set; }

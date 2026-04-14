@@ -5,7 +5,6 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly ScheduleConfigStore _scheduleConfigStore;
     private readonly ILogger<ProjectStageRefreshHostedService> _logger;
-    private CancellationTokenSource? _delayCts;
 
     public ProjectStageRefreshHostedService(
         IServiceProvider serviceProvider,
@@ -15,63 +14,55 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
         _serviceProvider = serviceProvider;
         _scheduleConfigStore = scheduleConfigStore;
         _logger = logger;
-
-        _scheduleConfigStore.OnChanged += () =>
-        {
-            _logger.LogInformation("Schedule config changed, recalculating next run.");
-            _delayCts?.Cancel();
-        };
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Stage refresh hosted service started.");
+        DateTime? lastRefreshTime = null;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            await WaitForNextMinuteAsync(stoppingToken);
+            if (stoppingToken.IsCancellationRequested) break;
+
             var config = await _scheduleConfigStore.LoadAsync(stoppingToken);
+            var now = DateTime.Now;
+            var timeKey = now.ToString("HH:mm");
+            var shouldRefresh = false;
 
-            if (!config.StageRefreshEnabled || config.StageRefreshTimes.Count == 0)
+            // ── Scheduled time points ────────────────────────────────────
+            if (config.StageRefreshEnabled &&
+                config.StageRefreshTimes.Any(t => string.Equals(t.Trim(), timeKey, StringComparison.Ordinal)))
             {
-                _logger.LogInformation("Stage refresh schedule is disabled. Waiting for config change.");
-                try
+                _logger.LogInformation("Scheduled stage refresh triggered at {Time}.", timeKey);
+                shouldRefresh = true;
+            }
+
+            // ── Interval-based ───────────────────────────────────────────
+            if (!shouldRefresh && config.RefreshIntervalEnabled && config.RefreshIntervalMinutes > 0)
+            {
+                var elapsedMinutes = lastRefreshTime.HasValue
+                    ? (now - lastRefreshTime.Value).TotalMinutes
+                    : double.MaxValue; // first run: fire immediately
+
+                if (elapsedMinutes >= config.RefreshIntervalMinutes)
                 {
-                    _delayCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await Task.Delay(Timeout.Infinite, _delayCts.Token);
+                    _logger.LogInformation("Interval stage refresh triggered at {Time} (interval={Interval}m, elapsed={Elapsed:F1}m).",
+                        timeKey, config.RefreshIntervalMinutes, elapsedMinutes);
+                    shouldRefresh = true;
                 }
-                catch (TaskCanceledException) when (!stoppingToken.IsCancellationRequested)
-                {
-                    continue;
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
-                }
-                continue;
             }
 
-            var nextRun = GetNextRun(config.StageRefreshTimes);
-            var delay = nextRun - DateTime.Now;
-
-            _logger.LogInformation("Next automatic stage refresh scheduled at {NextRun}.", nextRun);
-
-            try
-            {
-                _delayCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                await Task.Delay(delay, _delayCts.Token);
-            }
-            catch (TaskCanceledException) when (!stoppingToken.IsCancellationRequested)
-            {
-                continue;
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
+            if (!shouldRefresh) continue;
 
             try
             {
                 using var scope = _serviceProvider.CreateScope();
                 var refreshService = scope.ServiceProvider.GetRequiredService<ProjectStageRefreshService>();
                 await refreshService.RefreshAsync(null, stoppingToken);
+                lastRefreshTime = DateTime.Now;
+                _logger.LogInformation("Stage refresh completed at {Time}.", DateTime.Now.ToString("HH:mm:ss"));
             }
             catch (TaskCanceledException)
             {
@@ -82,23 +73,22 @@ public sealed class ProjectStageRefreshHostedService : BackgroundService
                 _logger.LogError(ex, "Automatic stage cache refresh failed.");
             }
         }
+
+        _logger.LogInformation("Stage refresh hosted service stopped.");
     }
 
-    private static DateTime GetNextRun(List<string> times)
+    private static async Task WaitForNextMinuteAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.Now;
-        var candidates = new List<DateTime>();
-
-        foreach (var t in times)
+        var msUntilNextMinute = (60 - now.Second) * 1000 - now.Millisecond;
+        if (msUntilNextMinute < 200) msUntilNextMinute += 60_000;
+        try
         {
-            if (TimeSpan.TryParse(t, out var ts))
-            {
-                var candidate = DateTime.Today.Add(ts);
-                if (candidate <= now) candidate = candidate.AddDays(1);
-                candidates.Add(candidate);
-            }
+            await Task.Delay(msUntilNextMinute, cancellationToken);
         }
-
-        return candidates.Count > 0 ? candidates.Min() : DateTime.Today.AddDays(1).AddHours(4);
+        catch (TaskCanceledException)
+        {
+            // normal shutdown
+        }
     }
 }

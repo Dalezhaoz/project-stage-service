@@ -1601,11 +1601,23 @@
         <div class="auth-actions">
           <label class="plain-check">
             <input type="checkbox" id="schedule-stage-enabled">
-            <span>启用阶段数据自动更新</span>
+            <span>启用阶段数据定时更新</span>
           </label>
         </div>
         <label style="margin-top:12px;">更新时间点</label>
         <div class="time-chip-list" id="schedule-stage-times"></div>
+        <div class="auth-actions" style="margin-top:12px;">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-interval-enabled">
+            <span>启用间隔刷新</span>
+          </label>
+        </div>
+        <div id="interval-settings" style="display:none;align-items:center;gap:8px;margin-top:8px;">
+          <span style="font-size:13px;color:#374151;">每</span>
+          <input type="number" id="schedule-interval-minutes" min="1" max="1440" value="60"
+                 style="width:72px;padding:6px 8px;font-size:13px;">
+          <span style="font-size:13px;color:#374151;">分钟更新一次</span>
+        </div>
         <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
         <div class="auth-actions">
           <label class="plain-check">
@@ -2262,6 +2274,10 @@
       const config = await response.json();
       document.getElementById("schedule-stage-enabled").checked = Boolean(config.stageRefreshEnabled);
       renderTimeChipList("schedule-stage-times", config.stageRefreshTimes || ["04:00"]);
+      const intervalEnabled = Boolean(config.refreshIntervalEnabled);
+      document.getElementById("schedule-interval-enabled").checked = intervalEnabled;
+      document.getElementById("schedule-interval-minutes").value = config.refreshIntervalMinutes || 60;
+      document.getElementById("interval-settings").style.display = intervalEnabled ? "flex" : "none";
       document.getElementById("schedule-count-enabled").checked = Boolean(config.countRefreshEnabled);
       renderTimeChipList("schedule-count-times", config.countRefreshTimes || ["06:00"]);
       document.getElementById("schedule-dingtalk-enabled").checked = Boolean(config.dingTalkEnabled);
@@ -2297,6 +2313,8 @@
       return {
         stageRefreshEnabled: document.getElementById("schedule-stage-enabled").checked,
         stageRefreshTimes: getTimesFromChipList("schedule-stage-times"),
+        refreshIntervalEnabled: document.getElementById("schedule-interval-enabled").checked,
+        refreshIntervalMinutes: parseInt(document.getElementById("schedule-interval-minutes").value, 10) || 60,
         countRefreshEnabled: document.getElementById("schedule-count-enabled").checked,
         countRefreshTimes: getTimesFromChipList("schedule-count-times"),
         dingTalkEnabled: document.getElementById("schedule-dingtalk-enabled").checked,
@@ -2845,6 +2863,9 @@
       if (event.target === document.getElementById("schedule-overlay") && overlayMouseDownTarget === event.target) {
         hideScheduleOverlay();
       }
+    });
+    document.getElementById("schedule-interval-enabled").addEventListener("change", function () {
+      document.getElementById("interval-settings").style.display = this.checked ? "flex" : "none";
     });
     document.getElementById("save-schedule-btn").addEventListener("click", async () => {
       try {
