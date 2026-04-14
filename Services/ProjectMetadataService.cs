@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using ProjectStageService.Models;
 
 namespace ProjectStageService.Services;
@@ -6,6 +6,7 @@ namespace ProjectStageService.Services;
 public sealed class ProjectMetadataRecord
 {
     public string ServerName { get; set; } = "";
+    public string DatabaseName { get; set; } = "";
     public string ExamCode { get; set; } = "";
     public string Maintainer { get; set; } = "";
     public string AppServers { get; set; } = "";
@@ -41,7 +42,7 @@ public sealed class ProjectMetadataService
         await EnsureSchemaAsync(connection, cancellationToken);
 
         await using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT server_name, exam_code, maintainer, app_servers, updated_at FROM dbo.{TableName};";
+        command.CommandText = $"SELECT server_name, database_name, exam_code, maintainer, app_servers, updated_at FROM dbo.{TableName};";
 
         var records = new List<ProjectMetadataRecord>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -50,10 +51,11 @@ public sealed class ProjectMetadataService
             records.Add(new ProjectMetadataRecord
             {
                 ServerName = reader.GetString(0),
-                ExamCode = reader.GetString(1),
-                Maintainer = reader.IsDBNull(2) ? "" : reader.GetString(2),
-                AppServers = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                UpdatedAt = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
+                DatabaseName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                ExamCode = reader.GetString(2),
+                Maintainer = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                AppServers = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                UpdatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
             });
         }
 
@@ -71,7 +73,7 @@ public sealed class ProjectMetadataService
         await EnsureSchemaAsync(connection, cancellationToken);
 
         await using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT server_name, exam_code, maintainer, app_servers, updated_at FROM dbo.{TableName} WHERE maintainer = @maintainer;";
+        command.CommandText = $"SELECT server_name, database_name, exam_code, maintainer, app_servers, updated_at FROM dbo.{TableName} WHERE maintainer = @maintainer;";
         command.Parameters.AddWithValue("@maintainer", username);
 
         var records = new List<ProjectMetadataRecord>();
@@ -81,10 +83,11 @@ public sealed class ProjectMetadataService
             records.Add(new ProjectMetadataRecord
             {
                 ServerName = reader.GetString(0),
-                ExamCode = reader.GetString(1),
-                Maintainer = reader.IsDBNull(2) ? "" : reader.GetString(2),
-                AppServers = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                UpdatedAt = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
+                DatabaseName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                ExamCode = reader.GetString(2),
+                Maintainer = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                AppServers = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                UpdatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
             });
         }
 
@@ -107,17 +110,18 @@ public sealed class ProjectMetadataService
 
         // Read records that may contain the old name
         await using var selectCmd = connection.CreateCommand();
-        selectCmd.CommandText = $"SELECT server_name, exam_code, app_servers FROM dbo.{TableName} WHERE app_servers LIKE @pattern;";
+        selectCmd.CommandText = $"SELECT server_name, database_name, exam_code, app_servers FROM dbo.{TableName} WHERE app_servers LIKE @pattern;";
         selectCmd.Parameters.AddWithValue("@pattern", $"%{oldName}%");
 
-        var toUpdate = new List<(string Server, string ExamCode, string NewAppServers)>();
+        var toUpdate = new List<(string Server, string Database, string ExamCode, string NewAppServers)>();
         await using (var reader = await selectCmd.ExecuteReaderAsync(cancellationToken))
         {
             while (await reader.ReadAsync(cancellationToken))
             {
                 var serverName = reader.GetString(0);
-                var examCode = reader.GetString(1);
-                var appServers = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                var databaseName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                var examCode = reader.GetString(2);
+                var appServers = reader.IsDBNull(3) ? "" : reader.GetString(3);
 
                 var parts = appServers
                     .Split(['、', ',', ';', '\n'], StringSplitOptions.RemoveEmptyEntries)
@@ -127,16 +131,17 @@ public sealed class ProjectMetadataService
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                toUpdate.Add((serverName, examCode, string.Join("、", parts)));
+                toUpdate.Add((serverName, databaseName, examCode, string.Join("、", parts)));
             }
         }
 
-        foreach (var (server, code, newAppServers) in toUpdate)
+        foreach (var (server, database, code, newAppServers) in toUpdate)
         {
             await using var updateCmd = connection.CreateCommand();
-            updateCmd.CommandText = $"UPDATE dbo.{TableName} SET app_servers = @app_servers, updated_at = GETDATE() WHERE server_name = @server_name AND exam_code = @exam_code;";
+            updateCmd.CommandText = $"UPDATE dbo.{TableName} SET app_servers = @app_servers, updated_at = GETDATE() WHERE server_name = @server_name AND database_name = @database_name AND exam_code = @exam_code;";
             updateCmd.Parameters.AddWithValue("@app_servers", newAppServers);
             updateCmd.Parameters.AddWithValue("@server_name", server);
+            updateCmd.Parameters.AddWithValue("@database_name", database);
             updateCmd.Parameters.AddWithValue("@exam_code", code);
             await updateCmd.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -157,19 +162,20 @@ public sealed class ProjectMetadataService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task SaveAsync(string serverName, string examCode, string maintainer, string appServers, CancellationToken cancellationToken)
+    public async Task SaveAsync(string serverName, string databaseName, string examCode, string maintainer, string appServers, CancellationToken cancellationToken)
     {
         var config = await _configStore.LoadAsync(cancellationToken);
         if (!config.Enabled)
             throw new InvalidOperationException("请先启用中心库。");
 
         serverName = serverName?.Trim() ?? "";
+        databaseName = databaseName?.Trim() ?? "";
         examCode = examCode?.Trim() ?? "";
         maintainer = maintainer?.Trim() ?? "";
         appServers = await NormalizeAppServersAsync(appServers, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(examCode))
-            throw new InvalidOperationException("项目元数据缺少服务器或考试代码。");
+        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(databaseName) || string.IsNullOrWhiteSpace(examCode))
+            throw new InvalidOperationException("项目元数据缺少服务器、数据库或考试代码。");
 
         await using var connection = OpenConnection(config);
         await connection.OpenAsync(cancellationToken);
@@ -178,15 +184,16 @@ public sealed class ProjectMetadataService
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             MERGE dbo.{TableName} AS target
-            USING (SELECT @server_name AS server_name, @exam_code AS exam_code) AS source
-            ON target.server_name = source.server_name AND target.exam_code = source.exam_code
+            USING (SELECT @server_name AS server_name, @database_name AS database_name, @exam_code AS exam_code) AS source
+            ON target.server_name = source.server_name AND target.database_name = source.database_name AND target.exam_code = source.exam_code
             WHEN MATCHED THEN
                 UPDATE SET maintainer = @maintainer, app_servers = @app_servers, updated_at = GETDATE()
             WHEN NOT MATCHED THEN
-                INSERT (server_name, exam_code, maintainer, app_servers, updated_at)
-                VALUES (@server_name, @exam_code, @maintainer, @app_servers, GETDATE());
+                INSERT (server_name, database_name, exam_code, maintainer, app_servers, updated_at)
+                VALUES (@server_name, @database_name, @exam_code, @maintainer, @app_servers, GETDATE());
             """;
         command.Parameters.AddWithValue("@server_name", serverName);
+        command.Parameters.AddWithValue("@database_name", databaseName);
         command.Parameters.AddWithValue("@exam_code", examCode);
         command.Parameters.AddWithValue("@maintainer", maintainer ?? "");
         command.Parameters.AddWithValue("@app_servers", appServers ?? "");
@@ -317,12 +324,49 @@ public sealed class ProjectMetadataService
             BEGIN
                 CREATE TABLE dbo.{TableName} (
                     server_name NVARCHAR(100) NOT NULL,
+                    database_name NVARCHAR(200) NOT NULL DEFAULT '',
                     exam_code NVARCHAR(50) NOT NULL,
                     maintainer NVARCHAR(100) NOT NULL DEFAULT '',
                     app_servers NVARCHAR(500) NOT NULL DEFAULT '',
                     updated_at DATETIME NOT NULL DEFAULT GETDATE(),
-                    CONSTRAINT PK_{TableName} PRIMARY KEY (server_name, exam_code)
+                    CONSTRAINT PK_{TableName} PRIMARY KEY (server_name, database_name, exam_code)
                 );
+            END;
+            ELSE
+            BEGIN
+                IF COL_LENGTH(N'dbo.{TableName}', N'database_name') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.{TableName} ADD database_name NVARCHAR(200) NOT NULL CONSTRAINT DF_{TableName}_database_name DEFAULT '';
+                END;
+
+                DECLARE @pkName SYSNAME;
+                SELECT @pkName = kc.name
+                FROM sys.key_constraints kc
+                WHERE kc.parent_object_id = OBJECT_ID(N'dbo.{TableName}')
+                  AND kc.[type] = 'PK';
+
+                IF @pkName IS NOT NULL
+                BEGIN
+                    DECLARE @pkColumns NVARCHAR(MAX);
+                    SELECT @pkColumns = STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY ic.key_ordinal)
+                    FROM sys.index_columns ic
+                    INNER JOIN sys.columns c
+                      ON c.object_id = ic.object_id
+                     AND c.column_id = ic.column_id
+                    WHERE ic.object_id = OBJECT_ID(N'dbo.{TableName}')
+                      AND ic.index_id = (
+                          SELECT unique_index_id
+                          FROM sys.key_constraints
+                          WHERE parent_object_id = OBJECT_ID(N'dbo.{TableName}')
+                            AND name = @pkName
+                      );
+
+                    IF ISNULL(@pkColumns, '') <> 'server_name,database_name,exam_code'
+                    BEGIN
+                        EXEC(N'ALTER TABLE dbo.{TableName} DROP CONSTRAINT [' + @pkName + ']');
+                        EXEC(N'ALTER TABLE dbo.{TableName} ADD CONSTRAINT PK_{TableName} PRIMARY KEY (server_name, database_name, exam_code)');
+                    END;
+                END;
             END;
 
             IF OBJECT_ID(N'dbo.{AppServerOptionTableName}', N'U') IS NULL
@@ -362,3 +406,5 @@ public sealed class ProjectMetadataService
         return new SqlConnection(builder.ConnectionString);
     }
 }
+
+

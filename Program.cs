@@ -818,7 +818,7 @@ app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMeta
 
         if (role == "admin" || role == "internal")
         {
-            await metadataService.SaveAsync(request.ServerName, request.ExamCode, request.Maintainer, request.AppServers, cancellationToken);
+            await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode, request.Maintainer, request.AppServers, cancellationToken);
             return Results.Ok(new { saved = true });
         }
 
@@ -826,7 +826,9 @@ app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMeta
         var existing = await metadataService.GetByMaintainerAsync(username, cancellationToken);
         var match = existing.FirstOrDefault(m =>
             string.Equals(m.ServerName, request.ServerName, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(m.ExamCode, request.ExamCode, StringComparison.OrdinalIgnoreCase));
+            string.Equals(m.ExamCode, request.ExamCode, StringComparison.OrdinalIgnoreCase) &&
+            (string.Equals(m.DatabaseName, request.DatabaseName, StringComparison.OrdinalIgnoreCase) ||
+             string.IsNullOrWhiteSpace(m.DatabaseName)));
 
         if (match is null)
         {
@@ -834,7 +836,7 @@ app.MapPost("/api/project-metadata", async (HttpContext httpContext, ProjectMeta
         }
 
         // External can only change app_servers, keep existing maintainer
-        await metadataService.SaveAsync(request.ServerName, request.ExamCode, match.Maintainer, request.AppServers, cancellationToken);
+        await metadataService.SaveAsync(request.ServerName, request.DatabaseName, request.ExamCode, match.Maintainer, request.AppServers, cancellationToken);
         return Results.Ok(new { saved = true });
     }
     catch (Exception ex)
@@ -901,25 +903,37 @@ static async Task<ProjectStageSummary> FilterSummaryForCurrentUserAsync(
     var username = httpContext.User.Identity?.Name ?? "";
     if (string.IsNullOrWhiteSpace(username))
     {
-        return BuildFilteredSummary(summary, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        return BuildFilteredSummary(
+            summary,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase));
     }
 
     var metadata = await metadataService.GetByMaintainerAsync(username, cancellationToken);
     var allowedKeys = metadata
-        .Select(item => BuildProjectKey(item.ServerName, item.ExamCode))
+        .Where(item => !string.IsNullOrWhiteSpace(item.DatabaseName))
+        .Select(item => BuildProjectKey(item.ServerName, item.DatabaseName, item.ExamCode))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var legacyAllowedKeys = metadata
+        .Where(item => string.IsNullOrWhiteSpace(item.DatabaseName))
+        .Select(item => BuildLegacyProjectKey(item.ServerName, item.ExamCode))
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    return BuildFilteredSummary(summary, allowedKeys);
+    return BuildFilteredSummary(summary, allowedKeys, legacyAllowedKeys);
 }
 
-static ProjectStageSummary BuildFilteredSummary(ProjectStageSummary source, HashSet<string> allowedKeys)
+static ProjectStageSummary BuildFilteredSummary(ProjectStageSummary source, HashSet<string> allowedKeys, HashSet<string> legacyAllowedKeys)
 {
     var groups = (source.Groups ?? [])
-        .Where(item => allowedKeys.Contains(BuildProjectKey(item.ServerName, item.ExamCode)))
+        .Where(item =>
+            allowedKeys.Contains(BuildProjectKey(item.ServerName, item.DatabaseName, item.ExamCode)) ||
+            legacyAllowedKeys.Contains(BuildLegacyProjectKey(item.ServerName, item.ExamCode)))
         .ToList();
 
     var records = (source.Records ?? [])
-        .Where(item => allowedKeys.Contains(BuildProjectKey(item.ServerName, item.ExamCode)))
+        .Where(item =>
+            allowedKeys.Contains(BuildProjectKey(item.ServerName, item.DatabaseName, item.ExamCode)) ||
+            legacyAllowedKeys.Contains(BuildLegacyProjectKey(item.ServerName, item.ExamCode)))
         .ToList();
 
     return new ProjectStageSummary
@@ -935,7 +949,12 @@ static ProjectStageSummary BuildFilteredSummary(ProjectStageSummary source, Hash
     };
 }
 
-static string BuildProjectKey(string serverName, string examCode)
+static string BuildProjectKey(string serverName, string databaseName, string examCode)
+{
+    return $"{serverName}|{databaseName}|{examCode}";
+}
+
+static string BuildLegacyProjectKey(string serverName, string examCode)
 {
     return $"{serverName}|{examCode}";
 }

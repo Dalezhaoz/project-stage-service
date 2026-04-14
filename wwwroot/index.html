@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -135,10 +135,19 @@
     .header-kicker { display: none; }
     .header-meta { display: none; }
     .query-status-bar {
-      font-size: 12px; color: var(--muted); padding: 4px 10px;
-      background: #f9fafb; border: 1px solid var(--line);
-      border-radius: 999px; max-width: 480px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: block;
+      flex: 0 0 100%;
+      width: 100%;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 10px;
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      white-space: normal;
+      word-break: break-word;
+      box-sizing: border-box;
     }
     .page-title-row { display: none; }
     .layout { display: grid; gap: 16px; }
@@ -596,6 +605,29 @@
     }
     .filter-workbench.drawer-mode .status {
       margin-top: 0;
+    }
+    .filter-inline-card {
+      padding: 14px 16px;
+    }
+    .filter-workbench.compact-inline {
+      gap: 10px;
+    }
+    .filter-workbench.compact-inline .filter-head {
+      display: none;
+    }
+    .filter-workbench.compact-inline .filter-sections {
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      align-items: start;
+    }
+    .filter-workbench.compact-inline .filter-section {
+      padding: 12px;
+      gap: 8px;
+    }
+    .filter-workbench.compact-inline .filter-row {
+      gap: 6px;
+    }
+    .filter-workbench.compact-inline .filter-input {
+      min-height: 36px;
     }
     .filter-workbench-legacy {
       border: 1px solid #e2e8f3;
@@ -1144,6 +1176,7 @@
       .filter-item.status, .filter-item.stage, .filter-item.time,
       .filter-item.project, .filter-item.server,
       .filter-item.database, .filter-item.exam { grid-column: span 4; }
+      .filter-workbench.compact-inline .filter-sections { grid-template-columns: 1fr; }
       .inline-grid { grid-template-columns: 1fr; }
       .range-grid { grid-template-columns: 1fr; }
       .summary { gap: 4px; }
@@ -1193,13 +1226,12 @@
         </div>
         <span class="auth-user" id="auth-user" style="display:none;">未登录</span>
         <div class="header-actions">
-          <button id="toggle-query-panel" type="button" class="header-toggle">查询条件</button>
           <button id="query-btn" class="header-toggle header-toggle-primary">开始查询</button>
           <button id="export-btn" class="header-toggle secondary" disabled>导出</button>
           <button id="toggle-config-panel" type="button" class="header-toggle">系统配置</button>
         </div>
-        <span id="query-status" class="query-status-bar" style="display:none;"></span>
       </div>
+      <span id="query-status" class="query-status-bar" style="display:none;"></span>
     </div>
 
     <div class="config-drawer-overlay" id="config-panel-overlay"></div>
@@ -1212,6 +1244,28 @@
         </div>
         <button id="close-config-panel" type="button" class="config-drawer-close" aria-label="关闭配置面板">×</button>
       </div>
+
+      <section class="config-drawer-section">
+        <div class="config-drawer-section-title">当前状态</div>
+        <div class="config-drawer-section-desc">这里显示已接入服务和最近一次缓存刷新状态。</div>
+        <div class="config-drawer-metrics">
+          <div class="config-drawer-metric">
+            <div class="config-drawer-metric-label">已接入服务器</div>
+            <div class="config-drawer-metric-value" id="drawer-server-count">0</div>
+            <div class="config-drawer-metric-meta">当前配置总数</div>
+          </div>
+          <div class="config-drawer-metric">
+            <div class="config-drawer-metric-label">启用中服务器</div>
+            <div class="config-drawer-metric-value" id="drawer-enabled-count">0</div>
+            <div class="config-drawer-metric-meta">参与本次查询</div>
+          </div>
+          <div class="config-drawer-metric">
+            <div class="config-drawer-metric-label">缓存记录</div>
+            <div class="config-drawer-metric-value" id="drawer-cache-record-count">0</div>
+            <div class="config-drawer-metric-meta" id="drawer-cache-info">缓存尚未更新</div>
+          </div>
+        </div>
+      </section>
 
       <section class="config-drawer-section">
         <div class="config-drawer-section-title">配置入口</div>
@@ -1237,28 +1291,6 @@
         </div>
       </section>
 
-      <section class="config-drawer-section">
-        <div class="config-drawer-section-title">当前状态</div>
-        <div class="config-drawer-section-desc">这里显示已接入服务和最近一次缓存刷新状态。</div>
-        <div class="config-drawer-metrics">
-          <div class="config-drawer-metric">
-            <div class="config-drawer-metric-label">已接入服务器</div>
-            <div class="config-drawer-metric-value" id="drawer-server-count">0</div>
-            <div class="config-drawer-metric-meta">当前配置总数</div>
-          </div>
-          <div class="config-drawer-metric">
-            <div class="config-drawer-metric-label">启用中服务器</div>
-            <div class="config-drawer-metric-value" id="drawer-enabled-count">0</div>
-            <div class="config-drawer-metric-meta">参与本次查询</div>
-          </div>
-          <div class="config-drawer-metric">
-            <div class="config-drawer-metric-label">缓存记录</div>
-            <div class="config-drawer-metric-value" id="drawer-cache-record-count">0</div>
-            <div class="config-drawer-metric-meta" id="drawer-cache-info">缓存尚未更新</div>
-          </div>
-        </div>
-      </section>
-
       <div class="config-drawer-foot">
         <label id="allow-refresh-toggle" class="plain-check" style="display:none;margin-left:4px;">
           <input type="checkbox" id="allow-user-refresh" checked>
@@ -1267,32 +1299,14 @@
       </div>
     </aside>
 
-    <div class="query-drawer-overlay" id="query-panel-overlay"></div>
-    <aside class="query-drawer" id="query-panel" aria-hidden="true">
-      <div class="query-drawer-head">
-        <div class="query-drawer-copy">
-          <div class="query-drawer-eyebrow">Query Builder</div>
-          <div class="query-drawer-title">查询条件</div>
-          <div class="query-drawer-desc">左侧调整筛选条件，主界面保留查询结果与导出操作，完成后随时收起。</div>
-        </div>
-        <button id="close-query-panel" type="button" class="query-drawer-close" aria-label="关闭查询条件">×</button>
-      </div>
-      <div class="query-drawer-body">
-        <div class="filter-workbench drawer-mode">
-          <div class="filter-head">
-            <div class="filter-head-copy">
-              <div class="filter-eyebrow">Query Builder</div>
-              <div class="filter-head-title">先圈定范围，再执行查询</div>
-              <div class="filter-head-desc">第一步确定状态、服务器和时间范围；第二步补充关键词做精准定位；最后回到主界面执行查询或导出结果。</div>
-            </div>
-            <div class="filter-head-badge">当前查询默认命中缓存数据</div>
-          </div>
-
+    <div class="layout">
+      <div class="card filter-inline-card">
+        <div class="filter-workbench compact-inline">
           <div class="filter-sections">
             <section class="filter-section">
               <div class="filter-section-head">
                 <div class="filter-section-title">范围条件</div>
-                <div class="filter-section-desc">用于先确定阶段状态、业务来源和时间区间。</div>
+                <div class="filter-section-desc">状态、服务器、时间</div>
               </div>
               <div class="filter-row">
                 <div class="filter-group">
@@ -1309,16 +1323,13 @@
                     <span>已结束</span>
                   </label>
                 </div>
-                <div class="filter-sep"></div>
                 <div class="filter-group" id="server-filter-tags"></div>
-                <div class="filter-sep"></div>
                 <div class="filter-group" style="align-items:center;">
-                  <input id="range-start" type="datetime-local" title="开始日期时间" class="filter-input" style="width:175px;">
+                  <input id="range-start" type="datetime-local" title="开始日期时间" class="filter-input" style="width:168px;">
                   <span style="color:var(--muted);font-size:12px;">至</span>
-                  <input id="range-end" type="datetime-local" title="结束日期时间" class="filter-input" style="width:175px;">
-                  <button id="range-clear-btn" type="button" class="ghost" title="清空时间，查询全部" style="padding:4px 8px;font-size:12px;color:var(--muted);">✕ 清空</button>
+                  <input id="range-end" type="datetime-local" title="结束日期时间" class="filter-input" style="width:168px;">
+                  <button id="range-clear-btn" type="button" class="ghost" title="清空时间，查询全部" style="padding:4px 8px;font-size:12px;color:var(--muted);">清空</button>
                 </div>
-                <div class="filter-sep"></div>
                 <div class="filter-group">
                   <label class="mini-option active">
                     <input type="radio" name="time-match-mode" class="time-match-mode" value="overlap" checked>
@@ -1339,7 +1350,7 @@
             <section class="filter-section">
               <div class="filter-section-head">
                 <div class="filter-section-title">精准筛选</div>
-                <div class="filter-section-desc">按项目、阶段、数据库和考试代码继续收窄结果。</div>
+                <div class="filter-section-desc">项目、阶段、数据库、考试代码</div>
               </div>
               <div class="filter-row">
                 <div class="filter-group filter-inputs-row">
@@ -1363,21 +1374,9 @@
               </div>
             </section>
           </div>
-
-          <div class="filter-actions-bar">
-            <div class="filter-actions-copy">
-              <div class="filter-actions-title">执行说明</div>
-              <div class="filter-actions-desc">调整完条件后，回到主界面点击“开始查询”或“导出”。</div>
-            </div>
-            <div class="query-actions">
-              <button id="close-query-panel-secondary" type="button" class="secondary">收起条件面板</button>
-            </div>
-          </div>
         </div>
       </div>
-    </aside>
 
-    <div class="layout">
       <div class="card">
         <div class="summary" id="summary-panel"></div>
         <div class="board" id="board-panel"></div>
@@ -1678,6 +1677,7 @@
     let forcePasswordChange = false;
     let summaryStoreConfig = null;
     let projectMetadataMap = {};
+    let legacyProjectMetadataMap = {};
     let allUsersCache = [];
     let allAppServerOptions = [];
     let currentUsername = "";
@@ -1971,8 +1971,8 @@
       // external 根据 allowUserRefresh 决定是否显示更新按钮
       const canRefresh = isAdminOrInternal() || allowUserRefresh;
       document.getElementById("refresh-btn").style.display = username && canRefresh ? "inline-flex" : "none";
-      // 配置面板：external 用户不显示
-      document.getElementById("toggle-config-panel").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      // 允许刷新的 external 用户也需要进入配置面板查看状态并执行刷新
+      document.getElementById("toggle-config-panel").style.display = username && (isAdminOrInternal() || canRefresh) ? "inline-flex" : "none";
     }
 
     function showAuthOverlay() {
@@ -2154,17 +2154,32 @@
       setMetadataStatus("");
     }
 
-    function showMetadataOverlay(serverName, examCode) {
-      const key = `${serverName}|${examCode}`;
-      const meta = projectMetadataMap[key] || { maintainer: "", appServers: "" };
+    function getLegacyMetadataKey(item) {
+      return `${item.serverName}|${item.examCode}`;
+    }
+
+    function getMetadataRecord(item, allowLegacy = false) {
+      const exact = projectMetadataMap[getMetadataKey(item)];
+      if (exact) return exact;
+      if (allowLegacy) {
+        return legacyProjectMetadataMap[getLegacyMetadataKey(item)];
+      }
+      return null;
+    }
+
+    function showMetadataOverlay(serverName, databaseName, examCode) {
+      const key = `${serverName}|${databaseName}|${examCode}`;
+      const meta = projectMetadataMap[key]
+        || (currentRole === "external" ? legacyProjectMetadataMap[`${serverName}|${examCode}`] : null)
+        || { maintainer: "", appServers: "" };
       const item = allBoardGroups.find(group => getMetadataKey(group) === key);
       const canEditAll = isAdminOrInternal();
       const canEditAppServers = canEditAll || (currentRole === "external" && meta.maintainer === currentUsername);
 
-      currentMetadataEditKey = key;
+      currentMetadataEditKey = JSON.stringify({ serverName, databaseName, examCode });
       document.getElementById("metadata-project-title").textContent = item?.projectName
-        ? `${item.projectName} · ${serverName} / ${examCode}`
-        : `${serverName} / ${examCode}`;
+        ? `${item.projectName} · ${serverName} / ${databaseName} / ${examCode}`
+        : `${serverName} / ${databaseName} / ${examCode}`;
 
       const maintainerSection = document.getElementById("metadata-maintainer-section");
       const maintainerSelect = document.getElementById("metadata-maintainer-select");
@@ -2375,7 +2390,7 @@
       ).sort((a, b) => a.serverName.localeCompare(b.serverName, "zh-CN"));
       const appServerMetrics = Array.from(
         groups.reduce((map, item) => {
-          const metadata = projectMetadataMap[getMetadataKey(item)];
+          const metadata = getMetadataRecord(item, currentRole === "external");
           const assignedAppServers = parseAppServerValues(metadata?.appServers || "");
           if (!assignedAppServers.length) {
             return map;
@@ -2510,19 +2525,24 @@
         if (!response.ok) return;
         const data = await response.json();
         projectMetadataMap = {};
+        legacyProjectMetadataMap = {};
         (Array.isArray(data) ? data : []).forEach(m => {
-          projectMetadataMap[`${m.serverName}|${m.examCode}`] = m;
+          if (m.databaseName) {
+            projectMetadataMap[`${m.serverName}|${m.databaseName}|${m.examCode}`] = m;
+          } else {
+            legacyProjectMetadataMap[`${m.serverName}|${m.examCode}`] = m;
+          }
         });
       } catch (e) { /* ignore */ }
     }
 
-    async function saveProjectMetadata(serverName, examCode, maintainer, appServers) {
-      await postJson(buildAppUrl("api/project-metadata"), { serverName, examCode, maintainer, appServers });
+    async function saveProjectMetadata(serverName, databaseName, examCode, maintainer, appServers) {
+      await postJson(buildAppUrl("api/project-metadata"), { serverName, databaseName, examCode, maintainer, appServers });
       await loadProjectMetadata();
     }
 
     function getMetadataKey(item) {
-      return `${item.serverName}|${item.examCode}`;
+      return `${item.serverName}|${item.databaseName}|${item.examCode}`;
     }
 
     function renderAppServerValue(value) {
@@ -2536,7 +2556,7 @@
 
     function renderMetadataSummary(item) {
       const key = getMetadataKey(item);
-      const meta = projectMetadataMap[key];
+      const meta = getMetadataRecord(item, currentRole === "external");
       const maintainer = meta?.maintainer || "";
       const appServers = meta?.appServers || "";
       const canManageMetadata = isAdminOrInternal() || (currentRole === "external" && maintainer === currentUsername);
@@ -2547,7 +2567,7 @@
       html += `<div class="board-card-summary-row"><div class="board-card-summary-value">${renderAppServerValue(appServers)}</div></div>`;
       html += '</div>';
       if (canManageMetadata) {
-        html += `<div class="board-card-summary-actions"><button class="board-meta-edit-btn" title="配置项目" aria-label="配置项目" data-meta-action="open-metadata" data-server="${escapeHtml(item.serverName)}" data-exam="${escapeHtml(item.examCode)}">⚙</button></div>`;
+        html += `<div class="board-card-summary-actions"><button class="board-meta-edit-btn" title="配置项目" aria-label="配置项目" data-meta-action="open-metadata" data-server="${escapeHtml(item.serverName)}" data-database="${escapeHtml(item.databaseName)}" data-exam="${escapeHtml(item.examCode)}">⚙</button></div>`;
       }
       html += '</div>';
       return html;
@@ -2560,7 +2580,7 @@
       // External users only see cards assigned to them
       if (currentRole === "external") {
         groups = groups.filter(item => {
-          const meta = projectMetadataMap[getMetadataKey(item)];
+          const meta = getMetadataRecord(item, true);
           return meta && meta.maintainer === currentUsername;
         });
       }
@@ -2681,19 +2701,24 @@
       const panel = document.getElementById("query-panel");
       const overlay = document.getElementById("query-panel-overlay");
       const button = document.getElementById("toggle-query-panel");
+      if (!panel || !overlay || !button) return;
       panel.classList.toggle("show", open);
       overlay.classList.toggle("show", open);
       panel.setAttribute("aria-hidden", open ? "false" : "true");
       button.textContent = open ? "收起条件" : "查询条件";
     }
 
-    document.getElementById("toggle-query-panel").addEventListener("click", () => {
-      const panel = document.getElementById("query-panel");
-      setQueryPanelOpen(!panel.classList.contains("show"));
-    });
-    document.getElementById("close-query-panel").addEventListener("click", () => setQueryPanelOpen(false));
-    document.getElementById("close-query-panel-secondary").addEventListener("click", () => setQueryPanelOpen(false));
-    document.getElementById("query-panel-overlay").addEventListener("click", () => setQueryPanelOpen(false));
+    const toggleQueryPanelBtn = document.getElementById("toggle-query-panel");
+    if (toggleQueryPanelBtn) {
+      toggleQueryPanelBtn.addEventListener("click", () => {
+        const panel = document.getElementById("query-panel");
+        if (!panel) return;
+        setQueryPanelOpen(!panel.classList.contains("show"));
+      });
+    }
+    document.getElementById("close-query-panel")?.addEventListener("click", () => setQueryPanelOpen(false));
+    document.getElementById("close-query-panel-secondary")?.addEventListener("click", () => setQueryPanelOpen(false));
+    document.getElementById("query-panel-overlay")?.addEventListener("click", () => setQueryPanelOpen(false));
 
     document.getElementById("open-server-modal").addEventListener("click", showServerModal);
     document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
@@ -3414,9 +3439,10 @@
       event.stopPropagation();
       const action = editBtn.dataset.metaAction;
       const serverName = editBtn.dataset.server;
+      const databaseName = editBtn.dataset.database;
       const examCode = editBtn.dataset.exam;
       if (action === "open-metadata") {
-        showMetadataOverlay(serverName, examCode);
+        showMetadataOverlay(serverName, databaseName, examCode);
       }
     });
 
@@ -3467,8 +3493,10 @@
       if (!currentMetadataEditKey) return;
 
       try {
-        const [serverName, examCode] = currentMetadataEditKey.split("|");
-        const meta = projectMetadataMap[currentMetadataEditKey] || { maintainer: "", appServers: "" };
+        const { serverName, databaseName, examCode } = JSON.parse(currentMetadataEditKey);
+        const meta = projectMetadataMap[`${serverName}|${databaseName}|${examCode}`]
+          || (currentRole === "external" ? legacyProjectMetadataMap[`${serverName}|${examCode}`] : null)
+          || { maintainer: "", appServers: "" };
         const maintainer = isAdminOrInternal()
           ? document.getElementById("metadata-maintainer-select").value
           : meta.maintainer;
@@ -3476,7 +3504,7 @@
           .map(input => input.value);
 
         setMetadataStatus("正在保存项目配置...");
-        await saveProjectMetadata(serverName, examCode, maintainer, joinAppServerValues(selected));
+        await saveProjectMetadata(serverName, databaseName, examCode, maintainer, joinAppServerValues(selected));
         if (allBoardGroups.length) {
           const scrollMap = {};
           document.querySelectorAll('#board-panel .board-column[data-column-key]').forEach(col => {
@@ -3550,3 +3578,4 @@
   </script>
 </body>
 </html>
+

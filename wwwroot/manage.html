@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -210,6 +210,98 @@
       color: #b42318;
     }
 
+    /* ---- Assign Drawer ---- */
+    .assign-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.22);
+      backdrop-filter: blur(3px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+      z-index: 90;
+    }
+    .assign-drawer-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .assign-drawer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: min(360px, calc(100vw - 24px));
+      height: 100vh;
+      padding: 22px 18px 18px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+      border-right: 1px solid #dbe3f5;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+      transform: translateX(calc(-100% - 24px));
+      transition: transform var(--transition);
+      z-index: 100;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 16px;
+      overflow: auto;
+    }
+    .assign-drawer.show {
+      transform: translateX(0);
+    }
+    .assign-drawer-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .assign-drawer-copy {
+      display: grid;
+      gap: 6px;
+    }
+    .assign-drawer-eyebrow {
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .assign-drawer-title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: var(--text);
+    }
+    .assign-drawer-desc {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .assign-drawer-close {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid #d8dfeb;
+      background: #fff;
+      color: #52607a;
+      box-shadow: none;
+      flex: none;
+    }
+    .assign-drawer-close:hover {
+      background: #f8faff;
+      border-color: #c8d4ef;
+      color: var(--text);
+    }
+    .assign-drawer-section {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid #e3e8f2;
+      border-radius: 16px;
+      background: rgba(255,255,255,.92);
+    }
+    .assign-drawer-section .card-title {
+      margin: 0;
+    }
+
     .layout { display: grid; gap: 14px; }
 
     .card {
@@ -408,7 +500,7 @@
     /* ---- Content Grid ---- */
     .content-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
+      grid-template-columns: minmax(0, 1fr);
       gap: 14px;
       align-items: start;
     }
@@ -519,9 +611,6 @@
       padding: 0 10px; font-size: 13px;
     }
 
-    /* ---- Side Panel ---- */
-    .side-panel { position: sticky; top: 18px; display: grid; gap: 14px; }
-
     /* ---- Summary Stats ---- */
     .summary-stats {
       display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
@@ -564,8 +653,6 @@
     }
 
     @media (max-width: 1240px) {
-      .content-grid { grid-template-columns: 1fr; }
-      .side-panel { position: static; }
       .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 980px) {
@@ -608,6 +695,10 @@
       }
       .filter-head-badge { width: 100%; justify-content: center; }
       .filter-actions-bar { align-items: stretch; }
+      .assign-drawer {
+        width: 100vw;
+        border-right: none;
+      }
     }
   </style>
 </head>
@@ -649,12 +740,64 @@
             </div>
           </div>
           <div class="header-actions">
+            <button class="header-action-btn" id="toggle-assign-panel" type="button">批量分配</button>
             <button class="header-action-btn header-action-primary" id="open-main-btn" type="button">返回查询中心</button>
             <button class="header-action-btn header-action-danger" id="logout-btn" type="button">退出账号</button>
           </div>
         </div>
       </div>
 
+      <div class="assign-drawer-overlay" id="assign-panel-overlay"></div>
+      <aside class="assign-drawer" id="assign-panel" aria-hidden="true">
+        <div class="assign-drawer-head">
+          <div class="assign-drawer-copy">
+            <div class="assign-drawer-eyebrow">Batch Assign</div>
+            <div class="assign-drawer-title">批量分配</div>
+            <div class="assign-drawer-desc">查看当前选中项目，并在这里统一保存负责人和应用服务器。</div>
+          </div>
+          <button id="close-assign-panel" type="button" class="assign-drawer-close" aria-label="关闭批量分配">×</button>
+        </div>
+
+        <section class="assign-drawer-section">
+          <div class="card-title">当前选中</div>
+          <div class="summary-stats">
+            <div class="summary-stat">
+              <span class="summary-stat-number" id="selected-count">0</span>
+              <span class="summary-stat-label">项目数</span>
+            </div>
+            <div class="summary-stat">
+              <span class="summary-stat-number" id="selected-servers">0</span>
+              <span class="summary-stat-label">数据库</span>
+            </div>
+            <div class="summary-stat">
+              <span class="summary-stat-number" id="selected-apps">0</span>
+              <span class="summary-stat-label">应用服务器</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="assign-drawer-section assign-panel">
+          <div class="card-title">批量分配</div>
+          <div class="field">
+            <label for="batch-maintainer">负责人</label>
+            <select id="batch-maintainer">
+              <option value="">未指定</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>应用服务器</label>
+            <div id="batch-app-servers" class="check-grid"></div>
+            <div class="hint" id="batch-app-hint">正在加载可选应用服务器...</div>
+          </div>
+
+          <div class="actions">
+            <button class="btn-primary" type="button" id="save-batch-btn">保存选中项目</button>
+            <button class="btn-secondary" type="button" id="clear-selection-btn">清空选中</button>
+          </div>
+          <div class="status-line" id="batch-status"></div>
+        </section>
+      </aside>
     <div class="layout">
       <section class="card">
         <div class="filter-workbench">
@@ -662,7 +805,7 @@
             <div class="filter-head-copy">
               <div class="filter-eyebrow">Assignment Filters</div>
               <div class="filter-head-title">先筛出项目，再做批量分配</div>
-              <div class="filter-head-desc">推荐先用状态、项目关键词和负责人筛出目标范围，再选择项目并在右侧统一保存负责人或应用服务器。</div>
+              <div class="filter-head-desc">推荐先用状态、项目关键词和负责人筛出目标范围，再选择项目并在左侧分配面板里统一保存负责人或应用服务器。</div>
             </div>
             <div class="filter-head-badge">适合管理员和内部用户做日常运营配置</div>
           </div>
@@ -728,7 +871,7 @@
           <div class="filter-actions-bar">
             <div class="filter-actions-copy">
               <div class="filter-actions-title">执行筛选</div>
-              <div class="filter-actions-desc">先点项目卡右上角“选择”，再到右侧批量保存；也可以在每一行直接修改负责人。</div>
+              <div class="filter-actions-desc">先点项目卡右上角“选择”，再打开批量分配面板统一保存；也可以在每一行直接修改负责人。</div>
             </div>
             <div class="actions-col actions">
               <button class="btn-primary" type="button" id="query-btn">查询项目</button>
@@ -748,48 +891,6 @@
           </div>
           <div id="project-list" class="project-list"></div>
         </div>
-
-        <aside class="side-panel">
-          <div class="card">
-            <div class="card-title">当前选中</div>
-            <div class="summary-stats">
-              <div class="summary-stat">
-                <span class="summary-stat-number" id="selected-count">0</span>
-                <span class="summary-stat-label">项目数</span>
-              </div>
-              <div class="summary-stat">
-                <span class="summary-stat-number" id="selected-servers">0</span>
-                <span class="summary-stat-label">数据库</span>
-              </div>
-              <div class="summary-stat">
-                <span class="summary-stat-number" id="selected-apps">0</span>
-                <span class="summary-stat-label">应用服务器</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="card assign-panel">
-            <div class="card-title">批量分配</div>
-            <div class="field">
-              <label for="batch-maintainer">负责人</label>
-              <select id="batch-maintainer">
-                <option value="">未指定</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>应用服务器</label>
-              <div id="batch-app-servers" class="check-grid"></div>
-              <div class="hint" id="batch-app-hint">正在加载可选应用服务器...</div>
-            </div>
-
-            <div class="actions">
-              <button class="btn-primary" type="button" id="save-batch-btn">保存选中项目</button>
-              <button class="btn-secondary" type="button" id="clear-selection-btn">清空选中</button>
-            </div>
-            <div class="status-line" id="batch-status"></div>
-          </div>
-        </aside>
       </div>
     </div>
   </div>
@@ -848,7 +949,7 @@
     }
 
     function getProjectKey(item) {
-      return `${item.serverName}::${item.examCode}`;
+      return `${item.serverName}::${item.databaseName}::${item.examCode}`;
     }
 
     function parseAppServers(raw) {
@@ -866,7 +967,9 @@
 
     function syncMetadataMap() {
       state.metadataMap = new Map(
-        state.metadata.map(item => [`${item.serverName}::${item.examCode}`, item])
+        state.metadata
+          .filter(item => item.databaseName)
+          .map(item => [`${item.serverName}::${item.databaseName}::${item.examCode}`, item])
       );
     }
 
@@ -1031,6 +1134,16 @@
       document.getElementById("header-selected-apps").textContent = String(new Set(selectedProjects.flatMap(item => getProjectAppServers(item))).size);
     }
 
+    function setAssignPanelOpen(open) {
+      const panel = document.getElementById("assign-panel");
+      const overlay = document.getElementById("assign-panel-overlay");
+      const button = document.getElementById("toggle-assign-panel");
+      panel.classList.toggle("show", open);
+      overlay.classList.toggle("show", open);
+      panel.setAttribute("aria-hidden", open ? "false" : "true");
+      button.textContent = open ? "收起分配" : "批量分配";
+    }
+
     async function ensureAuth() {
       const auth = await getJson(buildAppUrl("/api/auth/status"));
       state.auth = auth;
@@ -1104,6 +1217,7 @@
         for (const project of selectedProjects) {
           await postJson(buildAppUrl("/api/project-metadata"), {
             serverName: project.serverName,
+            databaseName: project.databaseName,
             examCode: project.examCode,
             maintainer,
             appServers
@@ -1199,6 +1313,7 @@
         const existing = state.metadataMap.get(key);
         await postJson(buildAppUrl("/api/project-metadata"), {
           serverName: project.serverName,
+          databaseName: project.databaseName,
           examCode: project.examCode,
           maintainer: select.value,
           appServers: existing?.appServers || ""
@@ -1226,6 +1341,12 @@
     });
 
     document.getElementById("save-batch-btn").addEventListener("click", saveBatch);
+    document.getElementById("toggle-assign-panel").addEventListener("click", () => {
+      const panel = document.getElementById("assign-panel");
+      setAssignPanelOpen(!panel.classList.contains("show"));
+    });
+    document.getElementById("close-assign-panel").addEventListener("click", () => setAssignPanelOpen(false));
+    document.getElementById("assign-panel-overlay").addEventListener("click", () => setAssignPanelOpen(false));
 
     document.getElementById("logout-btn").addEventListener("click", async () => {
       await postJson(buildAppUrl("/api/auth/logout"), {});
@@ -1245,3 +1366,4 @@
   </script>
 </body>
 </html>
+
