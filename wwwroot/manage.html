@@ -741,53 +741,53 @@
           <div class="status-line" id="batch-status"></div>
         </section>
       </aside>
-    <div class=”layout”>
-      <div class=”card”>
-        <div class=”filter-workbench”>
-          <div class=”filter-sections”>
-            <section class=”filter-section”>
-              <div class=”filter-section-head”>
-                <div class=”filter-section-title”>基础筛选</div>
-                <div class=”filter-section-desc”>状态、项目名称、来源库范围</div>
+    <div class="layout">
+      <div class="card">
+        <div class="filter-workbench">
+          <div class="filter-sections">
+            <section class="filter-section">
+              <div class="filter-section-head">
+                <div class="filter-section-title">基础筛选</div>
+                <div class="filter-section-desc">状态、项目名称、来源库范围</div>
               </div>
-              <div class=”filter-row”>
-                <div class=”tag-group”>
-                  <span class=”tag-option active” data-status=”正在进行”>正在进行</span>
-                  <span class=”tag-option active” data-status=”即将开始”>即将开始</span>
-                  <span class=”tag-option active” data-status=”已结束”>已结束</span>
+              <div class="filter-row">
+                <div class="tag-group">
+                  <span class="tag-option active" data-status="正在进行">正在进行</span>
+                  <span class="tag-option active" data-status="即将开始">即将开始</span>
+                  <span class="tag-option active" data-status="已结束">已结束</span>
                 </div>
               </div>
-              <div class=”filter-row”>
-                <input id=”project-keyword” placeholder=”项目关键词” class=”filter-input”>
-                <input id=”server-keyword” placeholder=”数据库服务器” class=”filter-input”>
-                <input id=”exam-keyword” placeholder=”考试代码” class=”filter-input” style=”max-width:120px;”>
+              <div class="filter-row">
+                <input id="project-keyword" placeholder="项目关键词" class="filter-input">
+                <input id="server-keyword" placeholder="数据库服务器" class="filter-input">
+                <input id="exam-keyword" placeholder="考试代码" class="filter-input" style="max-width:120px;">
               </div>
             </section>
 
-            <section class=”filter-section”>
-              <div class=”filter-section-head”>
-                <div class=”filter-section-title”>分配筛选</div>
-                <div class=”filter-section-desc”>负责人、分配状态</div>
+            <section class="filter-section">
+              <div class="filter-section-head">
+                <div class="filter-section-title">分配筛选</div>
+                <div class="filter-section-desc">负责人、分配状态</div>
               </div>
-              <div class=”field”>
-                <label for=”maintainer-filter”>负责人</label>
-                <select id=”maintainer-filter”>
-                  <option value=””>全部负责人</option>
+              <div class="field">
+                <label for="maintainer-filter">负责人</label>
+                <select id="maintainer-filter">
+                  <option value="">全部负责人</option>
                 </select>
               </div>
-              <div class=”field”>
-                <label for=”assignment-filter”>分配状态</label>
-                <select id=”assignment-filter”>
-                  <option value=”all”>全部项目</option>
-                  <option value=”unassigned”>仅未分配负责人</option>
-                  <option value=”assigned”>仅已分配负责人</option>
+              <div class="field">
+                <label for="assignment-filter">分配状态</label>
+                <select id="assignment-filter">
+                  <option value="all">全部项目</option>
+                  <option value="unassigned">仅未分配负责人</option>
+                  <option value="assigned">仅已分配负责人</option>
                 </select>
               </div>
-              <div class=”actions” style=”margin-top:4px;”>
-                <button class=”btn-primary btn-sm” type=”button” id=”query-btn”>查询项目</button>
-                <button class=”btn-secondary btn-sm” type=”button” id=”reset-btn”>重置</button>
+              <div class="actions" style="margin-top:4px;">
+                <button class="btn-primary btn-sm" type="button" id="query-btn">查询项目</button>
+                <button class="btn-secondary btn-sm" type="button" id="reset-btn">重置</button>
               </div>
-              <div class=”status-line” id=”query-status”></div>
+              <div class="status-line" id="query-status"></div>
             </section>
           </div>
         </div>
