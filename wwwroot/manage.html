@@ -610,6 +610,11 @@
       min-width: 160px; max-width: 240px; height: 34px; width: auto;
       padding: 0 10px; font-size: 13px;
     }
+    .row-save-status {
+      font-size: 12px; color: var(--muted);
+    }
+    .row-save-status.error { color: var(--danger); }
+    .row-save-status.success { color: var(--success); }
 
     /* ---- Summary Stats ---- */
     .summary-stats {
@@ -1116,7 +1121,8 @@
                     ${escapeHtml(user.username)}（${escapeHtml(user.role)}）
                   </option>`).join("")}
               </select>
-              <button type="button" class="btn-primary btn-sm" data-save-maintainer="${escapeHtml(key)}">保存负责人</button>
+              <button type="button" class="btn-primary btn-sm" data-save-maintainer="${escapeHtml(key)}">保存</button>
+              <span class="row-save-status" data-save-status="${escapeHtml(key)}"></span>
             </div>
           </article>
         `;
@@ -1308,7 +1314,15 @@
       const project = state.filteredProjects.find(item => getProjectKey(item) === key);
       if (!project) return;
 
-      setStatus("batch-status", `正在保存 ${project.projectName} 的负责人...`);
+      const rowStatus = document.querySelector(`[data-save-status="${CSS.escape(key)}"]`);
+      const showRowStatus = (text, type = "") => {
+        if (!rowStatus) return;
+        rowStatus.textContent = text;
+        rowStatus.className = `row-save-status${type ? ` ${type}` : ""}`;
+      };
+
+      saveButton.disabled = true;
+      showRowStatus("保存中…");
       try {
         const existing = state.metadataMap.get(key);
         await postJson(buildAppUrl("/api/project-metadata"), {
@@ -1322,9 +1336,9 @@
         state.metadata = await getJson(buildAppUrl("/api/project-metadata"));
         syncMetadataMap();
         renderProjectList();
-        setStatus("batch-status", `${project.projectName} 的负责人已更新。`, "success");
       } catch (error) {
-        setStatus("batch-status", error.message || "保存负责人失败", "error");
+        saveButton.disabled = false;
+        showRowStatus(error.message || "保存失败", "error");
       }
     });
 
