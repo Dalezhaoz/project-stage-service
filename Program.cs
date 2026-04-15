@@ -83,6 +83,7 @@ app.MapGet("/api/auth/status", async (HttpContext httpContext, LocalAuthService 
     var currentUsername = httpContext.User.Identity?.IsAuthenticated == true ? httpContext.User.Identity?.Name : null;
     var (hasAccount, username, role, forcePasswordChange) = await authService.GetStatusAsync(currentUsername, cancellationToken);
     var allowUserRefresh = await authService.GetAllowUserRefreshAsync(cancellationToken);
+    var canAssign = currentUsername is not null && await authService.GetCanAssignAsync(currentUsername, cancellationToken);
     return Results.Ok(new
     {
         authenticated = currentUsername is not null,
@@ -91,7 +92,8 @@ app.MapGet("/api/auth/status", async (HttpContext httpContext, LocalAuthService 
         role,
         isAdmin = role == "admin",
         forcePasswordChange,
-        allowUserRefresh
+        allowUserRefresh,
+        canAssign
     });
 });
 
@@ -166,10 +168,18 @@ app.MapPost("/api/auth/users", async (CreateUserRequest request, LocalAuthServic
     }
 }).RequireAuthorization("AdminOnly");
 
-app.MapGet("/api/auth/users", async (LocalAuthService authService, CancellationToken cancellationToken) =>
+app.MapGet("/api/auth/users", async (HttpContext httpContext, LocalAuthService authService, CancellationToken cancellationToken) =>
 {
+    var role = httpContext.User.FindFirst("role")?.Value ?? "";
+    var username = httpContext.User.Identity?.Name ?? "";
+    // Allow can_assign users to get the user list (needed for maintainer dropdown in manage.html)
+    if (role != "admin" && role != "internal")
+    {
+        var canAssign = await authService.GetCanAssignAsync(username, cancellationToken);
+        if (!canAssign) return Results.Forbid();
+    }
     return Results.Ok(await authService.GetUsersAsync(cancellationToken));
-}).RequireAuthorization("InternalOrAbove");
+}).RequireAuthorization();
 
 app.MapDelete("/api/auth/users/{username}", async (string username, LocalAuthService authService, ProjectMetadataService metadataService, CancellationToken cancellationToken) =>
 {
