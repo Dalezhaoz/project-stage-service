@@ -678,23 +678,6 @@
           </div>
         </div>
         <div class="page-header-right">
-          <div class="header-summary">
-            <div class="header-summary-card">
-              <div class="header-summary-label">当前结果</div>
-              <div class="header-summary-value" id="header-result-count">0</div>
-              <div class="header-summary-meta">筛选后的项目数</div>
-            </div>
-            <div class="header-summary-card">
-              <div class="header-summary-label">已选项目</div>
-              <div class="header-summary-value" id="header-selected-count">0</div>
-              <div class="header-summary-meta">待批量处理</div>
-            </div>
-            <div class="header-summary-card">
-              <div class="header-summary-label">应用服务器</div>
-              <div class="header-summary-value" id="header-selected-apps">0</div>
-              <div class="header-summary-meta">选中项目覆盖数</div>
-            </div>
-          </div>
           <div class="header-actions">
             <button class="header-action-btn" id="toggle-assign-panel" type="button">批量分配</button>
             <button class="header-action-btn header-action-primary" id="open-main-btn" type="button">返回查询中心</button>
@@ -774,6 +757,23 @@
                 <input id="project-keyword" placeholder="项目关键词" class="filter-input">
                 <input id="server-keyword" placeholder="数据库服务器" class="filter-input">
                 <input id="exam-keyword" placeholder="考试代码" class="filter-input" style="max-width:120px;">
+              </div>
+              <div style="display:flex;gap:16px;padding-top:4px;border-top:1px solid var(--line);margin-top:2px;">
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">当前结果</div>
+                  <div style="font-size:22px;font-weight:900;color:var(--text);line-height:1.2;" id="header-result-count">0</div>
+                  <div style="font-size:11px;color:var(--muted);">筛选后的项目数</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">已选项目</div>
+                  <div style="font-size:22px;font-weight:900;color:var(--text);line-height:1.2;" id="header-selected-count">0</div>
+                  <div style="font-size:11px;color:var(--muted);">待批量处理</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">应用服务器</div>
+                  <div style="font-size:22px;font-weight:900;color:var(--text);line-height:1.2;" id="header-selected-apps">0</div>
+                  <div style="font-size:11px;color:var(--muted);">选中项目覆盖数</div>
+                </div>
               </div>
             </section>
 
