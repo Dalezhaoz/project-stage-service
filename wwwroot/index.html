@@ -1373,6 +1373,9 @@
                 <div class="filter-section-title">精准筛选</div>
                 <div class="filter-section-desc">项目、阶段、数据库、考试代码</div>
               </div>
+              <div class="filter-row" id="maintainer-filter-row" style="display:none;">
+                <div class="filter-group" id="maintainer-filter-tags"></div>
+              </div>
               <div class="filter-row">
                 <div class="filter-group filter-inputs-row">
                   <input id="project-keyword" placeholder="项目关键字" class="filter-input" autocomplete="nope" name="project-keyword-filter">
@@ -2428,19 +2431,27 @@
       try { await loadServers(); renderServers(); } catch (e) { /* ignore for external */ }
       try { renderCacheInfo(await loadCacheInfo()); } catch (e) { /* ignore */ }
       try { await loadProjectMetadata(); } catch (e) { /* ignore */ }
-      if (isAdminOrInternal()) {
+      if (isAdminOrInternal() || currentCanAssign) {
         try { allUsersCache = await loadUsersForAdmin(); } catch (e) { /* ignore */ }
       }
+      renderMaintainerFilterTags();
       try { await loadAppServerOptions(); } catch (e) { /* ignore */ }
       authReady = true;
     }
 
+    function applyLocalFilters(groups) {
+      if (filterNoAppServer) {
+        groups = groups.filter(g => {
+          const meta = getMetadataRecord(g, currentRole === "external");
+          return !meta?.appServers || parseAppServerValues(meta.appServers).length === 0;
+        });
+      }
+      groups = applyMaintainerFilter(groups);
+      return groups;
+    }
+
     function applyNoAppServerFilter(groups) {
-      if (!filterNoAppServer) return groups;
-      return groups.filter(g => {
-        const meta = getMetadataRecord(g, currentRole === "external");
-        return !meta?.appServers || parseAppServerValues(meta.appServers).length === 0;
-      });
+      return applyLocalFilters(groups);
     }
 
     function renderServerFilterFromGroups(groups) {
@@ -2678,6 +2689,37 @@
     let allBoardGroups = [];
     let currentBoardFilter = "all";
     let filterNoAppServer = false;
+    let filterMaintainers = new Set();
+
+    function renderMaintainerFilterTags() {
+      const row = document.getElementById("maintainer-filter-row");
+      const container = document.getElementById("maintainer-filter-tags");
+      if (!container || !row) return;
+      if (!allUsersCache.length) { row.style.display = "none"; return; }
+      row.style.display = "";
+      const names = allUsersCache.map(u => u.username);
+      const allSelected = filterMaintainers.size === 0;
+      container.innerHTML = [
+        `<label class="tag-option ${allSelected || filterMaintainers.has("") ? "active" : ""}">
+          <input type="checkbox" class="maintainer-filter" value="" ${allSelected || filterMaintainers.has("") ? "checked" : ""}>
+          <span>未指定</span>
+        </label>`
+      ].concat(names.map(name => `
+        <label class="tag-option ${allSelected || filterMaintainers.has(name) ? "active" : ""}">
+          <input type="checkbox" class="maintainer-filter" value="${escapeHtml(name)}" ${allSelected || filterMaintainers.has(name) ? "checked" : ""}>
+          <span>${escapeHtml(name)}</span>
+        </label>
+      `)).join("");
+    }
+
+    function applyMaintainerFilter(groups) {
+      if (filterMaintainers.size === 0) return groups;
+      return groups.filter(g => {
+        const meta = getMetadataRecord(g, currentRole === "external");
+        const maintainer = meta?.maintainer || "";
+        return filterMaintainers.has(maintainer);
+      });
+    }
 
     function renderBoard(groups) {
       // External users only see cards assigned to them
@@ -3617,6 +3659,25 @@
     document.getElementById("no-app-server-filter").addEventListener("change", function() {
       filterNoAppServer = this.checked;
       this.closest(".tag-option")?.classList.toggle("active", this.checked);
+      if (lastSummary) {
+        renderSummary(lastSummary);
+        renderBoard(lastSummary.groups || []);
+      }
+    });
+
+    document.getElementById("maintainer-filter-tags").addEventListener("change", function(event) {
+      const cb = event.target.closest(".maintainer-filter");
+      if (!cb) return;
+      cb.closest(".tag-option")?.classList.toggle("active", cb.checked);
+      const allChecked = Array.from(document.querySelectorAll(".maintainer-filter")).every(el => el.checked);
+      const anyChecked = Array.from(document.querySelectorAll(".maintainer-filter")).some(el => el.checked);
+      if (allChecked || !anyChecked) {
+        filterMaintainers.clear();
+      } else {
+        filterMaintainers = new Set(
+          Array.from(document.querySelectorAll(".maintainer-filter:checked")).map(el => el.value)
+        );
+      }
       if (lastSummary) {
         renderSummary(lastSummary);
         renderBoard(lastSummary.groups || []);
