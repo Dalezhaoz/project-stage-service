@@ -156,7 +156,9 @@ public sealed class DingTalkNotifyService
                    ISNULL(m.app_servers, '') AS app_servers
             FROM dbo.project_stage_summary s
             LEFT JOIN dbo.project_metadata m
-                ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
+                ON s.source_server_name = m.server_name
+               AND s.source_database_name = m.database_name
+               AND s.exam_code = m.exam_code
             WHERE CAST(s.stage_start_time AS DATE) = @target_date
             ORDER BY s.stage_start_time, s.project_name, s.stage_name
             """;
@@ -188,13 +190,14 @@ public sealed class DingTalkNotifyService
     private static (string title, string text) BuildMarkdownMessage(List<TodayStageInfo> stages, DateTime targetDate, string label)
     {
         var today = targetDate.ToString("yyyy-MM-dd");
-        var title = $"{label}开始的项目阶段 ({today})";
+        var projectCount = stages.Select(s => new { s.ServerName, s.ExamCode }).Distinct().Count();
+        var title = $"{label}开始的项目 ({today})";
 
         var sb = new StringBuilder();
 
         // === Header ===
-        sb.AppendLine($"### 📋 {label}开始的项目阶段");
-        sb.AppendLine($"> 日期：**{today}**，共 **{stages.Count}** 个阶段  ");
+        sb.AppendLine($"### 📋 {label}开始的项目");
+        sb.AppendLine($"> 日期：**{today}**，共 **{projectCount}** 个项目，**{stages.Count}** 个阶段  ");
         sb.AppendLine();
 
         // === Overview ===
@@ -296,8 +299,9 @@ public sealed class DingTalkNotifyService
         var today = targetDate.ToString("yyyy-MM-dd");
         var title = $"{label}项目提醒 - {maintainer} ({today})";
 
+        var projectCount = stages.Select(s => new { s.ServerName, s.ExamCode }).Distinct().Count();
         var sb = new StringBuilder();
-        sb.AppendLine($"### 📋 {maintainer}，你{label}有 **{stages.Count}** 个阶段开始");
+        sb.AppendLine($"### 📋 {maintainer}，你{label}有 **{projectCount}** 个项目");
         sb.AppendLine($"> 日期：**{today}**  ");
         sb.AppendLine();
 
@@ -374,8 +378,9 @@ public sealed class DingTalkNotifyService
                 .ToList();
             if (userStages.Count == 0) continue;
 
+            var projectCount = userStages.Select(s => new { s.ServerName, s.ExamCode }).Distinct().Count();
             var sb = new StringBuilder();
-            sb.AppendLine($"### ⏰ {userConfig.Username}，你负责的项目即将收尾");
+            sb.AppendLine($"### ⏰ {userConfig.Username}，你负责的 **{projectCount}** 个项目即将收尾");
             sb.AppendLine($"> 以下项目最后阶段将于 **{endTimeStr}** 结束，请确认是否有后续工作  ");
             sb.AppendLine();
 
@@ -428,7 +433,9 @@ public sealed class DingTalkNotifyService
                    ISNULL(m.maintainer, '') AS maintainer
             FROM dbo.project_stage_summary s
             LEFT JOIN dbo.project_metadata m
-                ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
+                ON s.source_server_name = m.server_name
+               AND s.source_database_name = m.database_name
+               AND s.exam_code = m.exam_code
             WHERE DATEPART(HOUR,   s.stage_end_time) = @end_hour
               AND DATEPART(MINUTE, s.stage_end_time) = @end_minute
               AND CAST(s.stage_end_time AS DATE) = @today
@@ -582,7 +589,9 @@ public sealed class DingTalkNotifyService
                    s.stage_name, s.stage_start_time, s.stage_end_time
             FROM dbo.project_stage_summary s
             LEFT JOIN dbo.project_metadata m
-                ON s.source_server_name = m.server_name AND s.exam_code = m.exam_code
+                ON s.source_server_name = m.server_name
+               AND s.source_database_name = m.database_name
+               AND s.exam_code = m.exam_code
             WHERE ISNULL(m.maintainer, '') = ''
               AND s.stage_end_time > @now
             ORDER BY s.stage_start_time, s.project_name, s.stage_name

@@ -720,14 +720,18 @@
           <div class="field">
             <label for="batch-maintainer">负责人</label>
             <select id="batch-maintainer">
-              <option value="">未指定</option>
+              <option value="__keep__">── 不修改负责人 ──</option>
+              <option value="">未指定（清空负责人）</option>
             </select>
           </div>
 
           <div class="field">
-            <label>应用服务器</label>
+            <label>应用服务器 <span style="font-weight:400;font-size:12px;color:var(--muted)">（不勾选则不修改；勾选后将覆盖原有配置）</span></label>
             <div id="batch-app-servers" class="check-grid"></div>
             <div class="hint" id="batch-app-hint">正在加载可选应用服务器...</div>
+            <div style="margin-top:6px">
+              <button class="btn-secondary btn-sm" type="button" id="clear-app-servers-btn">清空应用服务器</button>
+            </div>
           </div>
 
           <div class="actions">
@@ -923,7 +927,7 @@
       const options = ['<option value="">全部负责人</option>']
         .concat(state.users.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}（${escapeHtml(user.role)}）</option>`));
       filter.innerHTML = options.join("");
-      batch.innerHTML = '<option value="">未指定</option>' +
+      batch.innerHTML = '<option value="__keep__">── 不修改负责人 ──</option><option value="">未指定（清空负责人）</option>' +
         state.users.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}（${escapeHtml(user.role)}）</option>`).join("");
     }
 
@@ -1140,12 +1144,18 @@
         return;
       }
 
-      const maintainer = document.getElementById("batch-maintainer").value;
-      const appServers = getSelectedAppServers().join("、");
+      const maintainerValue = document.getElementById("batch-maintainer").value;
+      const keepMaintainer = maintainerValue === "__keep__";
+      const selectedAppServers = getSelectedAppServers();
+      const keepAppServers = selectedAppServers.length === 0;
+      const appServersValue = selectedAppServers.join("、");
 
       setStatus("batch-status", `正在保存 ${selectedProjects.length} 个项目...`);
       try {
         for (const project of selectedProjects) {
+          const existing = state.metadataMap.get(getProjectKey(project));
+          const maintainer = keepMaintainer ? (existing?.maintainer || "") : maintainerValue;
+          const appServers = keepAppServers ? (existing?.appServers || "") : appServersValue;
           await postJson(buildAppUrl("/api/project-metadata"), {
             serverName: project.serverName,
             databaseName: project.databaseName,
@@ -1311,6 +1321,33 @@
     });
 
     document.getElementById("save-batch-btn").addEventListener("click", saveBatch);
+    document.getElementById("clear-app-servers-btn").addEventListener("click", async () => {
+      const selectedProjects = state.filteredProjects.filter(project => state.selectedKeys.has(getProjectKey(project)));
+      if (!selectedProjects.length) {
+        setStatus("batch-status", "请先选择至少一个项目。", "error");
+        return;
+      }
+      if (!confirm(`确定要清空 ${selectedProjects.length} 个项目的应用服务器配置吗？`)) return;
+      setStatus("batch-status", `正在清空 ${selectedProjects.length} 个项目的应用服务器...`);
+      try {
+        for (const project of selectedProjects) {
+          const existing = state.metadataMap.get(getProjectKey(project));
+          await postJson(buildAppUrl("/api/project-metadata"), {
+            serverName: project.serverName,
+            databaseName: project.databaseName,
+            examCode: project.examCode,
+            maintainer: existing?.maintainer || "",
+            appServers: ""
+          });
+        }
+        state.metadata = await getJson(buildAppUrl("/api/project-metadata"));
+        syncMetadataMap();
+        renderProjectList();
+        setStatus("batch-status", `已清空 ${selectedProjects.length} 个项目的应用服务器。`, "success");
+      } catch (error) {
+        setStatus("batch-status", error.message || "操作失败", "error");
+      }
+    });
     document.getElementById("toggle-assign-panel").addEventListener("click", () => {
       const panel = document.getElementById("assign-panel");
       setAssignPanelOpen(!panel.classList.contains("show"));
