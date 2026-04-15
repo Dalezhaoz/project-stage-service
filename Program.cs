@@ -981,6 +981,11 @@ static async Task<ProjectStageSummary> FilterSummaryForCurrentUserAsync(
             new HashSet<string>(StringComparer.OrdinalIgnoreCase));
     }
 
+    // External with can_assign: see all allow_others_view=true projects (same as can_assign internal)
+    var canAssignExternal = await authService.GetCanAssignAsync(username, cancellationToken);
+    if (canAssignExternal)
+        return await BuildAllowOthersViewSummaryAsync(metadataService, summary, cancellationToken);
+
     var metadata = await metadataService.GetByMaintainerAsync(username, cancellationToken);
     var allowedKeys = metadata
         .Where(item => !string.IsNullOrWhiteSpace(item.DatabaseName))
