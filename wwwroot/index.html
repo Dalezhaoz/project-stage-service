@@ -1339,6 +1339,10 @@
                     <input type="checkbox" class="status-filter" value="已结束">
                     <span>已结束</span>
                   </label>
+                  <label class="tag-option" id="no-app-server-filter-label">
+                    <input type="checkbox" id="no-app-server-filter">
+                    <span>未分配应用服务器</span>
+                  </label>
                 </div>
                 <div class="filter-group" id="server-filter-tags"></div>
                 <div class="filter-group" style="align-items:center;">
@@ -2431,9 +2435,33 @@
       authReady = true;
     }
 
+    function applyNoAppServerFilter(groups) {
+      if (!filterNoAppServer) return groups;
+      return groups.filter(g => {
+        const meta = getMetadataRecord(g, currentRole === "external");
+        return !meta?.appServers || parseAppServerValues(meta.appServers).length === 0;
+      });
+    }
+
+    function renderServerFilterFromGroups(groups) {
+      const container = document.getElementById("server-filter-tags");
+      if (!container) return;
+      const selected = new Set(collectCheckedValues(".server-filter"));
+      const names = [...new Set(groups.map(g => g.serverName?.trim()).filter(Boolean))].sort();
+      const allSelected = selected.size === 0;
+      container.innerHTML = names.map(name => `
+        <label class="tag-option ${allSelected || selected.has(name) ? "active" : ""}">
+          <input type="checkbox" class="server-filter" value="${escapeHtml(name)}" ${allSelected || selected.has(name) ? "checked" : ""}>
+          <span>${escapeHtml(name)}</span>
+        </label>
+      `).join("");
+    }
+
     function renderSummary(summary) {
       lastSummary = summary;
-      const groups = Array.isArray(summary?.groups) ? summary.groups : [];
+      let groups = Array.isArray(summary?.groups) ? summary.groups : [];
+      if (!serversCache.length) renderServerFilterFromGroups(groups);
+      groups = applyNoAppServerFilter(groups);
       const ongoingGroups = groups.filter(item => getGroupPrimaryStatus(item) === "正在进行");
       const upcomingGroups = groups.filter(item => getGroupPrimaryStatus(item) === "即将开始");
       const endedGroups = groups.filter(item => getGroupPrimaryStatus(item) === "已结束");
@@ -2650,6 +2678,7 @@
 
     let allBoardGroups = [];
     let currentBoardFilter = "all";
+    let filterNoAppServer = false;
 
     function renderBoard(groups) {
       // External users only see cards assigned to them
@@ -2659,6 +2688,7 @@
           return meta && meta.maintainer === currentUsername;
         });
       }
+      groups = applyNoAppServerFilter(groups);
       allBoardGroups = groups;
       const board = document.getElementById("board-panel");
       const columns = [
@@ -3579,6 +3609,15 @@
       const examCode = editBtn.dataset.exam;
       if (action === "open-metadata") {
         showMetadataOverlay(serverName, databaseName, examCode);
+      }
+    });
+
+    document.getElementById("no-app-server-filter").addEventListener("change", function() {
+      filterNoAppServer = this.checked;
+      this.closest(".tag-option")?.classList.toggle("active", this.checked);
+      if (lastSummary) {
+        renderSummary(lastSummary);
+        renderBoard(lastSummary.groups || []);
       }
     });
 
