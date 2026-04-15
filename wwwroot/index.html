@@ -2460,7 +2460,6 @@
     function renderSummary(summary) {
       lastSummary = summary;
       let groups = Array.isArray(summary?.groups) ? summary.groups : [];
-      if (!serversCache.length) renderServerFilterFromGroups(groups);
       groups = applyNoAppServerFilter(groups);
       const ongoingGroups = groups.filter(item => getGroupPrimaryStatus(item) === "正在进行");
       const upcomingGroups = groups.filter(item => getGroupPrimaryStatus(item) === "即将开始");
@@ -3460,6 +3459,7 @@
         if (lastPayload) {
           const queryResult = await postJson(buildAppUrl("api/query"), lastPayload);
           await loadProjectMetadata();
+          if (!serversCache.length) renderServerFilterFromGroups(queryResult.groups || []);
           renderSummary(queryResult);
           renderBoard(queryResult.groups || []);
           document.getElementById("export-btn").disabled = (queryResult.records || []).length === 0;
@@ -3479,6 +3479,7 @@
         setQueryStatus("正在查询缓存，请稍候...");
         const result = await postJson(buildAppUrl("api/query"), lastPayload);
         await loadProjectMetadata();
+        if (!serversCache.length) renderServerFilterFromGroups(result.groups || []);
         renderSummary(result);
         renderBoard(result.groups || []);
         document.getElementById("export-btn").disabled = (result.records || []).length === 0;
@@ -3521,6 +3522,7 @@
           includeAdmissionTicketCount,
           targets
         });
+        if (!serversCache.length) renderServerFilterFromGroups(result.groups || []);
         renderSummary(result);
         renderBoard(result.groups || []);
         setQueryStatus(`人数统计完成：项目 ${((result.groups || []).length)} 个，阶段 ${(result.records || []).length} 条。`);
