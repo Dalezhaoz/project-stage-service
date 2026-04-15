@@ -317,6 +317,8 @@ public sealed class DingTalkNotifyService
             var first = group.First();
             sb.AppendLine($"**{index}. {first.ProjectName}**");
             sb.AppendLine($"> {first.ServerName} / 考试代码：{first.ExamCode}  ");
+            if (!string.IsNullOrWhiteSpace(first.AppServers))
+                sb.AppendLine($"> 🖥 应用服务器：{first.AppServers}  ");
 
             foreach (var stage in group.OrderBy(s => s.StartTime))
             {
@@ -390,6 +392,8 @@ public sealed class DingTalkNotifyService
                 index++;
                 sb.AppendLine($"**{index}. {s.ProjectName}**");
                 sb.AppendLine($"> {s.ServerName} / 考试代码：{s.ExamCode}  ");
+                if (!string.IsNullOrWhiteSpace(s.AppServers))
+                    sb.AppendLine($"> 🖥 应用服务器：{s.AppServers}  ");
                 sb.AppendLine($"- **{s.StageName}** 结束时间：{s.EndTime:MM-dd HH:mm}");
                 sb.AppendLine();
             }
@@ -430,7 +434,8 @@ public sealed class DingTalkNotifyService
         command.CommandText = """
             SELECT s.project_name, s.stage_name, s.stage_end_time,
                    s.source_server_name, s.exam_code,
-                   ISNULL(m.maintainer, '') AS maintainer
+                   ISNULL(m.maintainer, '') AS maintainer,
+                   ISNULL(m.app_servers, '') AS app_servers
             FROM dbo.project_stage_summary s
             LEFT JOIN dbo.project_metadata m
                 ON s.source_server_name = m.server_name
@@ -463,7 +468,8 @@ public sealed class DingTalkNotifyService
                 EndTime = reader.GetDateTime(2),
                 ServerName = reader.GetString(3),
                 ExamCode = reader.GetString(4),
-                Maintainer = reader.GetString(5)
+                Maintainer = reader.GetString(5),
+                AppServers = reader.GetString(6)
             });
         }
         return results;
@@ -477,6 +483,7 @@ public sealed class DingTalkNotifyService
         public string ServerName { get; set; } = "";
         public string ExamCode { get; set; } = "";
         public string Maintainer { get; set; } = "";
+        public string AppServers { get; set; } = "";
     }
 
     public async Task SendPersonalDailyAsync(
