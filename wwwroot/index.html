@@ -1730,6 +1730,7 @@
     let authMode = "login";
     let authReady = false;
     let currentRole = "external";
+    let currentCanAssign = false;
     function isAdmin() { return currentRole === "admin"; }
     function isInternal() { return currentRole === "internal"; }
     function isAdminOrInternal() { return currentRole === "admin" || currentRole === "internal"; }
@@ -1996,9 +1997,10 @@
       document.getElementById("app-server-options-status").textContent = text;
     }
 
-    function updateAuthView(hasAccount, username = "", role = "external", allowUserRefresh = true) {
+    function updateAuthView(hasAccount, username = "", role = "external", allowUserRefresh = true, canAssign = false) {
       authMode = hasAccount ? "login" : "setup";
       currentRole = role;
+      currentCanAssign = canAssign;
       currentUsername = username || "";
       const roleLabels = { admin: "管理员", internal: "内部用户", external: "外部用户" };
       document.getElementById("auth-title").textContent = hasAccount ? "登录验证" : "初始化账号";
@@ -2015,7 +2017,7 @@
         authUserEl.style.display = "none";
       }
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
-      document.getElementById("open-manage-page").style.display = username && isAdmin() ? "inline-flex" : "none";
+      document.getElementById("open-manage-page").style.display = username && (isAdmin() || currentCanAssign) ? "inline-flex" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-my-dingtalk-modal").style.display = username ? "inline-flex" : "none";
@@ -2826,7 +2828,7 @@
       showUserOverlay();
     });
     document.getElementById("open-manage-page").addEventListener("click", () => {
-      if (!isAdmin()) return;
+      if (!isAdmin() && !currentCanAssign) return;
       window.location.href = buildAppUrl("manage.html");
     });
     document.getElementById("open-summary-store-modal").addEventListener("click", async () => {
@@ -3093,7 +3095,7 @@
         }
 
         const authStatus = await loadAuthStatus();
-        updateAuthView(true, username, authStatus?.role || "external", authStatus?.allowUserRefresh !== false);
+        updateAuthView(true, username, authStatus?.role || "external", authStatus?.allowUserRefresh !== false, authStatus?.canAssign === true);
         hideAuthOverlay();
         if (authStatus?.forcePasswordChange) {
           showPasswordOverlay(true);
@@ -3689,7 +3691,8 @@
           Boolean(authStatus?.hasAccount),
           authStatus?.authenticated ? (authStatus?.username || "") : "",
           authStatus?.role || "external",
-          authStatus?.allowUserRefresh !== false
+          authStatus?.allowUserRefresh !== false,
+          authStatus?.canAssign === true
         );
         if (authStatus?.authenticated) {
           hideAuthOverlay();
