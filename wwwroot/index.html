@@ -1266,12 +1266,12 @@
         <div class="config-drawer-section-title">当前状态</div>
         <div class="config-drawer-section-desc">这里显示已接入服务和最近一次缓存刷新状态。</div>
         <div class="config-drawer-metrics">
-          <div class="config-drawer-metric">
+          <div class="config-drawer-metric" id="drawer-server-count-card">
             <div class="config-drawer-metric-label">已接入服务器</div>
             <div class="config-drawer-metric-value" id="drawer-server-count">0</div>
             <div class="config-drawer-metric-meta">当前配置总数</div>
           </div>
-          <div class="config-drawer-metric">
+          <div class="config-drawer-metric" id="drawer-enabled-count-card">
             <div class="config-drawer-metric-label">启用中服务器</div>
             <div class="config-drawer-metric-value" id="drawer-enabled-count">0</div>
             <div class="config-drawer-metric-meta">参与本次查询</div>
@@ -2018,6 +2018,9 @@
       }
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-manage-page").style.display = username && (isAdmin() || currentCanAssign) ? "inline-flex" : "none";
+      const showServerMetrics = isAdminOrInternal();
+      document.getElementById("drawer-server-count-card").style.display = showServerMetrics ? "" : "none";
+      document.getElementById("drawer-enabled-count-card").style.display = showServerMetrics ? "" : "none";
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-my-dingtalk-modal").style.display = username ? "inline-flex" : "none";
