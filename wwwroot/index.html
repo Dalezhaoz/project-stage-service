@@ -1368,7 +1368,7 @@
               </div>
             </section>
 
-            <section class="filter-section">
+            <section class="filter-section" id="advanced-filter-section">
               <div class="filter-section-head">
                 <div class="filter-section-title">精准筛选</div>
                 <div class="filter-section-desc">项目、阶段、数据库、考试代码</div>
@@ -2431,10 +2431,10 @@
       try { await loadServers(); renderServers(); } catch (e) { /* ignore for external */ }
       try { renderCacheInfo(await loadCacheInfo()); } catch (e) { /* ignore */ }
       try { await loadProjectMetadata(); } catch (e) { /* ignore */ }
-      if (isAdminOrInternal() || currentCanAssign) {
+      if (isAdminOrInternal()) {
         try { allUsersCache = await loadUsersForAdmin(); } catch (e) { /* ignore */ }
+        renderMaintainerFilterTags();
       }
-      renderMaintainerFilterTags();
       try { await loadAppServerOptions(); } catch (e) { /* ignore */ }
       authReady = true;
     }
