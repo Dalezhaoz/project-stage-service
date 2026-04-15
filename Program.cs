@@ -981,10 +981,10 @@ static async Task<ProjectStageSummary> FilterSummaryForCurrentUserAsync(
             new HashSet<string>(StringComparer.OrdinalIgnoreCase));
     }
 
-    // External with can_assign: see all allow_others_view=true projects (same as can_assign internal)
+    // External with can_assign: see allow_others_view=true projects that are unassigned or assigned to themselves
     var canAssignExternal = await authService.GetCanAssignAsync(username, cancellationToken);
     if (canAssignExternal)
-        return await BuildAllowOthersViewSummaryAsync(metadataService, summary, cancellationToken);
+        return await BuildCanAssignExternalSummaryAsync(metadataService, username, summary, cancellationToken);
 
     var metadata = await metadataService.GetByMaintainerAsync(username, cancellationToken);
     var allowedKeys = metadata
@@ -1061,6 +1061,52 @@ static ProjectStageSummary BuildFilteredSummary(ProjectStageSummary source, Hash
         EndedCount = groups.Count(item => item.Statuses.Any(status => string.Equals(status, "已结束", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "已经结束", StringComparison.OrdinalIgnoreCase))),
         OngoingCount = groups.Count(item => item.Statuses.Any(status => string.Equals(status, "正在进行", StringComparison.OrdinalIgnoreCase))),
         UpcomingCount = groups.Count(item => item.Statuses.Any(status => string.Equals(status, "即将开始", StringComparison.OrdinalIgnoreCase)))
+    };
+}
+
+static async Task<ProjectStageSummary> BuildCanAssignExternalSummaryAsync(
+    ProjectMetadataService metadataService,
+    string username,
+    ProjectStageSummary summary,
+    CancellationToken cancellationToken)
+{
+    var allMetadata = await metadataService.GetAllAsync(cancellationToken);
+    // Build a lookup: projectKey -> metadata
+    var metaByKey = allMetadata
+        .Where(m => !string.IsNullOrWhiteSpace(m.DatabaseName))
+        .ToDictionary(m => BuildProjectKey(m.ServerName, m.DatabaseName, m.ExamCode), StringComparer.OrdinalIgnoreCase);
+    var metaByLegacyKey = allMetadata
+        .Where(m => string.IsNullOrWhiteSpace(m.DatabaseName))
+        .ToDictionary(m => BuildLegacyProjectKey(m.ServerName, m.ExamCode), StringComparer.OrdinalIgnoreCase);
+
+    bool IsVisible(string serverName, string databaseName, string examCode)
+    {
+        var key = BuildProjectKey(serverName, databaseName, examCode);
+        var legacyKey = BuildLegacyProjectKey(serverName, examCode);
+        if (metaByKey.TryGetValue(key, out var meta) || metaByLegacyKey.TryGetValue(legacyKey, out meta))
+        {
+            if (!meta.AllowOthersView) return false;
+            // visible only if unassigned or assigned to self
+            return string.IsNullOrWhiteSpace(meta.Maintainer) ||
+                   string.Equals(meta.Maintainer, username, StringComparison.OrdinalIgnoreCase);
+        }
+        // No metadata: treated as unassigned, visible
+        return true;
+    }
+
+    var groups = (summary.Groups ?? []).Where(g => IsVisible(g.ServerName, g.DatabaseName, g.ExamCode)).ToList();
+    var records = (summary.Records ?? []).Where(r => IsVisible(r.ServerName, r.DatabaseName, r.ExamCode)).ToList();
+
+    return new ProjectStageSummary
+    {
+        Records = records,
+        Groups = groups,
+        EnabledServers = groups.Select(g => g.ServerName).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        VisitedDatabases = groups.Select(g => $"{g.ServerName}|{g.DatabaseName}").Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        MatchedDatabases = records.Select(r => $"{r.ServerName}|{r.DatabaseName}").Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+        EndedCount = groups.Count(g => g.Statuses.Any(s => string.Equals(s, "已结束", StringComparison.OrdinalIgnoreCase) || string.Equals(s, "已经结束", StringComparison.OrdinalIgnoreCase))),
+        OngoingCount = groups.Count(g => g.Statuses.Any(s => string.Equals(s, "正在进行", StringComparison.OrdinalIgnoreCase))),
+        UpcomingCount = groups.Count(g => g.Statuses.Any(s => string.Equals(s, "即将开始", StringComparison.OrdinalIgnoreCase)))
     };
 }
 
