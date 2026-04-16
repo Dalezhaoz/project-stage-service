@@ -6,6 +6,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>DingTalkProxy</AssemblyName>
-    <ApplicationIcon>tray.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>
