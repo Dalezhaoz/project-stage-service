@@ -18,7 +18,12 @@ public sealed class ProxyListenerService(AppConfig config, Action<string> log)
         try
         {
             _listener.Start();
-            log($"监听端口 {config.Port} 已启动");
+            log($"✅ 监听端口 {config.Port} 已启动");
+        }
+        catch (HttpListenerException ex) when (ex.ErrorCode == 5)
+        {
+            log($"❌ 端口 {config.Port} 拒绝访问。请右键运行「注册端口权限.bat」后重启程序。");
+            return;
         }
         catch (Exception ex)
         {
