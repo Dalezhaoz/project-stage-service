@@ -12,6 +12,7 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
     private CancellationTokenSource? _cts;
 
     public string? CurrentIp { get; private set; }
+    private string? _lastLoggedSelection;
 
     public void Start()
     {
@@ -95,24 +96,28 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
 
     /// <summary>
     /// 扫描所有启用的网络接口，找出 IPv4 地址以指定前缀开头的一个（如 "10.10.11."）。
-    /// 优先匹配 VPN 适配器（TAP/TUN/OpenVPN/Wintun/WireGuard）；
-    /// 当机器上有多个同网段 IP 时避免选到本地虚拟网卡。
+    /// 优先级：VPN 关键字 &gt; 非虚拟机网卡 &gt; 任意匹配。
     /// </summary>
-    private static string? FindIpByPrefix(string prefix)
+    private string? FindIpByPrefix(string prefix)
     {
-        string[] vpnKeywords = ["tap-windows", "openvpn", "wintun", "wireguard", " tap", " tun", "vpn"];
+        string[] vpnKeywords = ["tap-windows", "openvpn", "wintun", "wireguard", " tap ", " tun ", "vpn"];
+        string[] vmKeywords  = ["vmware", "virtualbox", "hyper-v", "hyper v", "vmnet", "vethernet", "virtual ethernet", "loopback", "pseudo", "bluetooth", "docker"];
+
         try
         {
-            var vpnHit = (string?)null;
-            var otherHit = (string?)null;
+            var vpnHit = (Candidate?)null;
+            var cleanHit = (Candidate?)null;
+            var anyHit = (Candidate?)null;
+            var allMatches = new List<Candidate>();
 
             foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (nic.OperationalStatus != OperationalStatus.Up) continue;
 
-                var desc = " " + (nic.Description ?? "").ToLowerInvariant();
-                var name = " " + (nic.Name ?? "").ToLowerInvariant();
+                var desc = " " + (nic.Description ?? "").ToLowerInvariant() + " ";
+                var name = " " + (nic.Name ?? "").ToLowerInvariant() + " ";
                 var isVpn = vpnKeywords.Any(k => desc.Contains(k) || name.Contains(k));
+                var isVm  = vmKeywords.Any(k => desc.Contains(k) || name.Contains(k));
 
                 foreach (var addr in nic.GetIPProperties().UnicastAddresses)
                 {
@@ -120,16 +125,46 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
                     var ip = addr.Address.ToString();
                     if (!ip.StartsWith(prefix)) continue;
 
-                    if (isVpn) { vpnHit = ip; break; }
-                    otherHit ??= ip;
+                    var cand = new Candidate(ip, nic.Description ?? nic.Name, isVpn, isVm);
+                    allMatches.Add(cand);
+                    if (isVpn) vpnHit ??= cand;
+                    else if (!isVm) cleanHit ??= cand;
+                    else anyHit ??= cand;
                 }
-
-                if (vpnHit != null) break;
             }
 
-            return vpnHit ?? otherHit;
+            var picked = vpnHit ?? cleanHit ?? anyHit;
+
+            // 只在选择变化时打日志，避免每 30 秒刷屏
+            var selectionKey = picked is null
+                ? $"NONE|{allMatches.Count}"
+                : $"{picked.Ip}|{allMatches.Count}";
+            if (selectionKey != _lastLoggedSelection)
+            {
+                _lastLoggedSelection = selectionKey;
+                if (allMatches.Count == 0)
+                {
+                    log($"⚠️ 未找到 {prefix}x 网段的网卡，VPN 可能未连接");
+                }
+                else
+                {
+                    if (allMatches.Count > 1)
+                    {
+                        var list = string.Join("；", allMatches.Select(c => $"{c.Ip}({c.Desc})"));
+                        log($"🔍 匹配到 {allMatches.Count} 个网卡：{list}");
+                    }
+                    if (picked != null)
+                        log($"🔍 已选用 {picked.Ip}（{picked.Desc}）");
+                }
+            }
+            return picked?.Ip;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            log($"⚠️ 扫描网卡失败：{ex.Message}");
+        }
         return null;
     }
+
+    private sealed record Candidate(string Ip, string Desc, bool IsVpn, bool IsVm);
 }
