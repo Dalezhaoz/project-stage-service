@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace DingTalkProxy;
@@ -112,7 +113,7 @@ public sealed partial class TrayApp : ApplicationContext
         // 着色
         box.SelectAll();
         box.SelectionColor = Color.FromArgb(220, 220, 220);
-        foreach (Match m in Regex().Matches(box.Text))
+        foreach (Match m in LogColorRegex().Matches(box.Text))
         {
             box.Select(m.Index, m.Length);
             box.SelectionColor = m.Value.StartsWith('✅') ? Color.FromArgb(34, 197, 94)
@@ -127,8 +128,8 @@ public sealed partial class TrayApp : ApplicationContext
         form.Show();
     }
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"[✅❌⚠️🔄][^\r\n]*")]
-    private static partial System.Text.RegularExpressions.Regex Regex();
+    [GeneratedRegex(@"[✅❌⚠️🔄][^\r\n]*")]
+    private static partial Regex LogColorRegex();
 
     private void Exit()
     {
