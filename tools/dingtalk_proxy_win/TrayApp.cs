@@ -3,7 +3,7 @@ using System.Windows.Forms;
 
 namespace DingTalkProxy;
 
-public sealed class TrayApp : ApplicationContext
+public sealed partial class TrayApp : ApplicationContext
 {
     private readonly NotifyIcon _tray;
     private readonly HeartbeatService _heartbeat;
