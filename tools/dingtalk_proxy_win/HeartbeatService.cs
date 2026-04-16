@@ -125,7 +125,7 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
                     var ip = addr.Address.ToString();
                     if (!ip.StartsWith(prefix)) continue;
 
-                    var cand = new Candidate(ip, nic.Description ?? nic.Name, isVpn, isVm);
+                    var cand = new Candidate(ip, nic.Description ?? nic.Name ?? "unknown", isVpn, isVm);
                     allMatches.Add(cand);
                     if (isVpn) vpnHit ??= cand;
                     else if (!isVm) cleanHit ??= cand;
