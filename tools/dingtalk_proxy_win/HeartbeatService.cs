@@ -95,8 +95,9 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
     }
 
     /// <summary>
-    /// 扫描所有启用的网络接口，找出 IPv4 地址以指定前缀开头的一个（如 "10.10.11."）。
-    /// 优先级：VPN 关键字 &gt; 非虚拟机网卡 &gt; 任意匹配。
+    /// 扫描网卡找出 IPv4 匹配前缀的地址。综合打分：
+    /// DHCP 来源 + VPN 关键字 &gt; DHCP 来源 &gt; VPN 关键字 &gt; 非虚拟机 &gt; 兜底。
+    /// OpenVPN 分配的 IP 会是 DHCP 来源，本机静态或 VMware 虚拟的是 Manual 来源。
     /// </summary>
     private string? FindIpByPrefix(string prefix)
     {
@@ -105,10 +106,7 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
 
         try
         {
-            var vpnHit = (Candidate?)null;
-            var cleanHit = (Candidate?)null;
-            var anyHit = (Candidate?)null;
-            var allMatches = new List<Candidate>();
+            var all = new List<Candidate>();
 
             foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
             {
@@ -125,36 +123,43 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
                     var ip = addr.Address.ToString();
                     if (!ip.StartsWith(prefix)) continue;
 
-                    var cand = new Candidate(ip, nic.Description ?? nic.Name ?? "unknown", isVpn, isVm);
-                    allMatches.Add(cand);
-                    if (isVpn) vpnHit ??= cand;
-                    else if (!isVm) cleanHit ??= cand;
-                    else anyHit ??= cand;
+                    // 跳过已弃用/无效地址（系统标记为失效的残留 IP）
+                    if (addr.DuplicateAddressDetectionState is DuplicateAddressDetectionState.Invalid
+                        or DuplicateAddressDetectionState.Deprecated) continue;
+
+                    var isDhcp = addr.PrefixOrigin == PrefixOrigin.Dhcp;
+                    var desc2 = nic.Description ?? nic.Name ?? "unknown";
+                    all.Add(new Candidate(ip, desc2, isVpn, isVm, isDhcp));
                 }
             }
 
-            var picked = vpnHit ?? cleanHit ?? anyHit;
+            // 评分：DHCP+VPN 最高，Manual+VM 最低
+            int Score(Candidate c) =>
+                (c.IsDhcp ? 8 : 0) +
+                (c.IsVpn  ? 4 : 0) +
+                (c.IsVm   ? 0 : 2);
 
-            // 只在选择变化时打日志，避免每 30 秒刷屏
-            var selectionKey = picked is null
-                ? $"NONE|{allMatches.Count}"
-                : $"{picked.Ip}|{allMatches.Count}";
-            if (selectionKey != _lastLoggedSelection)
+            var picked = all.OrderByDescending(Score).FirstOrDefault();
+
+            // 变化时才打日志
+            var key = picked is null ? $"NONE|{all.Count}" : $"{picked.Ip}|{all.Count}";
+            if (key != _lastLoggedSelection)
             {
-                _lastLoggedSelection = selectionKey;
-                if (allMatches.Count == 0)
+                _lastLoggedSelection = key;
+                if (all.Count == 0)
                 {
                     log($"⚠️ 未找到 {prefix}x 网段的网卡，VPN 可能未连接");
                 }
                 else
                 {
-                    if (allMatches.Count > 1)
+                    foreach (var c in all)
                     {
-                        var list = string.Join("；", allMatches.Select(c => $"{c.Ip}({c.Desc})"));
-                        log($"🔍 匹配到 {allMatches.Count} 个网卡：{list}");
+                        var tag = c.IsDhcp ? "DHCP" : "Manual";
+                        var extra = c.IsVpn ? " [VPN]" : c.IsVm ? " [VM]" : "";
+                        log($"🔍 候选 {c.Ip} ({c.Desc}) {tag}{extra}");
                     }
                     if (picked != null)
-                        log($"🔍 已选用 {picked.Ip}（{picked.Desc}）");
+                        log($"✓ 已选用 {picked.Ip} ({picked.Desc})");
                 }
             }
             return picked?.Ip;
@@ -166,5 +171,5 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
         return null;
     }
 
-    private sealed record Candidate(string Ip, string Desc, bool IsVpn, bool IsVm);
+    private sealed record Candidate(string Ip, string Desc, bool IsVpn, bool IsVm, bool IsDhcp);
 }
