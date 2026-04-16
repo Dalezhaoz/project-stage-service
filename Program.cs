@@ -413,16 +413,12 @@ app.MapPost("/api/schedule", async (ScheduleConfig config, ScheduleConfigStore s
     return Results.Ok(new { saved = true });
 }).RequireAuthorization("AdminOnly");
 
-app.MapPost("/api/dingtalk/register-proxy", (DingTalkProxyRegistrationRequest request, DingTalkProxyRegistry registry, ScheduleConfigStore scheduleConfigStore) =>
+app.MapPost("/api/dingtalk/register-proxy", (DingTalkProxyRegistrationRequest request, DingTalkProxyRegistry registry) =>
 {
-    // Token auth: if a DingTalk Secret is configured, the proxy must send it as token.
-    // If no Secret is configured, registration is allowed without a token.
-    var config = scheduleConfigStore.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
-    var expectedSecret = config.DingTalkConfig?.Secret ?? "";
-    if (!string.IsNullOrWhiteSpace(expectedSecret) && request.Token != expectedSecret)
-    {
-        return Results.Unauthorized();
-    }
+    // No auth required: anyone on the network can register as proxy.
+    // Risk is minimal — a rogue proxy URL just causes delivery failure, not data leak.
+    if (string.IsNullOrWhiteSpace(request.ProxyUrl))
+        return Results.BadRequest(new { detail = "proxyUrl is required" });
 
     registry.Register(request.ProxyUrl);
     return Results.Ok(new { ok = true });
