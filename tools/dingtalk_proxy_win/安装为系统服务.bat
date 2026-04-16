@@ -18,6 +18,6 @@ sc start DingTalkProxy
 
 echo.
 echo [完成] 服务已安装并启动。
-echo   查看状态: sc query DingTalkProxy
-echo   查看日志: 事件查看器 -> Windows 日志 -> 应用程序
+echo 查看状态请运行 sc query DingTalkProxy
+echo 查看日志请打开事件查看器 Windows日志 应用程序
 pause
