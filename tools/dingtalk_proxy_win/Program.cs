@@ -1,9 +1,8 @@
+using System.Windows.Forms;
 using DingTalkProxy;
 
-var builder = Host.CreateApplicationBuilder(args);
-builder.Services.AddWindowsService(options => options.ServiceName = "DingTalkProxy");
-builder.Services.AddHostedService<HeartbeatService>();
-builder.Services.AddHostedService<ProxyListenerService>();
+Application.EnableVisualStyles();
+Application.SetCompatibleTextRenderingDefault(false);
 
-var host = builder.Build();
-host.Run();
+var config = new AppConfig();
+Application.Run(new TrayApp(config));

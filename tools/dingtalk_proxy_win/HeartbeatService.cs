@@ -5,93 +5,89 @@ using System.Text.Json;
 
 namespace DingTalkProxy;
 
-public sealed class HeartbeatService(IConfiguration config, ILogger<HeartbeatService> logger) : BackgroundService
+public sealed class HeartbeatService(AppConfig config, Action<string> log)
 {
-    private const int HeartbeatInterval = 30; // seconds
+    private const int Interval = 30;
+    private CancellationTokenSource? _cts;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public string? CurrentIp { get; private set; }
+
+    public void Start()
     {
-        var port = config.GetValue<int>("Port", 9100);
-        var mainServer = (config["MainServer"] ?? "").TrimEnd('/');
-        var fixedIp = config["ProxyIp"] ?? "";
+        _cts = new CancellationTokenSource();
+        Task.Run(() => RunAsync(_cts.Token));
+    }
 
-        if (string.IsNullOrWhiteSpace(mainServer))
+    public void Stop() => _cts?.Cancel();
+
+    private async Task RunAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(config.MainServer))
         {
-            logger.LogWarning("[心跳] 未配置 MainServer，跳过自动注册。需手动在主服务配置 ProxyUrl。");
+            log("未配置 MainServer，跳过心跳注册。");
             return;
         }
 
-        var registerUrl = $"{mainServer}/api/dingtalk/register-proxy";
+        var registerUrl = config.MainServer.TrimEnd('/') + "/api/dingtalk/register-proxy";
         string? lastIp = null;
         var failCount = 0;
-
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
 
-        while (!stoppingToken.IsCancellationRequested)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                var localIp = string.IsNullOrWhiteSpace(fixedIp)
-                    ? GetLocalIp(mainServer)
-                    : fixedIp;
+                var localIp = string.IsNullOrWhiteSpace(config.ProxyIp)
+                    ? GetLocalIp(config.MainServer)
+                    : config.ProxyIp;
 
                 if (localIp is null)
                 {
-                    logger.LogWarning("[心跳] 无法获取本机 IP，等待重试...");
-                    await Task.Delay(TimeSpan.FromSeconds(HeartbeatInterval), stoppingToken);
+                    log("无法获取本机 IP，等待重试...");
+                    await Task.Delay(TimeSpan.FromSeconds(Interval), ct);
                     continue;
                 }
 
-                var proxyUrl = $"http://{localIp}:{port}";
+                var proxyUrl = $"http://{localIp}:{config.Port}";
                 var payload = JsonSerializer.Serialize(new { proxyUrl, token = "" });
                 var content = new StringContent(payload, Encoding.UTF8, "application/json");
-
-                var response = await client.PostAsync(registerUrl, content, stoppingToken);
-                response.EnsureSuccessStatusCode();
+                var resp = await client.PostAsync(registerUrl, content, ct);
+                resp.EnsureSuccessStatusCode();
 
                 if (localIp != lastIp)
                 {
-                    if (lastIp is not null)
-                        logger.LogInformation("[心跳] IP 已变更 {Old} → {New}，已更新注册", lastIp, localIp);
-                    else
-                        logger.LogInformation("[心跳] 已注册到主服务 {ProxyUrl}", proxyUrl);
+                    log(lastIp is null
+                        ? $"✅ 已注册到主服务：{proxyUrl}"
+                        : $"🔄 IP 变更 {lastIp} → {localIp}，已更新");
                     lastIp = localIp;
                 }
 
+                CurrentIp = localIp;
                 failCount = 0;
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
                 failCount++;
                 if (failCount <= 3 || failCount % 10 == 0)
-                    logger.LogWarning("[心跳] 注册失败 #{Count} {Message}", failCount, ex.Message);
+                    log($"❌ 注册失败 #{failCount}：{ex.Message}");
+                CurrentIp = null;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(HeartbeatInterval), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromSeconds(Interval), ct); }
+            catch (OperationCanceledException) { break; }
         }
     }
 
-    /// <summary>
-    /// 通过向主服务建立 UDP socket 探测本机出口 IP（VPN 路由变化后会自动跟随）。
-    /// </summary>
     private static string? GetLocalIp(string serverUrl)
     {
         try
         {
             var uri = new Uri(serverUrl);
-            var host = uri.Host;
-            var port = uri.Port > 0 ? uri.Port : 80;
             using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            socket.Connect(host, port);
+            socket.Connect(uri.Host, uri.Port > 0 ? uri.Port : 80);
             return (socket.LocalEndPoint as IPEndPoint)?.Address.ToString();
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 }
