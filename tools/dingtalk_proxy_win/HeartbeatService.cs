@@ -95,22 +95,39 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
 
     /// <summary>
     /// 扫描所有启用的网络接口，找出 IPv4 地址以指定前缀开头的一个（如 "10.10.11."）。
-    /// VPN 连接上以后，TAP/TUN 适配器上的 IP 会落在这个网段。
+    /// 优先匹配 VPN 适配器（TAP/TUN/OpenVPN/Wintun/WireGuard）；
+    /// 当机器上有多个同网段 IP 时避免选到本地虚拟网卡。
     /// </summary>
     private static string? FindIpByPrefix(string prefix)
     {
+        string[] vpnKeywords = ["tap-windows", "openvpn", "wintun", "wireguard", " tap", " tun", "vpn"];
         try
         {
+            var vpnHit = (string?)null;
+            var otherHit = (string?)null;
+
             foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (nic.OperationalStatus != OperationalStatus.Up) continue;
+
+                var desc = " " + (nic.Description ?? "").ToLowerInvariant();
+                var name = " " + (nic.Name ?? "").ToLowerInvariant();
+                var isVpn = vpnKeywords.Any(k => desc.Contains(k) || name.Contains(k));
+
                 foreach (var addr in nic.GetIPProperties().UnicastAddresses)
                 {
                     if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
                     var ip = addr.Address.ToString();
-                    if (ip.StartsWith(prefix)) return ip;
+                    if (!ip.StartsWith(prefix)) continue;
+
+                    if (isVpn) { vpnHit = ip; break; }
+                    otherHit ??= ip;
                 }
+
+                if (vpnHit != null) break;
             }
+
+            return vpnHit ?? otherHit;
         }
         catch { }
         return null;
