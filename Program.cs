@@ -415,10 +415,11 @@ app.MapPost("/api/schedule", async (ScheduleConfig config, ScheduleConfigStore s
 
 app.MapPost("/api/dingtalk/register-proxy", (DingTalkProxyRegistrationRequest request, DingTalkProxyRegistry registry, ScheduleConfigStore scheduleConfigStore) =>
 {
-    // Simple token auth - proxy must send the same secret configured in DingTalkConfig
+    // Token auth: if a DingTalk Secret is configured, the proxy must send it as token.
+    // If no Secret is configured, registration is allowed without a token.
     var config = scheduleConfigStore.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
     var expectedSecret = config.DingTalkConfig?.Secret ?? "";
-    if (string.IsNullOrWhiteSpace(request.Token) || request.Token != expectedSecret)
+    if (!string.IsNullOrWhiteSpace(expectedSecret) && request.Token != expectedSecret)
     {
         return Results.Unauthorized();
     }
