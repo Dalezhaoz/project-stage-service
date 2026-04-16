@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -37,9 +38,10 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
         {
             try
             {
-                var localIp = string.IsNullOrWhiteSpace(config.ProxyIp)
-                    ? GetLocalIp(config.MainServer)
-                    : config.ProxyIp;
+                var localIp =
+                    !string.IsNullOrWhiteSpace(config.ProxyIp) ? config.ProxyIp
+                    : !string.IsNullOrWhiteSpace(config.VpnPrefix) ? FindIpByPrefix(config.VpnPrefix)
+                    : GetLocalIp(config.MainServer);
 
                 if (localIp is null)
                 {
@@ -89,5 +91,28 @@ public sealed class HeartbeatService(AppConfig config, Action<string> log)
             return (socket.LocalEndPoint as IPEndPoint)?.Address.ToString();
         }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// 扫描所有启用的网络接口，找出 IPv4 地址以指定前缀开头的一个（如 "10.10.11."）。
+    /// VPN 连接上以后，TAP/TUN 适配器上的 IP 会落在这个网段。
+    /// </summary>
+    private static string? FindIpByPrefix(string prefix)
+    {
+        try
+        {
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.OperationalStatus != OperationalStatus.Up) continue;
+                foreach (var addr in nic.GetIPProperties().UnicastAddresses)
+                {
+                    if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    var ip = addr.Address.ToString();
+                    if (ip.StartsWith(prefix)) return ip;
+                }
+            }
+        }
+        catch { }
+        return null;
     }
 }
