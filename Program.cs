@@ -2,6 +2,7 @@ using ProjectStageService.Models;
 using ProjectStageService.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.FileProviders;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,6 +57,27 @@ await app.Services.GetRequiredService<ProjectStageCacheStore>().InitializeAsync(
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+var newFrontendDistPath = Path.Combine(app.Environment.ContentRootPath, "frontend", "dist");
+if (Directory.Exists(newFrontendDistPath))
+{
+    var newFrontendProvider = new PhysicalFileProvider(newFrontendDistPath);
+    app.Map("/new", newApp =>
+    {
+        newApp.UseDefaultFiles(new DefaultFilesOptions
+        {
+            FileProvider = newFrontendProvider
+        });
+        newApp.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = newFrontendProvider
+        });
+        newApp.Run(async context =>
+        {
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(Path.Combine(newFrontendDistPath, "index.html"));
+        });
+    });
+}
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
