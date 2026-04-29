@@ -1,32 +1,37 @@
 <template>
-  <div class="shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <span class="brand-mark">PS</span>
+  <div class="app-shell">
+    <div class="app-main">
+      <header class="app-topbar">
         <div>
-          <p class="brand-kicker">Parallel Frontend</p>
-          <h1>项目阶段汇总</h1>
+          <p class="topbar-kicker">Modern Admin Console</p>
+          <h2>项目阶段汇总服务</h2>
         </div>
-      </div>
+        <div class="topbar-meta">
+          <span>并行前端</span>
+          <span>Vue 3 + Vite + TypeScript</span>
+          <button v-if="auth.authStatus.value?.authenticated" class="topbar-logout" type="button" @click="handleLogout">
+            退出登录
+          </button>
+        </div>
+      </header>
 
-      <nav class="nav">
-        <RouterLink to="/">概览</RouterLink>
-        <RouterLink to="/playground">迁移试验区</RouterLink>
-      </nav>
-
-      <div class="legacy-card">
-        <p class="legacy-title">旧版入口保留中</p>
-        <a href="/" target="_blank" rel="noreferrer">打开当前生产版</a>
-        <a href="/manage.html" target="_blank" rel="noreferrer">打开管理台</a>
-      </div>
-    </aside>
-
-    <main class="content">
-      <RouterView />
-    </main>
+      <main class="app-content">
+        <RouterView />
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { RouterLink, RouterView } from "vue-router";
+import { useRouter } from "vue-router";
+import { RouterView } from "vue-router";
+import { useAuthState } from "./stores/auth";
+
+const router = useRouter();
+const auth = useAuthState();
+
+async function handleLogout() {
+  await auth.logoutCurrentUser();
+  await router.replace("/login");
+}
 </script>

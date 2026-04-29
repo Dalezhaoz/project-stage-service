@@ -6,50 +6,100 @@ namespace DingTalkProxy;
 
 public sealed class ProxyListenerService(AppConfig config, Action<string> log)
 {
+    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly object _sync = new();
+
     private CancellationTokenSource? _cts;
     private HttpListener? _listener;
-    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(15) };
+
+    public bool IsListening
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _listener?.IsListening == true;
+            }
+        }
+    }
 
     public void Start()
     {
-        _cts = new CancellationTokenSource();
-        _listener = new HttpListener();
-        _listener.Prefixes.Add($"http://+:{config.Port}/");
+        lock (_sync)
+        {
+            if (_listener?.IsListening == true)
+                return;
+
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            _listener = new HttpListener();
+            _listener.Prefixes.Add($"http://+:{config.Port}/");
+        }
+
         try
         {
-            _listener.Start();
-            log($"✅ 监听端口 {config.Port} 已启动");
+            _listener!.Start();
+            log($"Proxy listener started on port {config.Port}.");
         }
         catch (HttpListenerException ex) when (ex.ErrorCode == 5)
         {
-            log($"❌ 端口 {config.Port} 拒绝访问。请右键运行「注册端口权限.bat」后重启程序。");
+            log($"Port {config.Port} access denied. Please run 注册端口权限.bat as admin.");
             return;
         }
         catch (Exception ex)
         {
-            log($"❌ 监听启动失败（端口 {config.Port}）：{ex.Message}");
+            log($"Proxy listener failed to start on port {config.Port}: {ex.Message}");
             return;
         }
-        Task.Run(() => AcceptLoopAsync(_cts.Token));
+
+        Task.Run(() => AcceptLoopAsync(_cts!.Token));
     }
 
     public void Stop()
     {
         _cts?.Cancel();
         try { _listener?.Stop(); } catch { }
+        try { _listener?.Close(); } catch { }
     }
 
     private async Task AcceptLoopAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested && _listener!.IsListening)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
+                if (_listener?.IsListening != true)
+                    break;
+
                 var ctx = await _listener.GetContextAsync().WaitAsync(ct);
                 _ = Task.Run(() => HandleAsync(ctx, ct), ct);
             }
-            catch (OperationCanceledException) { break; }
-            catch { }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (HttpListenerException ex)
+            {
+                if (!ct.IsCancellationRequested)
+                    log($"Listener loop stopped: {ex.Message}");
+                break;
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                log($"Listener loop error: {ex.Message}");
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
     }
 
@@ -57,6 +107,7 @@ public sealed class ProxyListenerService(AppConfig config, Action<string> log)
     {
         var req = ctx.Request;
         var resp = ctx.Response;
+
         try
         {
             if (req.HttpMethod == "GET")
@@ -64,6 +115,7 @@ public sealed class ProxyListenerService(AppConfig config, Action<string> log)
                 await WriteJsonAsync(resp, 200, new { status = "ok" });
                 return;
             }
+
             if (req.HttpMethod != "POST")
             {
                 await WriteJsonAsync(resp, 405, new { error = "Method Not Allowed" });
@@ -77,15 +129,15 @@ public sealed class ProxyListenerService(AppConfig config, Action<string> log)
 
             if (!root.TryGetProperty("targetUrl", out var urlEl) || string.IsNullOrWhiteSpace(urlEl.GetString()))
             {
-                await WriteJsonAsync(resp, 400, new { error = "缺少 targetUrl" });
+                await WriteJsonAsync(resp, 400, new { error = "missing targetUrl" });
                 return;
             }
 
             var targetUrl = urlEl.GetString()!;
             var message = root.TryGetProperty("message", out var msgEl) ? msgEl.GetRawText() : "{}";
 
-            var content = new StringContent(message, Encoding.UTF8, "application/json");
-            var dingResp = await _client.PostAsync(targetUrl, content, ct);
+            using var content = new StringContent(message, Encoding.UTF8, "application/json");
+            using var dingResp = await _client.PostAsync(targetUrl, content, ct);
             var resultBody = await dingResp.Content.ReadAsStringAsync(ct);
 
             resp.StatusCode = (int)dingResp.StatusCode;
@@ -96,15 +148,33 @@ public sealed class ProxyListenerService(AppConfig config, Action<string> log)
 
             try
             {
-                using var r = JsonDocument.Parse(resultBody);
-                var code = r.RootElement.GetProperty("errcode").GetInt32();
-                log(code == 0 ? "✅ 转发成功" : $"⚠️ 钉钉返回 errcode={code}");
+                using var resultJson = JsonDocument.Parse(resultBody);
+                var code = resultJson.RootElement.GetProperty("errcode").GetInt32();
+                log(code == 0 ? "Forwarded to DingTalk successfully." : $"DingTalk returned errcode={code}");
             }
-            catch { log("✅ 转发完成"); }
+            catch
+            {
+                log("Forward completed.");
+            }
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { log($"❌ 转发失败：{ex.Message}"); try { await WriteJsonAsync(resp, 500, new { error = ex.Message }); } catch { } }
-        finally { try { resp.Close(); } catch { } }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            log($"Forward failed: {ex.Message}");
+            try
+            {
+                await WriteJsonAsync(resp, 500, new { error = ex.Message });
+            }
+            catch
+            {
+            }
+        }
+        finally
+        {
+            try { resp.Close(); } catch { }
+        }
     }
 
     private static async Task WriteJsonAsync(HttpListenerResponse resp, int code, object data)

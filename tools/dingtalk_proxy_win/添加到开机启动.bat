@@ -1,11 +1,15 @@
 @echo off
 chcp 65001 >nul
-set EXE=%~dp0dist\DingTalkProxy.exe
-if not exist "%EXE%" (
-    echo [错误] 找不到 %EXE%，请先编译。
+set PS1=%~dp0watchdog.ps1
+
+if not exist "%PS1%" (
+    echo [ERROR] Missing %PS1%
     pause
-    exit /b
+    exit /b 1
 )
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v DingTalkProxy /t REG_SZ /d "\"%EXE%\"" /f
-echo [完成] 已添加到开机启动（当前用户）。
+
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v DingTalkProxyWatchdog /t REG_SZ /d "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%PS1%\"" /f
+
+echo [OK] Added DingTalkProxy watchdog to startup.
+echo It will restart the proxy 5 seconds after any unexpected exit.
 pause

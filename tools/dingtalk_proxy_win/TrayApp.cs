@@ -6,12 +6,15 @@ namespace DingTalkProxy;
 
 public sealed partial class TrayApp : ApplicationContext
 {
+    private static readonly string LogDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
+
     private readonly NotifyIcon _tray;
     private readonly HeartbeatService _heartbeat;
     private readonly ProxyListenerService _proxy;
     private readonly AppConfig _config;
     private readonly List<string> _logs = [];
     private readonly System.Windows.Forms.Timer _statusTimer;
+    private DateTimeOffset? _lastHeartbeatWarningAt;
 
     private ToolStripMenuItem _statusItem = null!;
     private ToolStripMenuItem _ipItem = null!;
@@ -23,7 +26,7 @@ public sealed partial class TrayApp : ApplicationContext
         void Log(string msg)
         {
             var line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
-            lock (_logs) { _logs.Add(line); if (_logs.Count > 200) _logs.RemoveAt(0); }
+            AddLogLine(line);
         }
 
         _heartbeat = new HeartbeatService(config, Log);
@@ -33,7 +36,7 @@ public sealed partial class TrayApp : ApplicationContext
         {
             Icon = MakeIcon(Color.Gray),
             Visible = true,
-            Text = "DingTalk 转发代理"
+            Text = "DingTalk Proxy"
         };
 
         BuildContextMenu();
@@ -41,20 +44,25 @@ public sealed partial class TrayApp : ApplicationContext
         _heartbeat.Start();
         _proxy.Start();
 
-        _statusTimer = new System.Windows.Forms.Timer { Interval = 5000 };
-        _statusTimer.Tick += (_, _) => UpdateStatus();
+        _statusTimer = new System.Windows.Forms.Timer { Interval = Math.Max(2, _config.WatchdogIntervalSeconds) * 1000 };
+        _statusTimer.Tick += (_, _) =>
+        {
+            EnsureServicesHealthy();
+            UpdateStatus();
+        };
         _statusTimer.Start();
 
+        AddLogLine($"[{DateTime.Now:HH:mm:ss}] Proxy tray app started.");
         UpdateStatus();
     }
 
     private void BuildContextMenu()
     {
-        _statusItem = new ToolStripMenuItem("正在启动...") { Enabled = false };
-        _ipItem = new ToolStripMenuItem("IP: 探测中...") { Enabled = false };
+        _statusItem = new ToolStripMenuItem("Starting...") { Enabled = false };
+        _ipItem = new ToolStripMenuItem("IP: detecting...") { Enabled = false };
 
-        var logsItem = new ToolStripMenuItem("查看日志", null, (_, _) => ShowLogs());
-        var exitItem = new ToolStripMenuItem("退出", null, (_, _) => Exit());
+        var logsItem = new ToolStripMenuItem("View Logs", null, (_, _) => ShowLogs());
+        var exitItem = new ToolStripMenuItem("Exit", null, (_, _) => Exit());
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(_statusItem);
@@ -71,27 +79,38 @@ public sealed partial class TrayApp : ApplicationContext
     private void UpdateStatus()
     {
         var ip = _heartbeat.CurrentIp;
-        var connected = ip is not null;
+        var listenerOk = _proxy.IsListening;
+        var registered = ip is not null && !_heartbeat.IsStale();
+        var connected = listenerOk && registered;
 
         _tray.Icon = MakeIcon(connected ? Color.FromArgb(34, 197, 94) : Color.FromArgb(239, 68, 68));
         _tray.Text = connected
-            ? $"DingTalk 代理 ✓  {ip}:{_config.Port}"
-            : "DingTalk 代理  未连接";
+            ? $"DingTalk Proxy OK {ip}:{_config.Port}"
+            : listenerOk
+                ? "DingTalk Proxy listening, heartbeat retrying"
+                : "DingTalk Proxy offline";
 
-        _statusItem.Text = connected ? $"● 运行中（端口 {_config.Port}）" : "● 未连接主服务";
-        _statusItem.ForeColor = connected ? Color.Green : Color.Red;
-        _ipItem.Text = connected ? $"本机 IP：{ip}" : "IP：探测中...";
+        _statusItem.Text = connected
+            ? $"Online (port {_config.Port})"
+            : listenerOk
+                ? $"Listening on {_config.Port}, heartbeat retrying"
+                : "Listener offline, watchdog recovering";
+        _statusItem.ForeColor = connected ? Color.Green : Color.DarkOrange;
+        _ipItem.Text = ip is not null ? $"IP: {ip}" : "IP: detecting...";
     }
 
     private void ShowLogs()
     {
         string[] lines;
-        lock (_logs) { lines = [.. _logs]; }
+        lock (_logs)
+        {
+            lines = [.. _logs];
+        }
 
         var form = new Form
         {
-            Text = "DingTalk 转发代理  日志",
-            Size = new Size(640, 400),
+            Text = "DingTalk Proxy Logs",
+            Size = new Size(760, 420),
             StartPosition = FormStartPosition.CenterScreen,
             BackColor = Color.FromArgb(18, 18, 18),
             ForeColor = Color.White,
@@ -107,20 +126,18 @@ public sealed partial class TrayApp : ApplicationContext
             Font = new Font("Consolas", 9.5f),
             ScrollBars = RichTextBoxScrollBars.Vertical,
             BorderStyle = BorderStyle.None,
-            Text = lines.Length == 0 ? "（暂无日志）" : string.Join(Environment.NewLine, lines)
+            Text = lines.Length == 0 ? "(no logs yet)" : string.Join(Environment.NewLine, lines)
         };
 
-        // 着色
         box.SelectAll();
         box.SelectionColor = Color.FromArgb(220, 220, 220);
-        foreach (Match m in LogColorRegex().Matches(box.Text))
+
+        foreach (Match match in LogColorRegex().Matches(box.Text))
         {
-            box.Select(m.Index, m.Length);
-            box.SelectionColor = m.Value.StartsWith('✅') ? Color.FromArgb(34, 197, 94)
-                               : m.Value.StartsWith('❌') ? Color.FromArgb(239, 68, 68)
-                               : m.Value.StartsWith('⚠') ? Color.FromArgb(234, 179, 8)
-                               : Color.FromArgb(96, 165, 250);
+            box.Select(match.Index, match.Length);
+            box.SelectionColor = GetLogColor(match.Value);
         }
+
         box.Select(box.TextLength, 0);
         box.ScrollToCaret();
 
@@ -128,7 +145,83 @@ public sealed partial class TrayApp : ApplicationContext
         form.Show();
     }
 
-    [GeneratedRegex(@"[✅❌⚠️🔄][^\r\n]*")]
+    private void EnsureServicesHealthy()
+    {
+        if (!_proxy.IsListening)
+        {
+            AddLogLine($"[{DateTime.Now:HH:mm:ss}] Watchdog detected listener offline, restarting listener.");
+            _proxy.Start();
+        }
+
+        if (!_heartbeat.IsRunning)
+        {
+            AddLogLine($"[{DateTime.Now:HH:mm:ss}] Watchdog detected heartbeat stopped, restarting heartbeat.");
+            _heartbeat.Start();
+        }
+        else if (_heartbeat.IsStale() && _heartbeat.ConsecutiveFailures > 0)
+        {
+            var now = DateTimeOffset.Now;
+            if (_lastHeartbeatWarningAt is null || now - _lastHeartbeatWarningAt > TimeSpan.FromMinutes(1))
+            {
+                _lastHeartbeatWarningAt = now;
+                AddLogLine($"[{DateTime.Now:HH:mm:ss}] Heartbeat is stale, still retrying. Failures={_heartbeat.ConsecutiveFailures}.");
+            }
+        }
+    }
+
+    private void AddLogLine(string line)
+    {
+        lock (_logs)
+        {
+            _logs.Add(line);
+            if (_logs.Count > 200)
+                _logs.RemoveAt(0);
+        }
+
+        TryAppendLogFile(line);
+    }
+
+    private static void TryAppendLogFile(string line)
+    {
+        try
+        {
+            Directory.CreateDirectory(LogDirectory);
+            var logPath = Path.Combine(LogDirectory, $"dingtalk_proxy_{DateTime.Now:yyyyMMdd}.log");
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+        catch
+        {
+        }
+    }
+
+    private static Color GetLogColor(string line)
+    {
+        if (line.Contains("started", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("registered", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("success", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("updated", StringComparison.OrdinalIgnoreCase))
+        {
+            return Color.FromArgb(34, 197, 94);
+        }
+
+        if (line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("offline", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("denied", StringComparison.OrdinalIgnoreCase))
+        {
+            return Color.FromArgb(239, 68, 68);
+        }
+
+        if (line.Contains("retry", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("watchdog", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("stale", StringComparison.OrdinalIgnoreCase))
+        {
+            return Color.FromArgb(234, 179, 8);
+        }
+
+        return Color.FromArgb(96, 165, 250);
+    }
+
+    [GeneratedRegex(@"[^\r\n]+")]
     private static partial Regex LogColorRegex();
 
     private void Exit()
