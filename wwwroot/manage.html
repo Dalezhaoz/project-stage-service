@@ -771,7 +771,7 @@
         <div class="page-header-right">
           <div class="header-actions">
             <button class="header-action-btn" id="toggle-assign-panel" type="button">批量分配</button>
-            <button class="header-action-btn" id="toggle-workload-panel" type="button" style="display:none;">工作量统计</button>
+            <button class="header-action-btn" id="toggle-workload-panel" type="button" style="display:none;">工时统计</button>
             <button class="header-action-btn header-action-primary" id="open-main-btn" type="button">返回查询中心</button>
             <button class="header-action-btn header-action-danger" id="logout-btn" type="button">退出账号</button>
           </div>
@@ -1739,8 +1739,7 @@
     document.getElementById("close-assign-panel").addEventListener("click", () => setAssignPanelOpen(false));
     document.getElementById("assign-panel-overlay").addEventListener("click", () => setAssignPanelOpen(false));
     document.getElementById("toggle-workload-panel").addEventListener("click", () => {
-      const panel = document.getElementById("workload-panel");
-      setWorkloadPanelOpen(!panel.classList.contains("show"));
+      window.location.href = buildAppUrl("/workload.html");
     });
     document.getElementById("close-workload-panel").addEventListener("click", () => setWorkloadPanelOpen(false));
     document.getElementById("workload-panel-overlay").addEventListener("click", () => setWorkloadPanelOpen(false));
