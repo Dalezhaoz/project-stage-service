@@ -941,11 +941,16 @@ app.MapPost("/api/app-server-options/rename", async (RenameAppServerRequest requ
     }
 }).RequireAuthorization("InternalOrAbove");
 
-app.MapGet("/api/workload/stage-configs", async (WorkloadStatsService workloadStatsService, CancellationToken cancellationToken) =>
+app.MapGet("/api/workload/stage-configs", async (DateTime? rangeStart, DateTime? rangeEnd, string? maintainer, WorkloadStatsService workloadStatsService, CancellationToken cancellationToken) =>
 {
     try
     {
-        return Results.Ok(await workloadStatsService.GetStageConfigsAsync(cancellationToken));
+        return Results.Ok(await workloadStatsService.GetStageConfigsAsync(new WorkloadStatsRequest
+        {
+            RangeStart = rangeStart,
+            RangeEnd = rangeEnd,
+            Maintainer = maintainer ?? ""
+        }, cancellationToken));
     }
     catch (Exception ex)
     {
@@ -958,7 +963,12 @@ app.MapPost("/api/workload/stage-configs", async (SaveStageWorkloadConfigsReques
     try
     {
         await workloadStatsService.SaveStageConfigsAsync(request.Items, cancellationToken);
-        return Results.Ok(await workloadStatsService.GetStageConfigsAsync(cancellationToken));
+        return Results.Ok(await workloadStatsService.GetStageConfigsAsync(new WorkloadStatsRequest
+        {
+            RangeStart = request.RangeStart,
+            RangeEnd = request.RangeEnd,
+            Maintainer = request.Maintainer
+        }, cancellationToken));
     }
     catch (Exception ex)
     {

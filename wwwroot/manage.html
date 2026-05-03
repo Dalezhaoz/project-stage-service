@@ -908,10 +908,15 @@
 
         <section class="assign-drawer-section">
           <div class="card-title">阶段工时配置</div>
+          <div class="field">
+            <label for="workload-config-keyword">项目 / 阶段筛选</label>
+            <input id="workload-config-keyword" type="search" placeholder="输入项目名称或阶段名称模糊查询">
+          </div>
           <div class="workload-table-wrap">
             <table class="workload-table">
               <thead>
                 <tr>
+                  <th>项目名称</th>
                   <th>阶段名称</th>
                   <th>单次工时</th>
                   <th>出现次数</th>
@@ -1290,16 +1295,29 @@
 
     function renderWorkloadConfig() {
       const body = document.getElementById("workload-config-body");
-      const stageStats = new Map((state.workloadStats?.stages || []).map(item => [item.stageName, item]));
+      const keyword = document.getElementById("workload-config-keyword").value.trim().toLowerCase();
+      const stageStats = new Map((state.workloadStats?.stages || []).map(item => [`${item.projectName || ""}||${item.stageName}`, item]));
+      const configs = keyword
+        ? state.workloadConfigs.filter(item =>
+            (item.projectName || "").toLowerCase().includes(keyword) ||
+            (item.stageName || "").toLowerCase().includes(keyword))
+        : state.workloadConfigs;
+
       if (!state.workloadConfigs.length) {
-        body.innerHTML = '<tr><td colspan="4">暂无阶段数据，请先更新中心库阶段汇总。</td></tr>';
+        body.innerHTML = '<tr><td colspan="5">暂无阶段数据，请先更新中心库阶段汇总。</td></tr>';
         return;
       }
 
-      body.innerHTML = state.workloadConfigs.map(item => {
-        const stat = stageStats.get(item.stageName) || {};
+      if (!configs.length) {
+        body.innerHTML = '<tr><td colspan="5">没有匹配的项目或阶段。</td></tr>';
+        return;
+      }
+
+      body.innerHTML = configs.map(item => {
+        const stat = stageStats.get(`${item.projectName || ""}||${item.stageName}`) || {};
         return `
           <tr>
+            <td>${escapeHtml(item.projectName || "未命名项目")}</td>
             <td>${escapeHtml(item.stageName)}</td>
             <td><input type="number" min="0" step="0.25" value="${escapeHtml(String(item.hours ?? 0))}" data-workload-stage="${escapeHtml(item.stageName)}"></td>
             <td>${escapeHtml(String(stat.stageCount || 0))}</td>
@@ -1354,16 +1372,29 @@
       };
     }
 
+    function buildWorkloadConfigUrl() {
+      const request = buildWorkloadRequest();
+      const params = new URLSearchParams();
+      if (request.rangeStart) params.set("rangeStart", request.rangeStart);
+      if (request.rangeEnd) params.set("rangeEnd", request.rangeEnd);
+      if (request.maintainer) params.set("maintainer", request.maintainer);
+      const query = params.toString();
+      return buildAppUrl(`/api/workload/stage-configs${query ? `?${query}` : ""}`);
+    }
+
     async function loadWorkloadConfigs() {
       if (!state.auth?.isAdmin) return;
-      state.workloadConfigs = await getJson(buildAppUrl("/api/workload/stage-configs"));
+      state.workloadConfigs = await getJson(buildWorkloadConfigUrl());
       renderWorkloadConfig();
     }
 
-    async function queryWorkloadStats() {
+    async function queryWorkloadStats(refreshConfigs = true) {
       if (!state.auth?.isAdmin) return;
       setStatus("workload-status", "正在统计工作量...");
       try {
+        if (refreshConfigs !== false) {
+          await loadWorkloadConfigs();
+        }
         state.workloadStats = await postJson(buildAppUrl("/api/workload/stats"), buildWorkloadRequest());
         renderWorkloadStats();
         setStatus("workload-status", "工作量统计完成。", "success");
@@ -1376,11 +1407,11 @@
 
     async function loadWorkloadData() {
       if (!state.auth?.isAdmin || state.workloadConfigs.length) return;
-      setStatus("workload-config-status", "正在加载阶段工时配置...");
+      setStatus("workload-config-status", "正在加载当前时间段的阶段工时配置...");
       try {
         await loadWorkloadConfigs();
-        await queryWorkloadStats();
-        setStatus("workload-config-status", "阶段工时配置已加载。", "success");
+        await queryWorkloadStats(false);
+        setStatus("workload-config-status", "当前时间段阶段工时配置已加载。", "success");
       } catch (error) {
         setStatus("workload-config-status", error.message || "加载失败", "error");
       }
@@ -1395,8 +1426,14 @@
 
       setStatus("workload-config-status", "正在保存阶段工时...");
       try {
-        state.workloadConfigs = await postJson(buildAppUrl("/api/workload/stage-configs"), { items });
-        await queryWorkloadStats();
+        const request = buildWorkloadRequest();
+        state.workloadConfigs = await postJson(buildAppUrl("/api/workload/stage-configs"), {
+          items,
+          maintainer: request.maintainer,
+          rangeStart: request.rangeStart,
+          rangeEnd: request.rangeEnd
+        });
+        await queryWorkloadStats(false);
         setStatus("workload-config-status", "阶段工时已保存。", "success");
       } catch (error) {
         setStatus("workload-config-status", error.message || "保存失败", "error");
@@ -1687,6 +1724,7 @@
     document.getElementById("close-workload-panel").addEventListener("click", () => setWorkloadPanelOpen(false));
     document.getElementById("workload-panel-overlay").addEventListener("click", () => setWorkloadPanelOpen(false));
     document.getElementById("workload-query-btn").addEventListener("click", queryWorkloadStats);
+    document.getElementById("workload-config-keyword").addEventListener("input", renderWorkloadConfig);
     document.getElementById("workload-save-config-btn").addEventListener("click", saveWorkloadConfigs);
     document.getElementById("workload-reload-config-btn").addEventListener("click", async () => {
       setStatus("workload-config-status", "正在重新加载阶段工时配置...");

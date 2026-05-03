@@ -15,7 +15,7 @@ public sealed class WorkloadStatsService
         _configStore = configStore;
     }
 
-    public async Task<List<StageWorkloadConfigRecord>> GetStageConfigsAsync(CancellationToken cancellationToken)
+    public async Task<List<StageWorkloadConfigRecord>> GetStageConfigsAsync(WorkloadStatsRequest request, CancellationToken cancellationToken)
     {
         var config = await LoadEnabledConfigAsync(cancellationToken);
         await using var connection = OpenConnection(config);
@@ -23,17 +23,27 @@ public sealed class WorkloadStatsService
         await EnsureSchemaAsync(connection, cancellationToken);
 
         await using var command = connection.CreateCommand();
+        var conditions = BuildDateConditions(command, request);
+        AddMaintainerCondition(command, conditions, request);
+        var whereClause = conditions.Count > 0
+            ? $"WHERE LTRIM(RTRIM(stage_name)) <> '' AND {string.Join(" AND ", conditions)}"
+            : "WHERE LTRIM(RTRIM(stage_name)) <> ''";
         command.CommandText = $"""
-            SELECT s.stage_name,
-                   ISNULL(c.hours, 0) AS hours,
+            SELECT s.project_name,
+                   s.stage_name,
+                   CAST(ISNULL(c.hours, 0) AS DECIMAL(10,2)) AS hours,
                    c.updated_at
             FROM (
-                SELECT DISTINCT stage_name
-                FROM dbo.{StageSummaryTableName}
-                WHERE LTRIM(RTRIM(stage_name)) <> ''
+                SELECT DISTINCT s.project_name, s.stage_name
+                FROM dbo.{StageSummaryTableName} s
+                LEFT JOIN dbo.{MetadataTableName} m
+                  ON m.server_name = s.source_server_name
+                 AND m.database_name = s.source_database_name
+                 AND m.exam_code = s.exam_code
+                {whereClause}
             ) s
             LEFT JOIN dbo.{ConfigTableName} c ON c.stage_name = s.stage_name
-            ORDER BY s.stage_name;
+            ORDER BY s.project_name, s.stage_name;
             """;
 
         var items = new List<StageWorkloadConfigRecord>();
@@ -42,9 +52,10 @@ public sealed class WorkloadStatsService
         {
             items.Add(new StageWorkloadConfigRecord
             {
-                StageName = reader.GetString(0),
-                Hours = reader.GetDecimal(1),
-                UpdatedAt = reader.IsDBNull(2) ? null : reader.GetDateTime(2)
+                ProjectName = reader.GetString(0),
+                StageName = reader.GetString(1),
+                Hours = reader.GetDecimal(2),
+                UpdatedAt = reader.IsDBNull(3) ? null : reader.GetDateTime(3)
             });
         }
 
@@ -143,9 +154,10 @@ public sealed class WorkloadStatsService
                 .OrderBy(item => item.PeriodKey, StringComparer.Ordinal)
                 .ToList(),
             Stages = scopedRows
-                .GroupBy(item => new { item.StageName, item.ConfiguredHours })
+                .GroupBy(item => new { item.ProjectName, item.StageName, item.ConfiguredHours })
                 .Select(group => new WorkloadStageSummary
                 {
+                    ProjectName = group.Key.ProjectName,
                     StageName = group.Key.StageName,
                     ConfiguredHours = Round(group.Key.ConfiguredHours),
                     StageCount = group.Count(),
@@ -163,6 +175,47 @@ public sealed class WorkloadStatsService
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        var conditions = BuildDateConditions(command, request);
+        var whereClause = conditions.Count > 0 ? $"WHERE {string.Join(" AND ", conditions)}" : "";
+        command.CommandText = $"""
+            SELECT ISNULL(NULLIF(LTRIM(RTRIM(m.maintainer)), ''), N'未分配') AS maintainer,
+                   s.project_name,
+                   s.stage_name,
+                   s.stage_start_time,
+                   CAST(ISNULL(c.hours, 0) AS DECIMAL(10,2)) AS configured_hours
+            FROM dbo.{StageSummaryTableName} s
+            LEFT JOIN dbo.{MetadataTableName} m
+              ON m.server_name = s.source_server_name
+             AND m.database_name = s.source_database_name
+             AND m.exam_code = s.exam_code
+            LEFT JOIN dbo.{ConfigTableName} c
+              ON c.stage_name = s.stage_name
+            {whereClause};
+            """;
+
+        var granularity = NormalizeGranularity(request.Granularity);
+        var rows = new List<WorkloadRow>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var stageStart = reader.GetDateTime(3);
+            var configuredHours = reader.GetDecimal(4);
+            var (periodKey, periodLabel) = BuildPeriod(stageStart, granularity);
+            rows.Add(new WorkloadRow(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                configuredHours,
+                configuredHours,
+                periodKey,
+                periodLabel));
+        }
+
+        return rows;
+    }
+
+    private static List<string> BuildDateConditions(SqlCommand command, WorkloadStatsRequest request)
+    {
         var conditions = new List<string>();
         var rangeStart = request.RangeStart?.Date;
         var rangeEnd = request.RangeEnd?.Date.AddDays(1);
@@ -179,40 +232,17 @@ public sealed class WorkloadStatsService
             command.Parameters.AddWithValue("@range_end", rangeEnd.Value);
         }
 
-        var whereClause = conditions.Count > 0 ? $"WHERE {string.Join(" AND ", conditions)}" : "";
-        command.CommandText = $"""
-            SELECT ISNULL(NULLIF(LTRIM(RTRIM(m.maintainer)), ''), N'未分配') AS maintainer,
-                   s.stage_name,
-                   s.stage_start_time,
-                   ISNULL(c.hours, 0) AS configured_hours
-            FROM dbo.{StageSummaryTableName} s
-            LEFT JOIN dbo.{MetadataTableName} m
-              ON m.server_name = s.source_server_name
-             AND m.database_name = s.source_database_name
-             AND m.exam_code = s.exam_code
-            LEFT JOIN dbo.{ConfigTableName} c
-              ON c.stage_name = s.stage_name
-            {whereClause};
-            """;
+        return conditions;
+    }
 
-        var granularity = NormalizeGranularity(request.Granularity);
-        var rows = new List<WorkloadRow>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            var stageStart = reader.GetDateTime(2);
-            var configuredHours = reader.GetDecimal(3);
-            var (periodKey, periodLabel) = BuildPeriod(stageStart, granularity);
-            rows.Add(new WorkloadRow(
-                reader.GetString(0),
-                reader.GetString(1),
-                configuredHours,
-                configuredHours,
-                periodKey,
-                periodLabel));
-        }
+    private static void AddMaintainerCondition(SqlCommand command, List<string> conditions, WorkloadStatsRequest request)
+    {
+        var maintainer = request.Maintainer?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(maintainer))
+            return;
 
-        return rows;
+        conditions.Add("ISNULL(NULLIF(LTRIM(RTRIM(m.maintainer)), ''), N'未分配') = @maintainer");
+        command.Parameters.AddWithValue("@maintainer", maintainer);
     }
 
     private async Task<SummaryStoreConfig> LoadEnabledConfigAsync(CancellationToken cancellationToken)
@@ -306,6 +336,7 @@ public sealed class WorkloadStatsService
 
     private sealed record WorkloadRow(
         string Maintainer,
+        string ProjectName,
         string StageName,
         decimal ConfiguredHours,
         decimal Hours,

@@ -240,6 +240,7 @@ public sealed class ProjectStageRefreshResult
 
 public sealed class StageWorkloadConfigRecord
 {
+    public string ProjectName { get; set; } = "";
     public string StageName { get; set; } = "";
     public decimal Hours { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -248,6 +249,9 @@ public sealed class StageWorkloadConfigRecord
 public sealed class SaveStageWorkloadConfigsRequest
 {
     public List<StageWorkloadConfigRecord> Items { get; set; } = [];
+    public string Maintainer { get; set; } = "";
+    public DateTime? RangeStart { get; set; }
+    public DateTime? RangeEnd { get; set; }
 }
 
 public sealed class WorkloadStatsRequest
@@ -285,6 +289,7 @@ public sealed class WorkloadPeriodSummary
 
 public sealed class WorkloadStageSummary
 {
+    public string ProjectName { get; set; } = "";
     public string StageName { get; set; } = "";
     public decimal Hours { get; set; }
     public int StageCount { get; set; }
