@@ -44,6 +44,7 @@ builder.Services.AddSingleton<ScheduleConfigStore>();
 builder.Services.AddSingleton<DingTalkNotifyService>();
 builder.Services.AddSingleton<DingTalkProxyRegistry>();
 builder.Services.AddSingleton<ProjectMetadataService>();
+builder.Services.AddSingleton<WorkloadStatsService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
@@ -939,6 +940,43 @@ app.MapPost("/api/app-server-options/rename", async (RenameAppServerRequest requ
         return Results.BadRequest(new { detail = ex.Message });
     }
 }).RequireAuthorization("InternalOrAbove");
+
+app.MapGet("/api/workload/stage-configs", async (WorkloadStatsService workloadStatsService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await workloadStatsService.GetStageConfigsAsync(cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/workload/stage-configs", async (SaveStageWorkloadConfigsRequest request, WorkloadStatsService workloadStatsService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await workloadStatsService.SaveStageConfigsAsync(request.Items, cancellationToken);
+        return Results.Ok(await workloadStatsService.GetStageConfigsAsync(cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
+app.MapPost("/api/workload/stats", async (WorkloadStatsRequest request, WorkloadStatsService workloadStatsService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await workloadStatsService.GetStatsAsync(request, cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
 
 static string GetCurrentRole(HttpContext httpContext)
 {

@@ -301,6 +301,75 @@
     .assign-drawer-section .card-title {
       margin: 0;
     }
+    .workload-drawer {
+      width: min(860px, calc(100vw - 24px));
+    }
+    .workload-toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .workload-kpis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .workload-kpi {
+      padding: 12px;
+      border: 1px solid #e3e8f2;
+      border-radius: 12px;
+      background: #f8faff;
+    }
+    .workload-kpi-value {
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.1;
+      color: var(--text);
+    }
+    .workload-kpi-label {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .workload-table-wrap {
+      overflow: auto;
+      border: 1px solid #e3e8f2;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .workload-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 520px;
+      font-size: 13px;
+    }
+    .workload-table th,
+    .workload-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #eef1f6;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .workload-table th {
+      color: #52607a;
+      background: #f8faff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .workload-table tr:last-child td {
+      border-bottom: none;
+    }
+    .workload-table input {
+      width: 90px;
+      padding: 6px 8px;
+    }
+    .workload-columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+      gap: 12px;
+    }
 
     .layout { display: grid; gap: 14px; }
 
@@ -655,6 +724,11 @@
         width: 100vw;
         border-right: none;
       }
+      .workload-toolbar,
+      .workload-kpis,
+      .workload-columns {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -680,6 +754,7 @@
         <div class="page-header-right">
           <div class="header-actions">
             <button class="header-action-btn" id="toggle-assign-panel" type="button">批量分配</button>
+            <button class="header-action-btn" id="toggle-workload-panel" type="button" style="display:none;">工作量统计</button>
             <button class="header-action-btn header-action-primary" id="open-main-btn" type="button">返回查询中心</button>
             <button class="header-action-btn header-action-danger" id="logout-btn" type="button">退出账号</button>
           </div>
@@ -739,6 +814,118 @@
             <button class="btn-secondary" type="button" id="clear-selection-btn">清空选中</button>
           </div>
           <div class="status-line" id="batch-status"></div>
+        </section>
+      </aside>
+
+      <div class="assign-drawer-overlay" id="workload-panel-overlay"></div>
+      <aside class="assign-drawer workload-drawer" id="workload-panel" aria-hidden="true">
+        <div class="assign-drawer-head">
+          <div class="assign-drawer-copy">
+            <div class="assign-drawer-eyebrow">Workload</div>
+            <div class="assign-drawer-title">工作量统计</div>
+            <div class="assign-drawer-desc">管理员按阶段配置工时后，可按日、周、月、年汇总负责人工作量、占比和阶段分布。</div>
+          </div>
+          <button id="close-workload-panel" type="button" class="assign-drawer-close" aria-label="关闭工作量统计">×</button>
+        </div>
+
+        <section class="assign-drawer-section">
+          <div class="card-title">统计范围</div>
+          <div class="workload-toolbar">
+            <div class="field">
+              <label for="workload-granularity">统计周期</label>
+              <select id="workload-granularity">
+                <option value="day">按日</option>
+                <option value="week">按周</option>
+                <option value="month" selected>按月</option>
+                <option value="year">按年</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="workload-maintainer">负责人</label>
+              <select id="workload-maintainer">
+                <option value="">全部负责人</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="workload-start">开始日期</label>
+              <input id="workload-start" type="date">
+            </div>
+            <div class="field">
+              <label for="workload-end">结束日期</label>
+              <input id="workload-end" type="date">
+            </div>
+            <div class="actions">
+              <button class="btn-primary btn-sm" type="button" id="workload-query-btn">统计</button>
+            </div>
+          </div>
+          <div class="status-line" id="workload-status"></div>
+        </section>
+
+        <section class="assign-drawer-section">
+          <div class="card-title">汇总结果</div>
+          <div class="workload-kpis">
+            <div class="workload-kpi">
+              <div class="workload-kpi-value" id="workload-total-hours">0</div>
+              <div class="workload-kpi-label">总工时</div>
+            </div>
+            <div class="workload-kpi">
+              <div class="workload-kpi-value" id="workload-total-stages">0</div>
+              <div class="workload-kpi-label">阶段次数</div>
+            </div>
+            <div class="workload-kpi">
+              <div class="workload-kpi-value" id="workload-person-share">0%</div>
+              <div class="workload-kpi-label">当前人员占比</div>
+            </div>
+          </div>
+          <div class="workload-columns">
+            <div class="workload-table-wrap">
+              <table class="workload-table">
+                <thead>
+                  <tr>
+                    <th>负责人</th>
+                    <th>工时</th>
+                    <th>阶段</th>
+                    <th>占比</th>
+                  </tr>
+                </thead>
+                <tbody id="workload-people-body"></tbody>
+              </table>
+            </div>
+            <div class="workload-table-wrap">
+              <table class="workload-table">
+                <thead>
+                  <tr>
+                    <th>周期</th>
+                    <th>工时</th>
+                    <th>阶段</th>
+                  </tr>
+                </thead>
+                <tbody id="workload-period-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="assign-drawer-section">
+          <div class="card-title">阶段工时配置</div>
+          <div class="workload-table-wrap">
+            <table class="workload-table">
+              <thead>
+                <tr>
+                  <th>阶段名称</th>
+                  <th>单次工时</th>
+                  <th>出现次数</th>
+                  <th>合计工时</th>
+                </tr>
+              </thead>
+              <tbody id="workload-config-body"></tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="btn-primary btn-sm" type="button" id="workload-save-config-btn">保存阶段工时</button>
+            <button class="btn-secondary btn-sm" type="button" id="workload-reload-config-btn">重新加载</button>
+          </div>
+          <div class="status-line" id="workload-config-status"></div>
         </section>
       </aside>
     <div class="layout">
@@ -862,7 +1049,9 @@
       appServerOptions: [],
       projects: [],
       filteredProjects: [],
-      selectedKeys: new Set()
+      selectedKeys: new Set(),
+      workloadConfigs: [],
+      workloadStats: null
     };
 
     function escapeHtml(value) {
@@ -924,9 +1113,11 @@
     function fillMaintainerSelects() {
       const filter = document.getElementById("maintainer-filter");
       const batch = document.getElementById("batch-maintainer");
+      const workload = document.getElementById("workload-maintainer");
       const options = ['<option value="">全部负责人</option>']
         .concat(state.users.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}（${escapeHtml(user.role)}）</option>`));
       filter.innerHTML = options.join("");
+      workload.innerHTML = options.join("");
       batch.innerHTML = '<option value="__keep__">── 不修改负责人 ──</option><option value="">未指定（清空负责人）</option>' +
         state.users.map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}（${escapeHtml(user.role)}）</option>`).join("");
     }
@@ -1079,6 +1270,139 @@
       button.textContent = open ? "收起分配" : "批量分配";
     }
 
+    function setWorkloadPanelOpen(open) {
+      const panel = document.getElementById("workload-panel");
+      const overlay = document.getElementById("workload-panel-overlay");
+      const button = document.getElementById("toggle-workload-panel");
+      panel.classList.toggle("show", open);
+      overlay.classList.toggle("show", open);
+      panel.setAttribute("aria-hidden", open ? "false" : "true");
+      button.textContent = open ? "收起统计" : "工作量统计";
+      if (open) {
+        loadWorkloadData();
+      }
+    }
+
+    function formatHours(value) {
+      const number = Number(value || 0);
+      return Number.isInteger(number) ? String(number) : number.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    }
+
+    function renderWorkloadConfig() {
+      const body = document.getElementById("workload-config-body");
+      const stageStats = new Map((state.workloadStats?.stages || []).map(item => [item.stageName, item]));
+      if (!state.workloadConfigs.length) {
+        body.innerHTML = '<tr><td colspan="4">暂无阶段数据，请先更新中心库阶段汇总。</td></tr>';
+        return;
+      }
+
+      body.innerHTML = state.workloadConfigs.map(item => {
+        const stat = stageStats.get(item.stageName) || {};
+        return `
+          <tr>
+            <td>${escapeHtml(item.stageName)}</td>
+            <td><input type="number" min="0" step="0.25" value="${escapeHtml(String(item.hours ?? 0))}" data-workload-stage="${escapeHtml(item.stageName)}"></td>
+            <td>${escapeHtml(String(stat.stageCount || 0))}</td>
+            <td>${escapeHtml(formatHours(stat.hours || 0))}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    function renderWorkloadStats() {
+      const stats = state.workloadStats || { totalHours: 0, totalStages: 0, people: [], periods: [], stages: [] };
+      const peopleBody = document.getElementById("workload-people-body");
+      const periodBody = document.getElementById("workload-period-body");
+      const selectedMaintainer = document.getElementById("workload-maintainer").value;
+      const selectedPerson = selectedMaintainer
+        ? (stats.people || []).find(item => item.maintainer === selectedMaintainer)
+        : null;
+
+      document.getElementById("workload-total-hours").textContent = formatHours(stats.totalHours);
+      document.getElementById("workload-total-stages").textContent = String(stats.totalStages || 0);
+      document.getElementById("workload-person-share").textContent = selectedMaintainer
+        ? `${formatHours(selectedPerson?.percent || 0)}%`
+        : "100%";
+
+      peopleBody.innerHTML = (stats.people || []).length
+        ? stats.people.map(item => `
+          <tr>
+            <td>${escapeHtml(item.maintainer)}</td>
+            <td>${escapeHtml(formatHours(item.hours))}</td>
+            <td>${escapeHtml(String(item.stageCount))}</td>
+            <td>${escapeHtml(formatHours(item.percent))}%</td>
+          </tr>`).join("")
+        : '<tr><td colspan="4">暂无工作量数据。</td></tr>';
+
+      periodBody.innerHTML = (stats.periods || []).length
+        ? stats.periods.map(item => `
+          <tr>
+            <td>${escapeHtml(item.periodLabel)}</td>
+            <td>${escapeHtml(formatHours(item.hours))}</td>
+            <td>${escapeHtml(String(item.stageCount))}</td>
+          </tr>`).join("")
+        : '<tr><td colspan="3">暂无周期数据。</td></tr>';
+
+      renderWorkloadConfig();
+    }
+
+    function buildWorkloadRequest() {
+      return {
+        granularity: document.getElementById("workload-granularity").value,
+        maintainer: document.getElementById("workload-maintainer").value,
+        rangeStart: document.getElementById("workload-start").value || null,
+        rangeEnd: document.getElementById("workload-end").value || null
+      };
+    }
+
+    async function loadWorkloadConfigs() {
+      if (!state.auth?.isAdmin) return;
+      state.workloadConfigs = await getJson(buildAppUrl("/api/workload/stage-configs"));
+      renderWorkloadConfig();
+    }
+
+    async function queryWorkloadStats() {
+      if (!state.auth?.isAdmin) return;
+      setStatus("workload-status", "正在统计工作量...");
+      try {
+        state.workloadStats = await postJson(buildAppUrl("/api/workload/stats"), buildWorkloadRequest());
+        renderWorkloadStats();
+        setStatus("workload-status", "工作量统计完成。", "success");
+      } catch (error) {
+        state.workloadStats = null;
+        renderWorkloadStats();
+        setStatus("workload-status", error.message || "统计失败", "error");
+      }
+    }
+
+    async function loadWorkloadData() {
+      if (!state.auth?.isAdmin || state.workloadConfigs.length) return;
+      setStatus("workload-config-status", "正在加载阶段工时配置...");
+      try {
+        await loadWorkloadConfigs();
+        await queryWorkloadStats();
+        setStatus("workload-config-status", "阶段工时配置已加载。", "success");
+      } catch (error) {
+        setStatus("workload-config-status", error.message || "加载失败", "error");
+      }
+    }
+
+    async function saveWorkloadConfigs() {
+      if (!state.auth?.isAdmin) return;
+      const items = Array.from(document.querySelectorAll("[data-workload-stage]")).map(input => ({
+        stageName: input.dataset.workloadStage,
+        hours: Number(input.value || 0)
+      }));
+
+      setStatus("workload-config-status", "正在保存阶段工时...");
+      try {
+        state.workloadConfigs = await postJson(buildAppUrl("/api/workload/stage-configs"), { items });
+        await queryWorkloadStats();
+        setStatus("workload-config-status", "阶段工时已保存。", "success");
+      } catch (error) {
+        setStatus("workload-config-status", error.message || "保存失败", "error");
+      }
+    }
+
     async function ensureAuth() {
       const auth = await getJson(buildAppUrl("/api/auth/status"));
       state.auth = auth;
@@ -1100,6 +1424,8 @@
         document.body.innerHTML = '<div class="page"><h1 style="margin-top:40px">无权访问</h1><p style="color:var(--muted);margin-top:8px">本页仅开放给管理员、内部用户或有分配权限的用户。</p></div>';
         return false;
       }
+
+      document.getElementById("toggle-workload-panel").style.display = auth.isAdmin ? "" : "none";
 
       return true;
     }
@@ -1354,6 +1680,25 @@
     });
     document.getElementById("close-assign-panel").addEventListener("click", () => setAssignPanelOpen(false));
     document.getElementById("assign-panel-overlay").addEventListener("click", () => setAssignPanelOpen(false));
+    document.getElementById("toggle-workload-panel").addEventListener("click", () => {
+      const panel = document.getElementById("workload-panel");
+      setWorkloadPanelOpen(!panel.classList.contains("show"));
+    });
+    document.getElementById("close-workload-panel").addEventListener("click", () => setWorkloadPanelOpen(false));
+    document.getElementById("workload-panel-overlay").addEventListener("click", () => setWorkloadPanelOpen(false));
+    document.getElementById("workload-query-btn").addEventListener("click", queryWorkloadStats);
+    document.getElementById("workload-save-config-btn").addEventListener("click", saveWorkloadConfigs);
+    document.getElementById("workload-reload-config-btn").addEventListener("click", async () => {
+      setStatus("workload-config-status", "正在重新加载阶段工时配置...");
+      try {
+        state.workloadConfigs = [];
+        await loadWorkloadConfigs();
+        await queryWorkloadStats();
+        setStatus("workload-config-status", "阶段工时配置已重新加载。", "success");
+      } catch (error) {
+        setStatus("workload-config-status", error.message || "重新加载失败", "error");
+      }
+    });
 
     document.getElementById("logout-btn").addEventListener("click", async () => {
       await postJson(buildAppUrl("/api/auth/logout"), {});
@@ -1367,10 +1712,12 @@
     (async function bootstrap() {
       const allowed = await ensureAuth();
       if (!allowed) return;
+      const now = new Date();
+      document.getElementById("workload-start").value = `${now.getFullYear()}-01-01`;
+      document.getElementById("workload-end").value = `${now.getFullYear()}-12-31`;
       await loadBaseData();
       await queryProjects();
     })();
   </script>
 </body>
 </html>
-

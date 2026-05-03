@@ -238,6 +238,59 @@ public sealed class ProjectStageRefreshResult
     public List<AgentRefreshResult> AgentResults { get; set; } = [];
 }
 
+public sealed class StageWorkloadConfigRecord
+{
+    public string StageName { get; set; } = "";
+    public decimal Hours { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public sealed class SaveStageWorkloadConfigsRequest
+{
+    public List<StageWorkloadConfigRecord> Items { get; set; } = [];
+}
+
+public sealed class WorkloadStatsRequest
+{
+    public string Granularity { get; set; } = "month";
+    public string Maintainer { get; set; } = "";
+    public DateTime? RangeStart { get; set; }
+    public DateTime? RangeEnd { get; set; }
+}
+
+public sealed class WorkloadStatsResponse
+{
+    public decimal TotalHours { get; set; }
+    public int TotalStages { get; set; }
+    public List<WorkloadPersonSummary> People { get; set; } = [];
+    public List<WorkloadPeriodSummary> Periods { get; set; } = [];
+    public List<WorkloadStageSummary> Stages { get; set; } = [];
+}
+
+public sealed class WorkloadPersonSummary
+{
+    public string Maintainer { get; set; } = "";
+    public decimal Hours { get; set; }
+    public int StageCount { get; set; }
+    public decimal Percent { get; set; }
+}
+
+public sealed class WorkloadPeriodSummary
+{
+    public string PeriodKey { get; set; } = "";
+    public string PeriodLabel { get; set; } = "";
+    public decimal Hours { get; set; }
+    public int StageCount { get; set; }
+}
+
+public sealed class WorkloadStageSummary
+{
+    public string StageName { get; set; } = "";
+    public decimal Hours { get; set; }
+    public int StageCount { get; set; }
+    public decimal ConfiguredHours { get; set; }
+}
+
 public sealed class AgentRefreshResult
 {
     public string ServerName { get; set; } = "";
