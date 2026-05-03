@@ -42,7 +42,9 @@ public sealed class WorkloadStatsService
                  AND m.exam_code = s.exam_code
                 {whereClause}
             ) s
-            LEFT JOIN dbo.{ConfigTableName} c ON c.stage_name = s.stage_name
+            LEFT JOIN dbo.{ConfigTableName} c
+              ON c.project_name = s.project_name
+             AND c.stage_name = s.stage_name
             ORDER BY s.project_name, s.stage_name;
             """;
 
@@ -68,11 +70,12 @@ public sealed class WorkloadStatsService
         var normalized = (items ?? [])
             .Select(item => new StageWorkloadConfigRecord
             {
+                ProjectName = item.ProjectName?.Trim() ?? "",
                 StageName = item.StageName?.Trim() ?? "",
                 Hours = item.Hours < 0 ? 0 : Math.Round(item.Hours, 2)
             })
-            .Where(item => !string.IsNullOrWhiteSpace(item.StageName))
-            .GroupBy(item => item.StageName, StringComparer.OrdinalIgnoreCase)
+            .Where(item => !string.IsNullOrWhiteSpace(item.ProjectName) && !string.IsNullOrWhiteSpace(item.StageName))
+            .GroupBy(item => new { ProjectName = item.ProjectName.ToLowerInvariant(), StageName = item.StageName.ToLowerInvariant() })
             .Select(group => group.Last())
             .ToList();
 
@@ -89,14 +92,16 @@ public sealed class WorkloadStatsService
                 command.Transaction = (SqlTransaction)transaction;
                 command.CommandText = $"""
                     MERGE dbo.{ConfigTableName} AS target
-                    USING (SELECT @stage_name AS stage_name) AS source
-                    ON target.stage_name = source.stage_name
+                    USING (SELECT @project_name AS project_name, @stage_name AS stage_name) AS source
+                    ON target.project_name = source.project_name
+                    AND target.stage_name = source.stage_name
                     WHEN MATCHED THEN
                         UPDATE SET hours = @hours, updated_at = GETDATE()
                     WHEN NOT MATCHED THEN
-                        INSERT (stage_name, hours, updated_at)
-                        VALUES (@stage_name, @hours, GETDATE());
+                        INSERT (project_name, stage_name, hours, updated_at)
+                        VALUES (@project_name, @stage_name, @hours, GETDATE());
                     """;
+                command.Parameters.AddWithValue("@project_name", item.ProjectName);
                 command.Parameters.AddWithValue("@stage_name", item.StageName);
                 command.Parameters.AddWithValue("@hours", item.Hours);
                 await command.ExecuteNonQueryAsync(cancellationToken);
@@ -189,7 +194,8 @@ public sealed class WorkloadStatsService
              AND m.database_name = s.source_database_name
              AND m.exam_code = s.exam_code
             LEFT JOIN dbo.{ConfigTableName} c
-              ON c.stage_name = s.stage_name
+              ON c.project_name = s.project_name
+             AND c.stage_name = s.stage_name
             {whereClause};
             """;
 
@@ -260,11 +266,58 @@ public sealed class WorkloadStatsService
             IF OBJECT_ID(N'dbo.{ConfigTableName}', N'U') IS NULL
             BEGIN
                 CREATE TABLE dbo.{ConfigTableName} (
+                    project_name NVARCHAR(500) NOT NULL,
                     stage_name NVARCHAR(200) NOT NULL,
                     hours DECIMAL(10, 2) NOT NULL DEFAULT 0,
                     updated_at DATETIME NOT NULL DEFAULT GETDATE(),
-                    CONSTRAINT PK_{ConfigTableName} PRIMARY KEY (stage_name)
+                    CONSTRAINT PK_{ConfigTableName} PRIMARY KEY (project_name, stage_name)
                 );
+            END;
+
+            IF COL_LENGTH(N'dbo.{ConfigTableName}', N'project_name') IS NULL
+            BEGIN
+                ALTER TABLE dbo.{ConfigTableName}
+                ADD project_name NVARCHAR(500) NOT NULL CONSTRAINT DF_{ConfigTableName}_project_name DEFAULT N'';
+            END;
+
+            DECLARE @workloadPkName SYSNAME;
+            DECLARE @workloadHasCompositePk BIT = 0;
+
+            SELECT @workloadPkName = kc.name
+            FROM sys.key_constraints kc
+            WHERE kc.parent_object_id = OBJECT_ID(N'dbo.{ConfigTableName}')
+              AND kc.[type] = N'PK';
+
+            IF @workloadPkName IS NOT NULL
+            BEGIN
+                SELECT @workloadHasCompositePk =
+                    CASE WHEN COUNT(*) = 2
+                           AND SUM(CASE WHEN c.name = N'project_name' THEN 1 ELSE 0 END) = 1
+                           AND SUM(CASE WHEN c.name = N'stage_name' THEN 1 ELSE 0 END) = 1
+                         THEN 1 ELSE 0 END
+                FROM sys.index_columns ic
+                INNER JOIN sys.columns c
+                  ON c.object_id = ic.object_id
+                 AND c.column_id = ic.column_id
+                INNER JOIN sys.key_constraints kc
+                  ON kc.parent_object_id = ic.object_id
+                 AND kc.unique_index_id = ic.index_id
+                WHERE kc.parent_object_id = OBJECT_ID(N'dbo.{ConfigTableName}')
+                  AND kc.[type] = N'PK';
+
+                IF @workloadHasCompositePk = 0
+                    EXEC(N'ALTER TABLE dbo.{ConfigTableName} DROP CONSTRAINT ' + QUOTENAME(@workloadPkName));
+            END;
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM sys.key_constraints
+                WHERE parent_object_id = OBJECT_ID(N'dbo.{ConfigTableName}')
+                  AND [type] = N'PK'
+            )
+            BEGIN
+                ALTER TABLE dbo.{ConfigTableName}
+                ADD CONSTRAINT PK_{ConfigTableName} PRIMARY KEY (project_name, stage_name);
             END;
 
             IF OBJECT_ID(N'dbo.{MetadataTableName}', N'U') IS NULL
