@@ -1301,6 +1301,7 @@
         <div class="config-drawer-section-desc">页面跳转和账号相关操作统一放在这里。</div>
         <div class="config-drawer-actions">
           <button id="open-manage-page" type="button" class="secondary" style="display:none;">分配管理</button>
+          <button id="open-workload-page" type="button" class="secondary" style="display:none;">工时统计</button>
           <button id="open-user-modal" type="button" class="secondary" style="display:none;">用户管理</button>
           <button id="open-my-dingtalk-modal" type="button" class="secondary" style="display:none;">我的钉钉</button>
           <button id="open-password-modal" type="button" class="secondary" style="display:none;">修改密码</button>
@@ -2025,6 +2026,7 @@
       }
       document.getElementById("logout-btn").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-manage-page").style.display = username && (isAdmin() || currentCanAssign) ? "inline-flex" : "none";
+      document.getElementById("open-workload-page").style.display = username && isAdmin() ? "inline-flex" : "none";
       const showServerMetrics = isAdminOrInternal();
       document.getElementById("drawer-server-count-card").style.display = showServerMetrics ? "" : "none";
       document.getElementById("drawer-enabled-count-card").style.display = showServerMetrics ? "" : "none";
@@ -2904,6 +2906,10 @@
     document.getElementById("open-manage-page").addEventListener("click", () => {
       if (!isAdmin() && !currentCanAssign) return;
       window.location.href = buildAppUrl("manage.html");
+    });
+    document.getElementById("open-workload-page").addEventListener("click", () => {
+      if (!isAdmin()) return;
+      window.location.href = buildAppUrl("workload.html");
     });
     document.getElementById("open-summary-store-modal").addEventListener("click", async () => {
       if (!isAdmin()) return;
@@ -3817,4 +3823,3 @@
   </script>
 </body>
 </html>
-
