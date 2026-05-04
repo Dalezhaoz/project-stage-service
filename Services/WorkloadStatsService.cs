@@ -33,6 +33,7 @@ public sealed class WorkloadStatsService
             SELECT s.project_name,
                    s.stage_name,
                    CAST(ISNULL(c.hours, 0) AS DECIMAL(10,2)) AS hours,
+                   CAST(ISNULL(c.complexity, 1) AS DECIMAL(10,2)) AS complexity,
                    c.updated_at
             FROM (
                 SELECT DISTINCT s.project_name, s.stage_name
@@ -58,7 +59,8 @@ public sealed class WorkloadStatsService
                 ProjectName = reader.GetString(0),
                 StageName = reader.GetString(1),
                 Hours = reader.GetDecimal(2),
-                UpdatedAt = reader.IsDBNull(3) ? null : reader.GetDateTime(3)
+                Complexity = reader.GetDecimal(3),
+                UpdatedAt = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
             });
         }
 
@@ -73,7 +75,8 @@ public sealed class WorkloadStatsService
             {
                 ProjectName = item.ProjectName?.Trim() ?? "",
                 StageName = item.StageName?.Trim() ?? "",
-                Hours = item.Hours < 0 ? 0 : Math.Round(item.Hours, 2)
+                Hours = item.Hours < 0 ? 0 : Math.Round(item.Hours, 2),
+                Complexity = item.Complexity < 0 ? 0 : Math.Round(item.Complexity, 2)
             })
             .Where(item => !string.IsNullOrWhiteSpace(item.ProjectName) && !string.IsNullOrWhiteSpace(item.StageName))
             .GroupBy(item => new { ProjectName = item.ProjectName.ToLowerInvariant(), StageName = item.StageName.ToLowerInvariant() })
@@ -97,14 +100,15 @@ public sealed class WorkloadStatsService
                     ON target.project_name = source.project_name
                     AND target.stage_name = source.stage_name
                     WHEN MATCHED THEN
-                        UPDATE SET hours = @hours, updated_at = GETDATE()
+                        UPDATE SET hours = @hours, complexity = @complexity, updated_at = GETDATE()
                     WHEN NOT MATCHED THEN
-                        INSERT (project_name, stage_name, hours, updated_at)
-                        VALUES (@project_name, @stage_name, @hours, GETDATE());
+                        INSERT (project_name, stage_name, hours, complexity, updated_at)
+                        VALUES (@project_name, @stage_name, @hours, @complexity, GETDATE());
                     """;
                 command.Parameters.AddWithValue("@project_name", item.ProjectName);
                 command.Parameters.AddWithValue("@stage_name", item.StageName);
                 command.Parameters.AddWithValue("@hours", item.Hours);
+                command.Parameters.AddWithValue("@complexity", item.Complexity);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -160,12 +164,13 @@ public sealed class WorkloadStatsService
                 .OrderBy(item => item.PeriodKey, StringComparer.Ordinal)
                 .ToList(),
             Stages = scopedRows
-                .GroupBy(item => new { item.ProjectName, item.StageName, item.ConfiguredHours })
+                .GroupBy(item => new { item.ProjectName, item.StageName, item.ConfiguredHours, item.Complexity })
                 .Select(group => new WorkloadStageSummary
                 {
                     ProjectName = group.Key.ProjectName,
                     StageName = group.Key.StageName,
                     ConfiguredHours = Round(group.Key.ConfiguredHours),
+                    Complexity = Round(group.Key.Complexity),
                     StageCount = group.Count(),
                     Hours = Round(group.Sum(item => item.Hours))
                 })
@@ -209,6 +214,7 @@ public sealed class WorkloadStatsService
                 var configured = item.UpdatedAt.HasValue;
                 return status switch
                 {
+                    "review" => NeedsReview(item),
                     "unset" => !configured,
                     "set" => configured,
                     _ => true
@@ -216,6 +222,12 @@ public sealed class WorkloadStatsService
             })
             .ToList();
     }
+
+    private static bool NeedsReview(StageWorkloadConfigRecord item) =>
+        !item.UpdatedAt.HasValue ||
+        item.Hours <= 0 ||
+        item.Complexity < 0.5m ||
+        item.Complexity > 2m;
 
     private static void AddPeopleSheet(XLWorkbook workbook, WorkloadStatsResponse stats)
     {
@@ -254,7 +266,7 @@ public sealed class WorkloadStatsService
         Dictionary<string, WorkloadStageSummary> stageStats)
     {
         var sheet = workbook.Worksheets.Add("阶段工时配置");
-        WriteHeader(sheet, ["项目名称", "阶段名称", "单次工时", "出现次数", "合计工时", "工时状态", "更新时间"]);
+        WriteHeader(sheet, ["项目名称", "阶段名称", "基础单次工时", "复杂度", "折算单次工时", "出现次数", "合计工时", "工时状态", "核对建议", "更新时间"]);
         var row = 2;
         foreach (var item in configs)
         {
@@ -262,14 +274,27 @@ public sealed class WorkloadStatsService
             sheet.Cell(row, 1).Value = item.ProjectName;
             sheet.Cell(row, 2).Value = item.StageName;
             sheet.Cell(row, 3).Value = item.Hours;
-            sheet.Cell(row, 4).Value = stat?.StageCount ?? 0;
-            sheet.Cell(row, 5).Value = stat?.Hours ?? 0;
-            sheet.Cell(row, 6).Value = item.UpdatedAt.HasValue ? "已设置" : "未设置";
+            sheet.Cell(row, 4).Value = item.Complexity;
+            sheet.Cell(row, 5).Value = Round(item.Hours * item.Complexity);
+            sheet.Cell(row, 6).Value = stat?.StageCount ?? 0;
+            sheet.Cell(row, 7).Value = stat?.Hours ?? 0;
+            sheet.Cell(row, 8).Value = item.UpdatedAt.HasValue ? "已设置" : "未设置";
+            sheet.Cell(row, 9).Value = BuildReviewHint(item);
             if (item.UpdatedAt.HasValue)
-                sheet.Cell(row, 7).Value = item.UpdatedAt.Value;
+                sheet.Cell(row, 10).Value = item.UpdatedAt.Value;
             row++;
         }
         FormatSheet(sheet);
+    }
+
+    private static string BuildReviewHint(StageWorkloadConfigRecord item)
+    {
+        var hints = new List<string>();
+        if (!item.UpdatedAt.HasValue) hints.Add("未设置工时");
+        if (item.Hours <= 0) hints.Add("工时为0");
+        if (item.Complexity < 0.5m) hints.Add("复杂度偏低");
+        if (item.Complexity > 2m) hints.Add("复杂度偏高");
+        return hints.Count == 0 ? "正常" : string.Join("、", hints);
     }
 
     private static void WriteHeader(IXLWorksheet sheet, string[] headers)
@@ -305,7 +330,8 @@ public sealed class WorkloadStatsService
                    s.project_name,
                    s.stage_name,
                    s.stage_start_time,
-                   CAST(ISNULL(c.hours, 0) AS DECIMAL(10,2)) AS configured_hours
+                   CAST(ISNULL(c.hours, 0) AS DECIMAL(10,2)) AS configured_hours,
+                   CAST(ISNULL(c.complexity, 1) AS DECIMAL(10,2)) AS complexity
             FROM dbo.{StageSummaryTableName} s
             LEFT JOIN dbo.{MetadataTableName} m
               ON m.server_name = s.source_server_name
@@ -324,13 +350,15 @@ public sealed class WorkloadStatsService
         {
             var stageStart = reader.GetDateTime(3);
             var configuredHours = reader.GetDecimal(4);
+            var complexity = reader.GetDecimal(5);
             var (periodKey, periodLabel) = BuildPeriod(stageStart, granularity);
             rows.Add(new WorkloadRow(
                 reader.GetString(0),
                 reader.GetString(1),
                 reader.GetString(2),
                 configuredHours,
-                configuredHours,
+                complexity,
+                configuredHours * complexity,
                 periodKey,
                 periodLabel));
         }
@@ -387,6 +415,7 @@ public sealed class WorkloadStatsService
                     project_name NVARCHAR(500) NOT NULL,
                     stage_name NVARCHAR(200) NOT NULL,
                     hours DECIMAL(10, 2) NOT NULL DEFAULT 0,
+                    complexity DECIMAL(10, 2) NOT NULL DEFAULT 1,
                     updated_at DATETIME NOT NULL DEFAULT GETDATE(),
                     CONSTRAINT PK_{ConfigTableName} PRIMARY KEY (project_name, stage_name)
                 );
@@ -396,6 +425,12 @@ public sealed class WorkloadStatsService
             BEGIN
                 ALTER TABLE dbo.{ConfigTableName}
                 ADD project_name NVARCHAR(500) NOT NULL CONSTRAINT DF_{ConfigTableName}_project_name DEFAULT N'';
+            END;
+
+            IF COL_LENGTH(N'dbo.{ConfigTableName}', N'complexity') IS NULL
+            BEGIN
+                ALTER TABLE dbo.{ConfigTableName}
+                ADD complexity DECIMAL(10, 2) NOT NULL CONSTRAINT DF_{ConfigTableName}_complexity DEFAULT 1;
             END;
 
             DECLARE @workloadHasCompositePk BIT = 0;
@@ -518,6 +553,7 @@ public sealed class WorkloadStatsService
         string ProjectName,
         string StageName,
         decimal ConfiguredHours,
+        decimal Complexity,
         decimal Hours,
         string PeriodKey,
         string PeriodLabel);

@@ -243,6 +243,7 @@ public sealed class StageWorkloadConfigRecord
     public string ProjectName { get; set; } = "";
     public string StageName { get; set; } = "";
     public decimal Hours { get; set; }
+    public decimal Complexity { get; set; } = 1;
     public DateTime? UpdatedAt { get; set; }
 }
 
@@ -296,6 +297,7 @@ public sealed class WorkloadStageSummary
     public decimal Hours { get; set; }
     public int StageCount { get; set; }
     public decimal ConfiguredHours { get; set; }
+    public decimal Complexity { get; set; } = 1;
 }
 
 public sealed class AgentRefreshResult

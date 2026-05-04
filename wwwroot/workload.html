@@ -226,9 +226,30 @@
       gap: 8px;
       justify-content: flex-end;
     }
+    .bulk-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 130px 130px auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+      padding: 12px;
+      border: 1px solid #e3e8f2;
+      border-radius: 12px;
+      background: #f8faff;
+    }
+    .bulk-summary {
+      color: #52607a;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .row-check {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
     @media (max-width: 900px) {
       .page { padding: 14px; }
-      .page-header, .columns, .toolbar, .config-head, .config-filters { grid-template-columns: 1fr; }
+      .page-header, .columns, .toolbar, .config-head, .config-filters, .bulk-bar { grid-template-columns: 1fr; }
       .header-actions, .config-actions { justify-content: stretch; }
       .header-actions button, .config-actions button { width: 100%; }
       .kpis { grid-template-columns: 1fr; }
@@ -344,9 +365,10 @@
                 <input id="workload-config-keyword" type="search" placeholder="输入项目名称或阶段名称模糊查询">
               </div>
               <div class="field">
-                <label for="workload-config-status-filter">工时状态</label>
+                <label for="workload-config-status-filter">核对状态</label>
                 <select id="workload-config-status-filter">
                   <option value="all">全部阶段</option>
+                  <option value="review">待核对</option>
                   <option value="unset">未设置工时</option>
                   <option value="set">已设置工时</option>
                 </select>
@@ -358,12 +380,27 @@
             <button class="btn-secondary btn-sm" id="workload-reload-config-btn" type="button">重新加载</button>
           </div>
         </div>
+        <div class="bulk-bar">
+          <div class="bulk-summary" id="workload-selected-summary">已选 0 个阶段。可先筛选，再批量设置基础工时和复杂度。</div>
+          <div class="field">
+            <label for="bulk-hours">批量基础工时</label>
+            <input id="bulk-hours" type="number" min="0" step="0.25" placeholder="如 2">
+          </div>
+          <div class="field">
+            <label for="bulk-complexity">批量复杂度</label>
+            <input id="bulk-complexity" type="number" min="0" step="0.1" placeholder="如 1">
+          </div>
+          <button class="btn-primary btn-sm" id="apply-bulk-config-btn" type="button">应用到选中</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th><input class="row-check" id="select-visible-stages" type="checkbox" aria-label="选择当前筛选阶段"></th>
                 <th>阶段名称</th>
-                <th>单次工时</th>
+                <th>基础工时</th>
+                <th>复杂度</th>
+                <th>折算单次</th>
                 <th>出现次数</th>
                 <th>合计工时</th>
               </tr>
@@ -409,7 +446,8 @@
     const state = {
       auth: null,
       workloadConfigs: [],
-      workloadStats: null
+      workloadStats: null,
+      selectedStageKeys: new Set()
     };
 
     function escapeHtml(value) {
@@ -456,6 +494,7 @@
 
     function renderWorkloadConfig() {
       const body = document.getElementById("workload-config-body");
+      const selectAll = document.getElementById("select-visible-stages");
       const keyword = document.getElementById("workload-config-keyword").value.trim().toLowerCase();
       const statusFilter = document.getElementById("workload-config-status-filter").value;
       const stageStats = new Map((state.workloadStats?.stages || []).map(item => [`${item.projectName || ""}||${item.stageName}`, item]));
@@ -465,36 +504,73 @@
           (item.stageName || "").toLowerCase().includes(keyword);
         const hasConfiguredHours = Boolean(item.updatedAt);
         const matchesStatus = statusFilter === "all" ||
+          (statusFilter === "review" && needsReview(item)) ||
           (statusFilter === "unset" && !hasConfiguredHours) ||
           (statusFilter === "set" && hasConfiguredHours);
         return matchesKeyword && matchesStatus;
       });
 
       if (!state.workloadConfigs.length) {
-        body.innerHTML = '<tr><td colspan="4">暂无阶段数据，请先更新中心库阶段汇总。</td></tr>';
+        body.innerHTML = '<tr><td colspan="7">暂无阶段数据，请先更新中心库阶段汇总。</td></tr>';
+        updateSelectionSummary([]);
         return;
       }
 
       if (!configs.length) {
-        body.innerHTML = '<tr><td colspan="4">没有匹配的项目或阶段。</td></tr>';
+        body.innerHTML = '<tr><td colspan="7">没有匹配的项目或阶段。</td></tr>';
+        updateSelectionSummary([]);
         return;
       }
 
       body.innerHTML = configs.map(item => {
         const stat = stageStats.get(`${item.projectName || ""}||${item.stageName}`) || {};
+        const complexity = Number(item.complexity ?? 1);
+        const key = getStageKey(item);
         return `
-          <tr>
+          <tr data-stage-row="${escapeHtml(key)}">
+            <td><input class="row-check" type="checkbox" data-stage-select="${escapeHtml(key)}" ${state.selectedStageKeys.has(key) ? "checked" : ""}></td>
             <td>
               <div class="stage-cell">
                 <div class="stage-name">${escapeHtml(item.stageName)}</div>
                 <div class="project-name">${escapeHtml(item.projectName || "未命名项目")}</div>
               </div>
             </td>
-            <td><input class="hours-input" type="number" min="0" step="0.25" value="${escapeHtml(String(item.hours ?? 0))}" data-workload-project="${escapeHtml(item.projectName || "")}" data-workload-stage="${escapeHtml(item.stageName)}"></td>
+            <td><input class="hours-input" type="number" min="0" step="0.25" value="${escapeHtml(String(item.hours ?? 0))}" data-workload-project="${escapeHtml(item.projectName || "")}" data-workload-stage="${escapeHtml(item.stageName)}" data-workload-field="hours"></td>
+            <td><input class="hours-input" type="number" min="0" step="0.1" value="${escapeHtml(String(item.complexity ?? 1))}" data-workload-project="${escapeHtml(item.projectName || "")}" data-workload-stage="${escapeHtml(item.stageName)}" data-workload-field="complexity"></td>
+            <td>${escapeHtml(formatHours(Number(item.hours || 0) * complexity))}</td>
             <td>${escapeHtml(String(stat.stageCount || 0))}</td>
             <td>${escapeHtml(formatHours(stat.hours || 0))}</td>
           </tr>`;
       }).join("");
+      const visibleKeys = configs.map(getStageKey);
+      updateSelectionSummary(visibleKeys);
+      selectAll.checked = visibleKeys.length > 0 && visibleKeys.every(key => state.selectedStageKeys.has(key));
+      selectAll.indeterminate = !selectAll.checked && visibleKeys.some(key => state.selectedStageKeys.has(key));
+    }
+
+    function getStageKey(item) {
+      return `${item.projectName || ""}||${item.stageName || ""}`;
+    }
+
+    function updateSelectionSummary(visibleKeys = []) {
+      const selectedVisibleCount = visibleKeys.filter(key => state.selectedStageKeys.has(key)).length;
+      document.getElementById("workload-selected-summary").textContent =
+        `已选 ${state.selectedStageKeys.size} 个阶段，当前筛选中选中 ${selectedVisibleCount} 个。`;
+    }
+
+    function needsReview(item) {
+      const complexity = Number(item.complexity ?? 1);
+      return !item.updatedAt || Number(item.hours || 0) <= 0 || complexity < 0.5 || complexity > 2;
+    }
+
+    function syncConfigInputsToState() {
+      document.querySelectorAll("[data-workload-stage]").forEach(input => {
+        const key = `${input.dataset.workloadProject}||${input.dataset.workloadStage}`;
+        const item = state.workloadConfigs.find(config => getStageKey(config) === key);
+        if (!item) return;
+        if (input.dataset.workloadField === "hours") item.hours = Number(input.value || 0);
+        if (input.dataset.workloadField === "complexity") item.complexity = Number(input.value || 0);
+      });
     }
 
     function renderWorkloadStats() {
@@ -552,10 +628,12 @@
     }
 
     async function saveWorkloadConfigs() {
-      const items = Array.from(document.querySelectorAll("[data-workload-stage]")).map(input => ({
-        projectName: input.dataset.workloadProject,
-        stageName: input.dataset.workloadStage,
-        hours: Number(input.value || 0)
+      syncConfigInputsToState();
+      const items = state.workloadConfigs.map(item => ({
+        projectName: item.projectName,
+        stageName: item.stageName,
+        hours: Number(item.hours || 0),
+        complexity: Number(item.complexity ?? 1)
       }));
 
       setStatus("workload-config-status", "正在保存阶段工时...");
@@ -572,6 +650,33 @@
       } catch (error) {
         setStatus("workload-config-status", error.message || "保存失败", "error");
       }
+    }
+
+    function applyBulkConfig() {
+      const selectedKeys = state.selectedStageKeys;
+      if (!selectedKeys.size) {
+        setStatus("workload-config-status", "请先勾选需要批量设置的阶段。", "error");
+        return;
+      }
+
+      const hoursValue = document.getElementById("bulk-hours").value;
+      const complexityValue = document.getElementById("bulk-complexity").value;
+      const shouldSetHours = hoursValue !== "";
+      const shouldSetComplexity = complexityValue !== "";
+      if (!shouldSetHours && !shouldSetComplexity) {
+        setStatus("workload-config-status", "请输入要批量应用的基础工时或复杂度。", "error");
+        return;
+      }
+
+      const hours = Number(hoursValue || 0);
+      const complexity = Number(complexityValue || 0);
+      state.workloadConfigs.forEach(item => {
+        if (!selectedKeys.has(getStageKey(item))) return;
+        if (shouldSetHours) item.hours = hours;
+        if (shouldSetComplexity) item.complexity = complexity;
+      });
+      renderWorkloadConfig();
+      setStatus("workload-config-status", `已应用到 ${selectedKeys.size} 个阶段，确认无误后请保存。`, "success");
     }
 
     async function exportWorkload() {
@@ -634,6 +739,28 @@
     document.getElementById("workload-export-btn").addEventListener("click", exportWorkload);
     document.getElementById("workload-config-keyword").addEventListener("input", renderWorkloadConfig);
     document.getElementById("workload-config-status-filter").addEventListener("change", renderWorkloadConfig);
+    document.getElementById("apply-bulk-config-btn").addEventListener("click", applyBulkConfig);
+    document.getElementById("select-visible-stages").addEventListener("change", event => {
+      const visibleKeys = Array.from(document.querySelectorAll("[data-stage-row]")).map(row => row.dataset.stageRow);
+      visibleKeys.forEach(key => {
+        if (event.target.checked) {
+          state.selectedStageKeys.add(key);
+        } else {
+          state.selectedStageKeys.delete(key);
+        }
+      });
+      renderWorkloadConfig();
+    });
+    document.getElementById("workload-config-body").addEventListener("change", event => {
+      const checkbox = event.target.closest("[data-stage-select]");
+      if (!checkbox) return;
+      if (checkbox.checked) {
+        state.selectedStageKeys.add(checkbox.dataset.stageSelect);
+      } else {
+        state.selectedStageKeys.delete(checkbox.dataset.stageSelect);
+      }
+      renderWorkloadConfig();
+    });
     document.getElementById("workload-save-config-btn").addEventListener("click", saveWorkloadConfigs);
     document.getElementById("workload-reload-config-btn").addEventListener("click", async () => {
       setStatus("workload-config-status", "正在重新加载阶段工时配置...");
