@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.Data.SqlClient;
 using ProjectStageService.Models;
 
@@ -174,6 +175,123 @@ public sealed class WorkloadStatsService
         };
     }
 
+    public async Task<byte[]> ExportAsync(WorkloadStatsRequest request, CancellationToken cancellationToken)
+    {
+        var stats = await GetStatsAsync(request, cancellationToken);
+        var configs = await GetStageConfigsAsync(request, cancellationToken);
+        configs = FilterStageConfigs(configs, request);
+        var stageStats = stats.Stages.ToDictionary(
+            item => BuildStageKey(item.ProjectName, item.StageName),
+            item => item,
+            StringComparer.OrdinalIgnoreCase);
+
+        using var workbook = new XLWorkbook();
+        AddPeopleSheet(workbook, stats);
+        AddPeriodSheet(workbook, stats);
+        AddStageConfigSheet(workbook, configs, stageStats);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static List<StageWorkloadConfigRecord> FilterStageConfigs(List<StageWorkloadConfigRecord> configs, WorkloadStatsRequest request)
+    {
+        var keyword = request.ConfigKeyword?.Trim() ?? "";
+        var status = (request.ConfigStatus?.Trim() ?? "all").ToLowerInvariant();
+
+        return configs
+            .Where(item => string.IsNullOrWhiteSpace(keyword) ||
+                (item.ProjectName?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (item.StageName?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false))
+            .Where(item =>
+            {
+                var configured = item.UpdatedAt.HasValue;
+                return status switch
+                {
+                    "unset" => !configured,
+                    "set" => configured,
+                    _ => true
+                };
+            })
+            .ToList();
+    }
+
+    private static void AddPeopleSheet(XLWorkbook workbook, WorkloadStatsResponse stats)
+    {
+        var sheet = workbook.Worksheets.Add("人员汇总");
+        WriteHeader(sheet, ["负责人", "工时", "阶段次数", "占比"]);
+        var row = 2;
+        foreach (var item in stats.People)
+        {
+            sheet.Cell(row, 1).Value = item.Maintainer;
+            sheet.Cell(row, 2).Value = item.Hours;
+            sheet.Cell(row, 3).Value = item.StageCount;
+            sheet.Cell(row, 4).Value = $"{item.Percent}%";
+            row++;
+        }
+        FormatSheet(sheet);
+    }
+
+    private static void AddPeriodSheet(XLWorkbook workbook, WorkloadStatsResponse stats)
+    {
+        var sheet = workbook.Worksheets.Add("周期汇总");
+        WriteHeader(sheet, ["周期", "工时", "阶段次数"]);
+        var row = 2;
+        foreach (var item in stats.Periods)
+        {
+            sheet.Cell(row, 1).Value = item.PeriodLabel;
+            sheet.Cell(row, 2).Value = item.Hours;
+            sheet.Cell(row, 3).Value = item.StageCount;
+            row++;
+        }
+        FormatSheet(sheet);
+    }
+
+    private static void AddStageConfigSheet(
+        XLWorkbook workbook,
+        List<StageWorkloadConfigRecord> configs,
+        Dictionary<string, WorkloadStageSummary> stageStats)
+    {
+        var sheet = workbook.Worksheets.Add("阶段工时配置");
+        WriteHeader(sheet, ["项目名称", "阶段名称", "单次工时", "出现次数", "合计工时", "工时状态", "更新时间"]);
+        var row = 2;
+        foreach (var item in configs)
+        {
+            stageStats.TryGetValue(BuildStageKey(item.ProjectName, item.StageName), out var stat);
+            sheet.Cell(row, 1).Value = item.ProjectName;
+            sheet.Cell(row, 2).Value = item.StageName;
+            sheet.Cell(row, 3).Value = item.Hours;
+            sheet.Cell(row, 4).Value = stat?.StageCount ?? 0;
+            sheet.Cell(row, 5).Value = stat?.Hours ?? 0;
+            sheet.Cell(row, 6).Value = item.UpdatedAt.HasValue ? "已设置" : "未设置";
+            if (item.UpdatedAt.HasValue)
+                sheet.Cell(row, 7).Value = item.UpdatedAt.Value;
+            row++;
+        }
+        FormatSheet(sheet);
+    }
+
+    private static void WriteHeader(IXLWorksheet sheet, string[] headers)
+    {
+        for (var index = 0; index < headers.Length; index++)
+            sheet.Cell(1, index + 1).Value = headers[index];
+
+        var header = sheet.Range(1, 1, 1, headers.Length);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#EDF2FF");
+        header.Style.Font.FontColor = XLColor.FromHtml("#1A1D26");
+    }
+
+    private static void FormatSheet(IXLWorksheet sheet)
+    {
+        sheet.SheetView.FreezeRows(1);
+        sheet.Columns().AdjustToContents();
+    }
+
+    private static string BuildStageKey(string? projectName, string? stageName) =>
+        $"{projectName ?? ""}||{stageName ?? ""}";
+
     private static async Task<List<WorkloadRow>> LoadWorkloadRowsAsync(
         SqlConnection connection,
         WorkloadStatsRequest request,
@@ -280,15 +398,14 @@ public sealed class WorkloadStatsService
                 ADD project_name NVARCHAR(500) NOT NULL CONSTRAINT DF_{ConfigTableName}_project_name DEFAULT N'';
             END;
 
-            DECLARE @workloadPkName SYSNAME;
             DECLARE @workloadHasCompositePk BIT = 0;
 
-            SELECT @workloadPkName = kc.name
-            FROM sys.key_constraints kc
-            WHERE kc.parent_object_id = OBJECT_ID(N'dbo.{ConfigTableName}')
-              AND kc.[type] = N'PK';
-
-            IF @workloadPkName IS NOT NULL
+            IF EXISTS (
+                SELECT 1
+                FROM sys.key_constraints
+                WHERE parent_object_id = OBJECT_ID(N'dbo.{ConfigTableName}')
+                  AND [type] = N'PK'
+            )
             BEGIN
                 SELECT @workloadHasCompositePk =
                     CASE WHEN COUNT(*) = 2
@@ -306,7 +423,16 @@ public sealed class WorkloadStatsService
                   AND kc.[type] = N'PK';
 
                 IF @workloadHasCompositePk = 0
-                    EXEC(N'ALTER TABLE dbo.{ConfigTableName} DROP CONSTRAINT ' + QUOTENAME(@workloadPkName));
+                   AND EXISTS (
+                       SELECT 1
+                       FROM sys.key_constraints
+                       WHERE parent_object_id = OBJECT_ID(N'dbo.{ConfigTableName}')
+                         AND [type] = N'PK'
+                         AND name = N'PK_{ConfigTableName}'
+                   )
+                BEGIN
+                    ALTER TABLE dbo.{ConfigTableName} DROP CONSTRAINT PK_{ConfigTableName};
+                END;
             END;
 
             IF NOT EXISTS (

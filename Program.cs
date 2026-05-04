@@ -988,6 +988,22 @@ app.MapPost("/api/workload/stats", async (WorkloadStatsRequest request, Workload
     }
 }).RequireAuthorization("AdminOnly");
 
+app.MapPost("/api/workload/export", async (WorkloadStatsRequest request, WorkloadStatsService workloadStatsService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var content = await workloadStatsService.ExportAsync(request, cancellationToken);
+        return Results.File(
+            content,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "工时统计.xlsx");
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
+
 static string GetCurrentRole(HttpContext httpContext)
 {
     return httpContext.User.FindFirst("role")?.Value ?? LocalAuthService.RoleExternal;

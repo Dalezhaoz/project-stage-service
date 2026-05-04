@@ -215,6 +215,12 @@
       align-items: end;
       margin-bottom: 10px;
     }
+    .config-filters {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 10px;
+      align-items: end;
+    }
     .config-actions {
       display: flex;
       gap: 8px;
@@ -222,7 +228,7 @@
     }
     @media (max-width: 900px) {
       .page { padding: 14px; }
-      .page-header, .columns, .toolbar, .config-head { grid-template-columns: 1fr; }
+      .page-header, .columns, .toolbar, .config-head, .config-filters { grid-template-columns: 1fr; }
       .header-actions, .config-actions { justify-content: stretch; }
       .header-actions button, .config-actions button { width: 100%; }
       .kpis { grid-template-columns: 1fr; }
@@ -238,6 +244,7 @@
         <p class="subtitle">按时间、负责人统计阶段工作量；管理员可为每个项目阶段配置工时，并汇总总工时、个人工时和个人占比。</p>
       </div>
       <div class="header-actions">
+        <button class="btn-primary" id="workload-export-btn" type="button">导出 Excel</button>
         <button class="btn-secondary" id="back-manage-btn" type="button">返回分配管理</button>
         <button class="btn-secondary" id="logout-btn" type="button">退出账号</button>
       </div>
@@ -331,9 +338,19 @@
         <div class="config-head">
           <div>
             <div class="section-title">阶段工时配置</div>
-            <div class="field">
-              <label for="workload-config-keyword">项目 / 阶段筛选</label>
-              <input id="workload-config-keyword" type="search" placeholder="输入项目名称或阶段名称模糊查询">
+            <div class="config-filters">
+              <div class="field">
+                <label for="workload-config-keyword">项目 / 阶段筛选</label>
+                <input id="workload-config-keyword" type="search" placeholder="输入项目名称或阶段名称模糊查询">
+              </div>
+              <div class="field">
+                <label for="workload-config-status-filter">工时状态</label>
+                <select id="workload-config-status-filter">
+                  <option value="all">全部阶段</option>
+                  <option value="unset">未设置工时</option>
+                  <option value="set">已设置工时</option>
+                </select>
+              </div>
             </div>
           </div>
           <div class="config-actions">
@@ -420,6 +437,8 @@
       return {
         granularity: document.getElementById("workload-granularity").value,
         maintainer: document.getElementById("workload-maintainer").value,
+        configKeyword: document.getElementById("workload-config-keyword").value.trim(),
+        configStatus: document.getElementById("workload-config-status-filter").value,
         rangeStart: document.getElementById("workload-start").value || null,
         rangeEnd: document.getElementById("workload-end").value || null
       };
@@ -438,12 +457,18 @@
     function renderWorkloadConfig() {
       const body = document.getElementById("workload-config-body");
       const keyword = document.getElementById("workload-config-keyword").value.trim().toLowerCase();
+      const statusFilter = document.getElementById("workload-config-status-filter").value;
       const stageStats = new Map((state.workloadStats?.stages || []).map(item => [`${item.projectName || ""}||${item.stageName}`, item]));
-      const configs = keyword
-        ? state.workloadConfigs.filter(item =>
-            (item.projectName || "").toLowerCase().includes(keyword) ||
-            (item.stageName || "").toLowerCase().includes(keyword))
-        : state.workloadConfigs;
+      const configs = state.workloadConfigs.filter(item => {
+        const matchesKeyword = !keyword ||
+          (item.projectName || "").toLowerCase().includes(keyword) ||
+          (item.stageName || "").toLowerCase().includes(keyword);
+        const hasConfiguredHours = Boolean(item.updatedAt);
+        const matchesStatus = statusFilter === "all" ||
+          (statusFilter === "unset" && !hasConfiguredHours) ||
+          (statusFilter === "set" && hasConfiguredHours);
+        return matchesKeyword && matchesStatus;
+      });
 
       if (!state.workloadConfigs.length) {
         body.innerHTML = '<tr><td colspan="4">暂无阶段数据，请先更新中心库阶段汇总。</td></tr>';
@@ -549,6 +574,34 @@
       }
     }
 
+    async function exportWorkload() {
+      setStatus("workload-status", "正在生成导出文件...");
+      try {
+        const response = await apiFetch(buildAppUrl("/api/workload/export"), {
+          method: "POST",
+          body: JSON.stringify(buildWorkloadRequest())
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : null;
+          throw new Error(data?.detail || "导出失败");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "工时统计.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setStatus("workload-status", "导出文件已生成。", "success");
+      } catch (error) {
+        setStatus("workload-status", error.message || "导出失败", "error");
+      }
+    }
+
     async function ensureAdmin() {
       const auth = await getJson(buildAppUrl("/api/auth/status"));
       state.auth = auth;
@@ -578,7 +631,9 @@
       window.location.href = buildAppUrl("/");
     });
     document.getElementById("workload-query-btn").addEventListener("click", queryWorkloadStats);
+    document.getElementById("workload-export-btn").addEventListener("click", exportWorkload);
     document.getElementById("workload-config-keyword").addEventListener("input", renderWorkloadConfig);
+    document.getElementById("workload-config-status-filter").addEventListener("change", renderWorkloadConfig);
     document.getElementById("workload-save-config-btn").addEventListener("click", saveWorkloadConfigs);
     document.getElementById("workload-reload-config-btn").addEventListener("click", async () => {
       setStatus("workload-config-status", "正在重新加载阶段工时配置...");

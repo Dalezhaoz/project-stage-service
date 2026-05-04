@@ -258,6 +258,8 @@ public sealed class WorkloadStatsRequest
 {
     public string Granularity { get; set; } = "month";
     public string Maintainer { get; set; } = "";
+    public string ConfigKeyword { get; set; } = "";
+    public string ConfigStatus { get; set; } = "all";
     public DateTime? RangeStart { get; set; }
     public DateTime? RangeEnd { get; set; }
 }
