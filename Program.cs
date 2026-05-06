@@ -33,6 +33,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<ProjectStageExportService>();
 builder.Services.AddSingleton<ProjectStageSummaryBuilder>();
 builder.Services.AddSingleton<ServerConfigStore>();
+builder.Services.AddSingleton<MonitorServerConfigStore>();
 builder.Services.AddSingleton<ProjectStageCacheStore>();
 builder.Services.AddSingleton<AgentClientService>();
 builder.Services.AddSingleton<ProjectStageRefreshService>();
@@ -45,11 +46,14 @@ builder.Services.AddSingleton<DingTalkNotifyService>();
 builder.Services.AddSingleton<DingTalkProxyRegistry>();
 builder.Services.AddSingleton<ProjectMetadataService>();
 builder.Services.AddSingleton<WorkloadStatsService>();
+builder.Services.AddSingleton<ServerMetricClientService>();
+builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
 builder.Services.AddHostedService<DingTalkNotifyHostedService>();
 builder.Services.AddHostedService<KeepAliveHostedService>();
+builder.Services.AddHostedService<ServerMonitorHostedService>();
 
 var app = builder.Build();
 
@@ -664,6 +668,53 @@ app.MapPost("/api/servers", async (List<StageServerConfig> servers, ServerConfig
     await store.SaveAsync(servers, cancellationToken);
     return Results.Ok(new { saved = servers.Count });
 }).RequireAuthorization("InternalOrAbove");
+
+app.MapGet("/api/monitor-servers", async (MonitorServerConfigStore store, CancellationToken cancellationToken) =>
+{
+    var servers = await store.LoadAsync(cancellationToken);
+    return Results.Ok(servers);
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapPost("/api/monitor-servers", async (List<MonitorServerConfig> servers, MonitorServerConfigStore store, CancellationToken cancellationToken) =>
+{
+    await store.SaveAsync(servers, cancellationToken);
+    return Results.Ok(new { saved = servers.Count });
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapPost("/api/server-monitor/status", async (
+    ServerMetricRequest request,
+    ServerMonitorService monitorService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var statuses = await monitorService.QueryStatusesAsync(request.Servers, cancellationToken);
+        return Results.Ok(new
+        {
+            count = statuses.Count,
+            statuses
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapPost("/api/server-monitor/check", async (
+    ServerMonitorService monitorService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var alerts = await monitorService.CheckAndNotifyAsync(cancellationToken);
+        return Results.Ok(new { pushedAlerts = alerts });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("AdminOnly");
 
 app.MapPost("/api/test", async (TestConnectionRequest request, AgentClientService agentClientService, CancellationToken cancellationToken) =>
 {

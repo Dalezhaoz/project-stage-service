@@ -12,6 +12,24 @@ public sealed class StageServerConfig
     public bool Enabled { get; set; } = true;
     public int AgentPort { get; set; }
     public string AgentSecret { get; set; } = "";
+    public int MonitorPort { get; set; } = 5200;
+    public string MonitorSecret { get; set; } = "";
+    public bool MonitorEnabled { get; set; } = true;
+    public double CpuAlertThreshold { get; set; } = 85;
+    public double MemoryAlertThreshold { get; set; } = 85;
+    public double DiskAlertThreshold { get; set; } = 90;
+}
+
+public sealed class MonitorServerConfig
+{
+    public string Name { get; set; } = "";
+    public string Host { get; set; } = "";
+    public int MonitorPort { get; set; } = 5200;
+    public string MonitorSecret { get; set; } = "";
+    public bool Enabled { get; set; } = true;
+    public double CpuAlertThreshold { get; set; } = 85;
+    public double MemoryAlertThreshold { get; set; } = 85;
+    public double DiskAlertThreshold { get; set; } = 90;
 }
 
 public sealed class TestConnectionRequest
@@ -118,6 +136,9 @@ public sealed class ScheduleConfig
     public List<string> UnassignedNotifyTimes { get; set; } = ["09:00"];
     public bool EndingReminderEnabled { get; set; }
     public DingTalkConfig? DingTalkConfig { get; set; }
+    public bool ServerMonitorEnabled { get; set; }
+    public int ServerMonitorIntervalMinutes { get; set; } = 5;
+    public int ServerMonitorAlertCooldownMinutes { get; set; } = 30;
 }
 
 public sealed class DingTalkConfig
@@ -307,4 +328,24 @@ public sealed class AgentRefreshResult
     public int Databases { get; set; }
     public int Records { get; set; }
     public string? Error { get; set; }
+}
+
+public sealed class ServerMetricRequest
+{
+    public List<MonitorServerConfig>? Servers { get; set; } = [];
+}
+
+public sealed class ServerMetricStatus
+{
+    public string ServerName { get; set; } = "";
+    public string Host { get; set; } = "";
+    public DateTime CollectedAt { get; set; }
+    public bool Success { get; set; }
+    public double CpuUsagePercent { get; set; }
+    public double MemoryUsagePercent { get; set; }
+    public double DiskUsagePercent { get; set; }
+    public string? Error { get; set; }
+    public bool CpuAlert { get; set; }
+    public bool MemoryAlert { get; set; }
+    public bool DiskAlert { get; set; }
 }

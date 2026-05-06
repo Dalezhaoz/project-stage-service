@@ -1289,11 +1289,21 @@
         <div class="config-drawer-section-desc">左侧集中维护系统参数，右侧保留查询和结果区域。</div>
         <div class="config-drawer-actions">
           <button id="refresh-btn" class="header-toggle header-toggle-primary">立即更新数据</button>
-          <button id="open-server-modal" class="secondary">管理服务器</button>
+          <button id="refresh-monitor-btn" class="secondary">查询监控状态</button>
+          <button id="check-monitor-alert-btn" class="secondary">立即执行预警检查</button>
+          <button id="open-server-modal" class="secondary">管理查询服务器</button>
+          <button id="open-monitor-server-modal" class="secondary">管理监控服务器</button>
           <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
           <button id="open-app-server-options-modal" class="secondary" style="display:none;">应用服务器</button>
           <button id="open-schedule-modal" class="secondary" style="display:none;">定时任务</button>
         </div>
+      </section>
+
+      <section class="config-drawer-section" id="monitor-panel-section">
+        <div class="config-drawer-section-title">服务器监控</div>
+        <div class="config-drawer-section-desc">展示各服务器 CPU、内存、磁盘占用，超过阈值将触发钉钉预警。</div>
+        <div class="status" id="monitor-status-line"></div>
+        <div id="monitor-status-list" style="display:grid;gap:8px;"></div>
       </section>
 
       <section class="config-drawer-section">
@@ -1728,13 +1738,51 @@
         </div>
       </div>
     </div>
+
+    <div class="overlay" id="monitor-server-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>监控服务器配置</h2>
+          <button id="close-monitor-server-modal" class="close-btn">关闭</button>
+        </div>
+        <div class="modal-grid">
+          <div>
+            <label>服务器名称</label>
+            <input id="monitor-server-name" placeholder="例如：linux-01">
+            <label style="margin-top:12px;">服务器地址</label>
+            <input id="monitor-server-host" placeholder="例如：10.10.10.21">
+            <label style="margin-top:12px;">监控 Agent 端口</label>
+            <input id="monitor-server-port" type="number" value="5200" placeholder="例如：5300">
+            <label style="margin-top:12px;">监控 Agent 密钥</label>
+            <input id="monitor-server-secret" type="password" placeholder="用于加密传输监控数据">
+            <label style="margin-top:12px;">CPU 告警阈值(%)</label>
+            <input id="monitor-server-cpu-threshold" type="number" value="85" min="1" max="100">
+            <label style="margin-top:12px;">内存告警阈值(%)</label>
+            <input id="monitor-server-memory-threshold" type="number" value="85" min="1" max="100">
+            <label style="margin-top:12px;">磁盘告警阈值(%)</label>
+            <input id="monitor-server-disk-threshold" type="number" value="90" min="1" max="100">
+            <div class="actions">
+              <button id="save-monitor-server">新增/更新</button>
+              <button id="clear-monitor-server" class="ghost">清空表单</button>
+            </div>
+            <div class="status" id="monitor-server-status"></div>
+          </div>
+          <div class="server-list-panel">
+            <div class="title">监控服务器列表</div>
+            <div id="monitor-server-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
     let selectedIndex = null;
+    let selectedMonitorIndex = null;
     let lastPayload = null;
     let lastSummary = null;
     let serversCache = [];
+    let monitorServersCache = [];
     let authMode = "login";
     let authReady = false;
     let currentRole = "external";
@@ -1848,6 +1896,20 @@
       return serversCache;
     }
 
+    async function loadMonitorServers() {
+      const response = await apiFetch(buildAppUrl("api/monitor-servers"));
+      if (response.status === 403) {
+        monitorServersCache = [];
+        return monitorServersCache;
+      }
+      if (!response.ok) {
+        throw new Error("读取监控服务器配置失败");
+      }
+      const data = await response.json();
+      monitorServersCache = Array.isArray(data) ? data : [];
+      return monitorServersCache;
+    }
+
     async function saveServers(servers) {
       const response = await apiFetch(buildAppUrl("api/servers"), {
         method: "POST",
@@ -1861,6 +1923,19 @@
       serversCache = servers;
     }
 
+    async function saveMonitorServers(servers) {
+      const response = await apiFetch(buildAppUrl("api/monitor-servers"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(servers)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || "保存监控服务器配置失败");
+      }
+      monitorServersCache = servers;
+    }
+
     function fillForm(server) {
       document.getElementById("server-name").value = server?.name || "";
       document.getElementById("server-type").value = server?.databaseType || "SQL Server";
@@ -1870,6 +1945,16 @@
       document.getElementById("server-password").value = server?.password || "";
       document.getElementById("server-agent-port").value = server?.agentPort || 5100;
       document.getElementById("server-agent-secret").value = server?.agentSecret || "";
+    }
+
+    function fillMonitorForm(server) {
+      document.getElementById("monitor-server-name").value = server?.name || "";
+      document.getElementById("monitor-server-host").value = server?.host || "";
+      document.getElementById("monitor-server-port").value = server?.monitorPort || 5200;
+      document.getElementById("monitor-server-secret").value = server?.monitorSecret || "";
+      document.getElementById("monitor-server-cpu-threshold").value = server?.cpuAlertThreshold || 85;
+      document.getElementById("monitor-server-memory-threshold").value = server?.memoryAlertThreshold || 85;
+      document.getElementById("monitor-server-disk-threshold").value = server?.diskAlertThreshold || 90;
     }
 
     function renderServerFilterOptions() {
@@ -1933,8 +2018,102 @@
       return serversCache.filter(item => item.enabled);
     }
 
+    function renderMonitorServers() {
+      const container = document.getElementById("monitor-server-list");
+      container.innerHTML = "";
+      if (!monitorServersCache.length) {
+        container.innerHTML = '<div class="server-empty">还没有添加监控服务器。</div>';
+        return;
+      }
+
+      monitorServersCache.forEach((server, index) => {
+        const item = document.createElement("div");
+        item.className = "server-item";
+        item.innerHTML = `
+          <div class="server-head">
+            <strong>${server.name}</strong>
+            <label><input type="checkbox" data-action="toggle" data-index="${index}" ${server.enabled ? "checked" : ""}> 启用</label>
+          </div>
+          <div class="server-meta">${server.host}:${server.monitorPort || 5200}</div>
+          <div class="server-meta">阈值 CPU ${server.cpuAlertThreshold || 85}% 内存 ${server.memoryAlertThreshold || 85}% 磁盘 ${server.diskAlertThreshold || 90}%</div>
+          <div class="server-controls">
+            <button class="ghost" data-action="edit" data-index="${index}">编辑</button>
+            <button class="ghost" data-action="delete" data-index="${index}">删除</button>
+          </div>`;
+        container.appendChild(item);
+      });
+    }
+
+    function enabledMonitorServers() {
+      return monitorServersCache.filter(item => item.enabled);
+    }
+
     function setServerStatus(text) {
       document.getElementById("server-status").textContent = text;
+    }
+
+    function setMonitorServerStatus(text) {
+      document.getElementById("monitor-server-status").textContent = text;
+    }
+
+    function setMonitorStatus(text, isError = false) {
+      const el = document.getElementById("monitor-status-line");
+      el.textContent = text || "";
+      el.style.color = isError ? "var(--danger)" : "var(--muted)";
+    }
+
+    function renderMonitorStatuses(statuses) {
+      const container = document.getElementById("monitor-status-list");
+      if (!Array.isArray(statuses) || statuses.length === 0) {
+        container.innerHTML = '<div class="server-empty">暂无监控数据，可点击“查询监控状态”。</div>';
+        return;
+      }
+
+      container.innerHTML = statuses.map(item => {
+        const cpu = Number(item.cpuUsagePercent || 0).toFixed(1);
+        const mem = Number(item.memoryUsagePercent || 0).toFixed(1);
+        const disk = Number(item.diskUsagePercent || 0).toFixed(1);
+        const mark = item.success
+          ? ((item.cpuAlert || item.memoryAlert || item.diskAlert) ? "[ALERT]" : "[OK]")
+          : "[ERROR]";
+        return `
+          <div class="server-item" style="padding:10px 12px;">
+            <div class="server-head">
+              <strong>${escapeHtml(item.serverName || "-")}</strong>
+              <span class="status-badge">${mark}</span>
+            </div>
+            <div class="server-meta">${escapeHtml(item.host || "-")} / ${escapeHtml(item.collectedAt || "-")}</div>
+            ${item.success
+              ? `<div class="server-meta">CPU ${cpu}% ｜ 内存 ${mem}% ｜ 磁盘 ${disk}%</div>`
+              : `<div class="server-meta" style="color:var(--danger);">${escapeHtml(item.error || "采集失败")}</div>`}
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function refreshMonitorStatus() {
+      if (!authReady || !isAdminOrInternal()) return;
+      try {
+        setMonitorStatus("正在查询监控状态...");
+        const response = await postJson(buildAppUrl("api/server-monitor/status"), { servers: enabledMonitorServers() });
+        const statuses = Array.isArray(response.statuses) ? response.statuses : [];
+        renderMonitorStatuses(statuses);
+        setMonitorStatus(`监控状态已更新，共 ${statuses.length} 台服务器。`);
+      } catch (error) {
+        setMonitorStatus(error.message || "监控状态查询失败", true);
+      }
+    }
+
+    async function runMonitorAlertCheck() {
+      if (!authReady || !isAdmin()) return;
+      try {
+        setMonitorStatus("正在执行预警检查...");
+        const result = await postJson(buildAppUrl("api/server-monitor/check"), {});
+        setMonitorStatus(`预警检查完成，推送告警 ${Number(result.pushedAlerts || 0)} 条。`);
+        await refreshMonitorStatus();
+      } catch (error) {
+        setMonitorStatus(error.message || "预警检查失败", true);
+      }
     }
 
     function setQueryStatus(text) {
@@ -1962,6 +2141,14 @@
 
     function hideServerModal() {
       document.getElementById("server-overlay").classList.remove("show");
+    }
+
+    async function showMonitorServerModal() {
+      document.getElementById("monitor-server-overlay").classList.add("show");
+    }
+
+    function hideMonitorServerModal() {
+      document.getElementById("monitor-server-overlay").classList.remove("show");
     }
 
     function buildPayload() {
@@ -2036,8 +2223,12 @@
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-app-server-options-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
       document.getElementById("open-schedule-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
+      document.getElementById("refresh-monitor-btn").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      document.getElementById("check-monitor-alert-btn").style.display = username && isAdmin() ? "inline-flex" : "none";
+      document.getElementById("monitor-panel-section").style.display = username && isAdminOrInternal() ? "" : "none";
       // admin 和 internal 都可以管理服务器
       document.getElementById("open-server-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      document.getElementById("open-monitor-server-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
       // admin 可以控制是否允许用户更新数据
       document.getElementById("allow-refresh-toggle").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("allow-user-refresh").checked = allowUserRefresh;
@@ -2431,6 +2622,8 @@
 
     async function bootstrapAfterLogin() {
       try { await loadServers(); renderServers(); } catch (e) { /* ignore for external */ }
+      try { await loadMonitorServers(); renderMonitorServers(); } catch (e) { /* ignore for external */ }
+      try { await refreshMonitorStatus(); } catch (e) { /* ignore */ }
       try { renderCacheInfo(await loadCacheInfo()); } catch (e) { /* ignore */ }
       try { await loadProjectMetadata(); } catch (e) { /* ignore */ }
       if (isAdminOrInternal()) {
@@ -2870,6 +3063,8 @@
 
     document.getElementById("open-server-modal").addEventListener("click", showServerModal);
     document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
+    document.getElementById("open-monitor-server-modal").addEventListener("click", showMonitorServerModal);
+    document.getElementById("close-monitor-server-modal").addEventListener("click", hideMonitorServerModal);
     document.getElementById("allow-user-refresh").addEventListener("change", async (event) => {
       try {
         await postJson(buildAppUrl("api/auth/allow-user-refresh"), { allow: event.target.checked });
@@ -2886,6 +3081,11 @@
     document.getElementById("server-overlay").addEventListener("click", (event) => {
       if (event.target === document.getElementById("server-overlay") && overlayMouseDownTarget === event.target) {
         hideServerModal();
+      }
+    });
+    document.getElementById("monitor-server-overlay").addEventListener("click", (event) => {
+      if (event.target === document.getElementById("monitor-server-overlay") && overlayMouseDownTarget === event.target) {
+        hideMonitorServerModal();
       }
     });
     document.getElementById("logout-btn").addEventListener("click", async () => {
@@ -3390,7 +3590,7 @@
       };
 
       if (!server.name || !server.host || !server.username || !server.password || !server.agentPort || !server.agentSecret) {
-        setServerStatus("请完整填写服务器信息，并配置 Agent 端口和密钥。");
+        setServerStatus("请完整填写服务器信息，并配置查库 Agent 端口和密钥。");
         return;
       }
 
@@ -3403,10 +3603,50 @@
         fillForm(null);
         setServerStatus("服务器配置已保存到本机加密文件。");
         renderServers();
+        await refreshMonitorStatus();
         hideServerModal();
       } catch (error) {
         setServerStatus(error.message);
       }
+    });
+
+    document.getElementById("save-monitor-server").addEventListener("click", async () => {
+      const server = {
+        name: document.getElementById("monitor-server-name").value.trim(),
+        host: document.getElementById("monitor-server-host").value.trim(),
+        monitorPort: Number(document.getElementById("monitor-server-port").value || "5200"),
+        monitorSecret: document.getElementById("monitor-server-secret").value.trim(),
+        cpuAlertThreshold: Number(document.getElementById("monitor-server-cpu-threshold").value || "85"),
+        memoryAlertThreshold: Number(document.getElementById("monitor-server-memory-threshold").value || "85"),
+        diskAlertThreshold: Number(document.getElementById("monitor-server-disk-threshold").value || "90"),
+        enabled: true
+      };
+
+      if (!server.name || !server.host || !server.monitorPort || !server.monitorSecret) {
+        setMonitorServerStatus("请完整填写监控服务器信息（名称、地址、端口、密钥）。");
+        return;
+      }
+
+      const servers = [...monitorServersCache];
+      if (selectedMonitorIndex === null) servers.push(server);
+      else servers[selectedMonitorIndex] = { ...servers[selectedMonitorIndex], ...server };
+      try {
+        await saveMonitorServers(servers);
+        selectedMonitorIndex = null;
+        fillMonitorForm(null);
+        setMonitorServerStatus("监控服务器配置已保存。");
+        renderMonitorServers();
+        await refreshMonitorStatus();
+        hideMonitorServerModal();
+      } catch (error) {
+        setMonitorServerStatus(error.message);
+      }
+    });
+
+    document.getElementById("clear-monitor-server").addEventListener("click", () => {
+      selectedMonitorIndex = null;
+      fillMonitorForm(null);
+      setMonitorServerStatus("");
     });
 
     document.getElementById("clear-server").addEventListener("click", () => {
@@ -3459,6 +3699,47 @@
         await saveServers(servers);
       } catch (error) {
         setServerStatus(error.message);
+      }
+    });
+
+    document.getElementById("monitor-server-list").addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const action = target.dataset.action;
+      const index = Number(target.dataset.index);
+      const servers = [...monitorServersCache];
+      if (Number.isNaN(index) || !servers[index]) return;
+
+      if (action === "edit") {
+        selectedMonitorIndex = index;
+        fillMonitorForm(servers[index]);
+        showMonitorServerModal();
+      } else if (action === "delete") {
+        servers.splice(index, 1);
+        try {
+          await saveMonitorServers(servers);
+          renderMonitorServers();
+          setMonitorServerStatus("监控服务器配置已删除。");
+          await refreshMonitorStatus();
+        } catch (error) {
+          setMonitorServerStatus(error.message);
+        }
+      }
+    });
+
+    document.getElementById("monitor-server-list").addEventListener("change", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.dataset.action !== "toggle") return;
+      const index = Number(target.dataset.index);
+      const servers = [...monitorServersCache];
+      if (Number.isNaN(index) || !servers[index]) return;
+      servers[index].enabled = target.checked;
+      try {
+        await saveMonitorServers(servers);
+        await refreshMonitorStatus();
+      } catch (error) {
+        setMonitorServerStatus(error.message);
       }
     });
 
@@ -3518,6 +3799,14 @@
       } finally {
         document.getElementById("refresh-btn").disabled = false;
       }
+    });
+
+    document.getElementById("refresh-monitor-btn").addEventListener("click", async () => {
+      await refreshMonitorStatus();
+    });
+
+    document.getElementById("check-monitor-alert-btn").addEventListener("click", async () => {
+      await runMonitorAlertCheck();
     });
 
     document.getElementById("query-btn").addEventListener("click", async () => {

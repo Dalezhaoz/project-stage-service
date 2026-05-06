@@ -105,6 +105,11 @@ public sealed class AgentTestPayload
     public AgentQueryDefinition Definition { get; set; } = new();
 }
 
+public sealed class AgentMetricPayload
+{
+    public string ServerName { get; set; } = "";
+}
+
 public sealed class AgentQueryResponse
 {
     public int VisitedDatabases { get; set; }
@@ -136,4 +141,12 @@ public sealed class AgentCountResult
     public string ExamCode { get; set; } = "";
     public int RegistrationCount { get; set; }
     public int AdmissionTicketCount { get; set; }
+}
+
+public sealed class AgentMetricResponse
+{
+    public DateTime CollectedAt { get; set; }
+    public double CpuUsagePercent { get; set; }
+    public double MemoryUsagePercent { get; set; }
+    public double DiskUsagePercent { get; set; }
 }
