@@ -17,5 +17,17 @@
     <Compile Remove="tools/**" />
     <Content Remove="tools/**" />
     <None Remove="tools/**" />
+    <Content Remove="publish/**" />
+    <None Remove="publish/**" />
+    <Content Remove="release_*/**" />
+    <None Remove="release_*/**" />
+    <Content Remove="frontend-parallel/**" />
+    <None Remove="frontend-parallel/**" />
+    <Content Remove="server-monitor-agent-*/**" />
+    <None Remove="server-monitor-agent-*/**" />
+    <Content Remove="*.zip" />
+    <None Remove="*.zip" />
+    <Content Remove="*.tar.gz" />
+    <None Remove="*.tar.gz" />
   </ItemGroup>
 </Project>

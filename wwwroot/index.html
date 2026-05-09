@@ -251,12 +251,11 @@
     .config-drawer-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.22);
-      backdrop-filter: blur(3px);
+      background: transparent;
       opacity: 0;
       pointer-events: none;
-      transition: opacity var(--transition);
       z-index: 90;
+      transition: opacity var(--transition);
     }
     .config-drawer-overlay.show {
       opacity: 1;
@@ -266,50 +265,56 @@
       position: fixed;
       top: 0;
       left: 0;
-      width: min(360px, calc(100vw - 24px));
+      width: 88vw;
+      max-width: 1320px;
       height: 100vh;
-      padding: 22px 18px 18px;
-      background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+      padding: 0;
+      background: linear-gradient(180deg, #f9fbff 0%, #f3f6fc 100%);
       border-right: 1px solid #dbe3f5;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
-      transform: translateX(calc(-100% - 24px));
-      transition: transform var(--transition);
+      transform: translateX(-102%);
+      opacity: 0;
+      transition: transform var(--transition), opacity var(--transition);
       z-index: 100;
-      display: grid;
-      grid-template-rows: auto auto 1fr auto;
-      gap: 16px;
-      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      pointer-events: none;
     }
     .config-drawer.show {
       transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
     }
     .config-drawer-head {
       display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
+      align-items: center;
+      justify-content: flex-end;
       gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #e1e8f4;
+      background: rgba(255,255,255,.86);
     }
     .config-drawer-copy {
       display: grid;
-      gap: 6px;
+      gap: 4px;
     }
     .config-drawer-eyebrow {
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: .04em;
+      color: #4a5b79;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .03em;
     }
     .config-drawer-title {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 900;
       letter-spacing: -0.04em;
       color: var(--text);
     }
     .config-drawer-desc {
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
+      font-size: 14px;
+      line-height: 1.55;
     }
     .config-drawer-close {
       width: 38px;
@@ -327,13 +332,103 @@
       border-color: #c8d4ef;
       color: var(--text);
     }
+    .config-shell {
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: 0;
+      flex: 1;
+    }
+    .config-side-nav {
+      display: none;
+    }
+    .config-side-nav-title {
+      font-size: 11px;
+      color: #6d7c96;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin: 2px;
+    }
+    .config-nav-btn {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 10px;
+      border: 1px solid #d3deef;
+      background: #f8fbff;
+      color: #2f3d57;
+      justify-content: flex-start;
+      padding: 0 12px;
+      font-weight: 700;
+    }
+    .config-nav-btn:hover {
+      background: #edf2ff;
+      border-color: #b8c8ea;
+    }
+    .config-nav-btn.active {
+      background: #e8f0ff;
+      border-color: #9fb7f1;
+      color: #1f3f8f;
+    }
+    .config-nav-btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      justify-content: center;
+    }
+    .config-main {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      overflow: auto;
+    }
+    .config-main .config-pane { display: none !important; }
+    .config-main .config-pane.active { display: grid !important; }
     .config-drawer-section {
       display: grid;
       gap: 10px;
-      padding: 14px;
-      border: 1px solid #e3e8f2;
+      padding: 16px;
+      border: 1px solid #dce4f2;
       border-radius: 16px;
-      background: rgba(255,255,255,.92);
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .config-collapsible {
+      border: 1px solid #dce4f2;
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .config-collapsible > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+      border-bottom: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .config-collapsible > summary::after {
+      content: "展开";
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .config-collapsible[open] > summary {
+      border-bottom-color: #edf1f8;
+    }
+    .config-collapsible[open] > summary::after {
+      content: "收起";
+    }
+    .config-collapsible > summary::-webkit-details-marker {
+      display: none;
+    }
+    .config-collapsible-body {
+      padding: 12px;
     }
     .config-drawer-section-title {
       font-size: 14px;
@@ -351,10 +446,11 @@
     }
     .config-drawer-actions button {
       width: 100%;
-      justify-content: flex-start;
-      min-height: 42px;
+      justify-content: center;
+      min-height: 44px;
       padding: 0 14px;
       border-radius: 12px;
+      font-weight: 700;
     }
     .config-drawer-actions .header-toggle,
     .config-drawer-actions .header-toggle:hover {
@@ -362,15 +458,118 @@
       box-shadow: none;
     }
     .config-drawer-actions button.secondary {
-      background: #fff;
-      border: 1px solid #dce3f0;
+      background: #f7f9ff;
+      border: 1px solid #d5deef;
+      color: #2f3d57;
     }
     .config-drawer-actions button.secondary:hover {
-      background: #f8faff;
-      border-color: #c8d4ef;
+      background: #edf2ff;
+      border-color: #b8c8ea;
     }
-    .config-drawer-actions #refresh-btn {
+    .config-drawer-actions #open-ops-panel {
       justify-content: center;
+    }
+    .config-embed-shell {
+      border: 1px solid #d8e1f0;
+      border-radius: 14px;
+      background: #fff;
+      min-height: 68vh;
+      overflow: hidden;
+    }
+    .config-embed-frame {
+      width: 100%;
+      min-height: 68vh;
+      border: 0;
+      background: #fff;
+      display: block;
+    }
+    .config-module-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .config-module-card {
+      border: 1px solid #d8e1f0;
+      border-radius: 14px;
+      background: #fbfcff;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      box-shadow: var(--shadow-sm);
+      align-content: start;
+    }
+    .config-module-card-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .config-module-card-meta {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+      min-height: 34px;
+    }
+    .config-module-card .secondary,
+    .config-module-card .header-toggle {
+      width: 100%;
+      min-height: 36px;
+      justify-content: center;
+      border-radius: 10px;
+      padding: 0 8px;
+      font-size: 13px;
+    }
+    .advanced-config-hidden { display: none !important; }
+    .account-common-actions {
+      display: grid;
+      gap: 8px;
+    }
+    .account-common-actions .secondary {
+      background: #ecf2ff;
+      border: 1px solid #c7d5fb;
+      font-weight: 700;
+      color: #24314a;
+    }
+    .account-common-actions .secondary:hover {
+      background: #e3ecff;
+      border-color: #b9cbff;
+    }
+    .account-advanced {
+      border: 1px solid #d8e1f0;
+      border-radius: 12px;
+      background: #fbfcff;
+      overflow: hidden;
+    }
+    .account-advanced > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #314059;
+      user-select: none;
+    }
+    .account-advanced > summary::-webkit-details-marker { display: none; }
+    .account-advanced > summary::after {
+      content: "展开";
+      float: right;
+      color: #6b7890;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .account-advanced[open] > summary::after { content: "收起"; }
+    .account-advanced-body {
+      display: grid;
+      gap: 8px;
+      padding: 0 10px 10px;
+      border-top: 1px solid #eef2f8;
+    }
+    @media (max-width: 640px) {
+      .config-drawer {
+        width: 100vw;
+      }
+      .config-module-grid {
+        grid-template-columns: 1fr;
+      }
     }
     .config-drawer-metrics {
       display: grid;
@@ -515,6 +714,73 @@
     .server-meta { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .server-controls { display: flex; gap: 6px; margin-top: 8px; }
     .server-controls button { flex: 1; font-size: 13px; padding: 6px; }
+    .monitor-metric-grid {
+      margin-top: 8px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .monitor-metric {
+      border: 1px solid var(--line);
+      background: #fbfcff;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .monitor-metric-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 12px;
+      color: #5c6b84;
+    }
+    .monitor-metric-head strong {
+      color: #16233b;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .monitor-bar {
+      margin-top: 6px;
+      height: 7px;
+      border-radius: 999px;
+      background: #edf1f7;
+      overflow: hidden;
+    }
+    .monitor-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #5b7cfa 0%, #3b5bdb 100%);
+      transition: width .25s ease;
+    }
+    .monitor-bar.warn > span {
+      background: linear-gradient(90deg, #ff922b 0%, #f76707 100%);
+    }
+    .monitor-bar.danger > span {
+      background: linear-gradient(90deg, #ff6b6b 0%, #e03131 100%);
+    }
+    .monitor-bandwidth-lines {
+      margin-top: 6px;
+      display: grid;
+      gap: 4px;
+    }
+    .monitor-bandwidth-line {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 6px;
+      align-items: center;
+      font-size: 11px;
+      color: #63708a;
+    }
+    .monitor-bandwidth-line .monitor-bar {
+      margin-top: 0;
+      height: 6px;
+    }
+    @media (max-width: 760px) {
+      .monitor-metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
 
     /* ---- Filters ---- */
     .filter-bar { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
@@ -1062,6 +1328,26 @@
       backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     }
     .overlay.show { display: flex; }
+    .overlay.inline-config-overlay {
+      position: static;
+      inset: auto;
+      background: transparent;
+      padding: 0;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      display: block;
+      z-index: auto;
+    }
+    .overlay.inline-config-overlay .modal {
+      width: 100%;
+      max-height: none;
+      box-shadow: none;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .overlay.inline-config-overlay .close-btn {
+      display: none;
+    }
     .modal {
       width: min(860px, 100%); max-height: 90vh; overflow: auto;
       background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--line);
@@ -1080,9 +1366,458 @@
     .server-empty { color: var(--muted); font-size: 13px; }
     .hint { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.5; }
 
+    /* Home Shell */
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      background: #f3f6fb;
+    }
+    .app-sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 20px;
+      padding: 22px 16px;
+      background: #fff;
+      border-right: 1px solid #e7ebf3;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 30px;
+      color: #24324b;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+    .brand-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: #ff4b55;
+      color: #fff;
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+    .side-menu {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+    .side-section {
+      display: grid;
+      gap: 8px;
+      padding-top: 6px;
+    }
+    .side-section-title {
+      padding: 4px 10px 0;
+      color: #98a3b6;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+    .side-menu-bottom {
+      align-content: start;
+      padding-bottom: 8px;
+    }
+    .side-menu-item {
+      width: 100%;
+      min-height: 46px;
+      justify-content: flex-start;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: transparent;
+      color: #9aa4b5;
+      box-shadow: none;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .side-item-copy {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      text-align: left;
+    }
+    .side-item-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: inherit;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .side-item-desc {
+      display: none;
+    }
+    .side-menu-item:hover,
+    .side-menu-item.active {
+      background: #eef5ff;
+      color: #2f80ed;
+      box-shadow: none;
+    }
+    [data-config-trigger].config-hidden,
+    .side-menu-item.config-hidden {
+      display: none;
+    }
+    .side-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      color: currentColor;
+      font-weight: 900;
+    }
+    .app-main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 56px minmax(0, 1fr);
+    }
+    .app-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 70;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 28px;
+      background: rgba(255,255,255,.92);
+      border-bottom: 1px solid #e8edf5;
+      backdrop-filter: blur(10px);
+    }
+    .topbar-welcome {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #2b3449;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .topbar-emoji {
+      color: #ff9f1c;
+    }
+    .topbar-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar-icon,
+    .topbar-avatar {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 50%;
+      background: #f5f7fb;
+      color: #8b95a7;
+      border: 0;
+      box-shadow: none;
+      font-size: 13px;
+    }
+    .topbar-icon:hover {
+      background: #eef3fb;
+      color: #2f80ed;
+      box-shadow: none;
+    }
+    .topbar-avatar {
+      border: 2px solid #fff;
+      background:
+        radial-gradient(circle at 50% 35%, #d2b48c 0 14%, transparent 15%),
+        radial-gradient(circle at 50% 68%, #42526e 0 25%, transparent 26%),
+        linear-gradient(135deg, #d9e7ff, #f6d8c8);
+      box-shadow: 0 3px 10px rgba(39, 58, 94, .12);
+    }
+    .app-main .page {
+      width: 100%;
+      max-width: 1480px;
+      padding: 30px 30px 38px;
+    }
+    .app-main .page-header {
+      border: 0;
+      border-radius: 8px;
+      box-shadow: none;
+      background: transparent;
+      padding: 0;
+      margin-bottom: 18px;
+      align-items: flex-start;
+    }
+    .app-main .page-header-left {
+      display: grid;
+      gap: 8px;
+    }
+    .app-main .page-header-left h1 {
+      font-size: 26px;
+      line-height: 1.15;
+      font-weight: 900;
+      color: #202a3d;
+    }
+    .app-main .page-header-left .subtitle {
+      border: 0;
+      padding: 0;
+      color: #8d98aa;
+      font-size: 13px;
+    }
+    .app-main .page-header-right {
+      gap: 12px;
+    }
+    .header-stats {
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #edf1f7;
+      box-shadow: 0 10px 28px rgba(38, 54, 91, .05);
+    }
+    .header-stat {
+      border: 0;
+      background: transparent;
+      padding: 0 16px;
+      border-right: 1px solid #eef1f6;
+      border-radius: 0;
+      color: #8c96a8;
+      font-weight: 800;
+    }
+    .header-stat:last-child {
+      border-right: 0;
+      padding-right: 0;
+    }
+    .header-stat strong {
+      display: inline-block;
+      margin-left: 4px;
+      color: #1f2937;
+      font-size: 17px;
+      font-weight: 900;
+    }
+    .header-toggle {
+      min-height: 38px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .app-main .card {
+      border: 1px solid #edf1f7;
+      border-radius: 8px;
+      box-shadow: 0 12px 30px rgba(38, 54, 91, .05);
+    }
+    .filter-inline-card {
+      background: #fff;
+    }
+
     /* Auth */
-    .auth-overlay { z-index: 1200; }
     .auth-modal { width: min(420px, 100%); }
+    .auth-overlay {
+      z-index: 1200;
+      background: #dcedff;
+      padding: 0;
+    }
+    .auth-overlay.show {
+      display: grid;
+      place-items: center;
+    }
+    .auth-overlay .auth-modal {
+      width: min(1160px, calc(100vw - 140px));
+      min-height: min(660px, calc(100vh - 48px));
+      display: grid;
+      grid-template-columns: minmax(360px, .95fr) minmax(360px, 1.05fr);
+      padding: 0;
+      overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      box-shadow: 0 20px 70px rgba(42, 76, 130, .12);
+      background: #fff;
+    }
+    .auth-visual {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 44px;
+      padding: 54px 46px;
+      background: #4167d9;
+      color: #fff;
+      text-align: center;
+    }
+    .device-art {
+      position: relative;
+      width: 300px;
+      height: 210px;
+    }
+    .screen {
+      position: absolute;
+      border: 5px solid #fff;
+      background: #d8eaf8;
+      box-shadow: 0 5px 0 rgba(21, 44, 92, .18);
+    }
+    .screen-main {
+      left: 84px;
+      top: 5px;
+      width: 150px;
+      height: 98px;
+      border-radius: 4px;
+    }
+    .screen-main::after {
+      content: "";
+      position: absolute;
+      left: 62px;
+      bottom: -38px;
+      width: 28px;
+      height: 32px;
+      border-bottom: 5px solid #fff;
+      background: linear-gradient(#fff 0 5px, transparent 5px);
+    }
+    .screen-laptop {
+      left: 8px;
+      top: 50px;
+      width: 100px;
+      height: 70px;
+      border-radius: 4px;
+    }
+    .screen-laptop::after {
+      content: "";
+      position: absolute;
+      left: -18px;
+      right: -18px;
+      bottom: -13px;
+      height: 8px;
+      border-radius: 0 0 16px 16px;
+      background: #fff;
+    }
+    .screen-phone {
+      right: 28px;
+      top: 58px;
+      width: 48px;
+      height: 86px;
+      border-radius: 6px;
+    }
+    .screen-mini {
+      right: 0;
+      top: 86px;
+      width: 32px;
+      height: 58px;
+      border-radius: 4px;
+    }
+    .auth-visual-copy {
+      display: grid;
+      gap: 8px;
+      max-width: 360px;
+      color: rgba(255,255,255,.92);
+      font-size: 13px;
+      line-height: 1.7;
+      font-weight: 800;
+    }
+    .auth-dots {
+      display: flex;
+      gap: 8px;
+    }
+    .auth-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.95);
+    }
+    .auth-form-panel {
+      display: grid;
+      align-content: center;
+      justify-self: center;
+      width: min(320px, calc(100% - 48px));
+      padding: 40px 0;
+    }
+    .auth-logo {
+      margin-bottom: 12px;
+      color: #4167d9;
+      font-size: 19px;
+      font-weight: 900;
+      text-align: center;
+    }
+    .auth-form-panel h2 {
+      margin: 0 0 20px;
+      color: #171f2f;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 900;
+      text-align: center;
+    }
+    .auth-subtitle {
+      margin: -8px 0 24px;
+      color: #111827;
+      font-size: 16px;
+      font-weight: 900;
+      text-align: center;
+    }
+    .auth-field-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    .auth-form-panel input[type="text"],
+    .auth-form-panel input[type="password"],
+    .auth-form-panel > input {
+      height: 40px;
+      margin-bottom: 18px;
+      border-radius: 0;
+      border: 1px solid #e4e7ee;
+      background: #fff;
+      font-size: 13px;
+    }
+    .remember-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0 0 16px;
+      color: #343d50;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .remember-row input {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+    }
+    .auth-submit-row {
+      margin-top: 0;
+    }
+    .auth-submit-row button {
+      width: 100%;
+      height: 42px;
+      border-radius: 2px;
+      background: #4167d9;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .auth-links {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      color: #111827;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .auth-link-btn {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      color: #4167d9;
+      box-shadow: none;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .auth-link-btn:hover {
+      background: transparent;
+      color: #254cc5;
+      box-shadow: none;
+    }
     .auth-status { min-height: 20px; margin-top: 10px; color: #6b7280; font-size: 12px; line-height: 1.5; }
     .auth-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .dingtalk-schedule-section { margin-top: 14px; }
@@ -1165,6 +1900,51 @@
 
     /* ---- Responsive ---- */
     @media (max-width: 900px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .app-sidebar {
+        position: static;
+        height: auto;
+        grid-template-rows: auto auto;
+        gap: 12px;
+        padding: 14px 16px;
+      }
+      .side-menu {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+      }
+      .side-section {
+        display: contents;
+      }
+      .side-section-title {
+        display: none;
+      }
+      .side-menu-bottom { display: none; }
+      .side-menu-item {
+        width: auto;
+        flex: 0 0 auto;
+        padding: 0 12px;
+      }
+      .app-main { grid-template-rows: auto minmax(0, 1fr); }
+      .app-topbar {
+        position: static;
+        padding: 12px 16px;
+        flex-wrap: wrap;
+      }
+      .app-main .page { padding: 16px; }
+      .auth-overlay .auth-modal {
+        width: min(720px, calc(100vw - 24px));
+        grid-template-columns: 1fr;
+      }
+      .auth-visual {
+        min-height: 260px;
+        padding: 32px 24px;
+        gap: 20px;
+      }
+      .device-art {
+        transform: scale(.72);
+        margin: -24px 0;
+      }
       .page { padding: 16px; }
       .page-header { padding: 10px 14px; gap: 10px; }
       .page-header-left h1 { font-size: 15px; }
@@ -1201,6 +1981,32 @@
       .metric { min-width: 0; min-height: 56px; padding: 6px 7px; }
     }
     @media (max-width: 640px) {
+      .brand-mark { font-size: 14px; }
+      .topbar-tools { gap: 8px; }
+      .topbar-welcome { width: 100%; }
+      .auth-overlay { padding: 12px; }
+      .auth-overlay .auth-modal {
+        width: 100%;
+        min-height: auto;
+      }
+      .auth-visual { display: none; }
+      .auth-form-panel {
+        width: 100%;
+        padding: 34px 22px;
+      }
+      .app-main .page-header {
+        padding: 0;
+      }
+      .app-main .page-header-left h1 {
+        font-size: 22px;
+      }
+      .header-stats {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .header-stat {
+        padding: 0 10px 0 0;
+      }
       .card { padding: 16px; }
       .field-card { padding: 12px; }
       .page-header { flex-direction: column; align-items: flex-start; }
@@ -1229,7 +2035,41 @@
   </style>
 </head>
 <body>
-  <div class="page">
+  <div class="app-shell">
+    <aside class="app-sidebar" aria-label="主导航">
+      <div class="brand-mark">
+        <span class="brand-icon">M</span>
+        <span></span>
+      </div>
+      <nav class="side-menu">
+        <button type="button" class="side-menu-item active" data-home-action="dashboard"><span class="side-icon">□</span><span>数据概览</span></button>
+        <button type="button" class="side-menu-item" data-home-action="manage"><span class="side-icon">≡</span><span>项目指派</span></button>
+        <button type="button" class="side-menu-item" data-home-action="workload"><span class="side-icon">◇</span><span>工时统计</span></button>
+        <button type="button" class="side-menu-item" data-config-trigger="open-ops-panel" data-config-role="refresh"><span class="side-icon">↻</span><span class="side-item-copy"><span class="side-item-title">数据更新</span><span class="side-item-desc">缓存刷新、监控与推送</span></span></button>
+        <button type="button" class="side-menu-item" data-home-action="monitor"><span class="side-icon">!</span><span>服务器监控</span></button>
+        <div class="side-section">
+          <div class="side-section-title">服务配置</div>
+          <button type="button" class="side-menu-item" data-config-trigger="open-assets-center" data-config-role="internal"><span class="side-icon">◎</span><span class="side-item-copy"><span class="side-item-title">统一配置中心</span><span class="side-item-desc">数据库/应用/监控/中心库</span></span></button>
+          <button type="button" class="side-menu-item" data-config-trigger="open-schedule-modal" data-config-role="admin"><span class="side-icon">◷</span><span class="side-item-copy"><span class="side-item-title">定时任务</span><span class="side-item-desc">配置更新与钉钉推送</span></span></button>
+        </div>
+      </nav>
+      <div class="side-menu side-menu-bottom">
+        <button type="button" class="side-menu-item" data-config-trigger="open-user-modal" data-config-role="admin"><span class="side-icon">◎</span><span class="side-item-copy"><span class="side-item-title">用户管理</span><span class="side-item-desc">账号创建与权限管理</span></span></button>
+        <button type="button" class="side-menu-item" data-config-trigger="open-my-dingtalk-modal" data-config-role="user"><span class="side-icon">✉</span><span class="side-item-copy"><span class="side-item-title">我的钉钉</span><span class="side-item-desc">个人推送地址与提醒</span></span></button>
+        <button type="button" class="side-menu-item" data-config-trigger="open-password-modal" data-config-role="user"><span class="side-icon">⊙</span><span class="side-item-copy"><span class="side-item-title">个人中心</span><span class="side-item-desc">修改密码与账户信息</span></span></button>
+      </div>
+    </aside>
+    <main class="app-main">
+      <header class="app-topbar">
+        <div class="topbar-welcome">
+          <span class="topbar-emoji">☀</span>
+          <span>欢迎使用系统</span>
+        </div>
+        <div class="topbar-tools">
+          <span class="auth-user" id="auth-user" style="display:none;">未登录</span>
+        </div>
+      </header>
+      <div class="page">
     <div class="page-header">
       <div class="page-header-left">
         <h1>项目阶段汇总</h1>
@@ -1241,11 +2081,10 @@
           <span class="header-stat">启用 <strong id="header-enabled-count">0</strong></span>
           <span class="header-stat">缓存 <strong id="header-cache-record-count">0</strong> 条 · <span id="header-cache-meta">未更新</span></span>
         </div>
-        <span class="auth-user" id="auth-user" style="display:none;">未登录</span>
         <div class="header-actions">
           <button id="query-btn" class="header-toggle header-toggle-primary">开始查询</button>
           <button id="export-btn" class="header-toggle secondary" disabled>导出</button>
-          <button id="toggle-config-panel" type="button" class="header-toggle">系统配置</button>
+          <button id="toggle-config-panel" type="button" class="header-toggle" style="display:none;">系统配置</button>
         </div>
       </div>
       <span id="query-status" class="query-status-bar" style="display:none;"></span>
@@ -1254,76 +2093,118 @@
     <div class="config-drawer-overlay" id="config-panel-overlay"></div>
     <aside class="config-drawer" id="config-panel" aria-hidden="true">
       <div class="config-drawer-head">
-        <div class="config-drawer-copy">
-          <div class="config-drawer-eyebrow">System Settings</div>
-          <div class="config-drawer-title">系统配置</div>
-          <div class="config-drawer-desc">配置数据源、中心库、应用服务器和定时任务。需要时展开，用完即可收起。</div>
-        </div>
         <button id="close-config-panel" type="button" class="config-drawer-close" aria-label="关闭配置面板">×</button>
       </div>
-
-      <section class="config-drawer-section">
-        <div class="config-drawer-section-title">当前状态</div>
-        <div class="config-drawer-section-desc">这里显示已接入服务和最近一次缓存刷新状态。</div>
-        <div class="config-drawer-metrics">
-          <div class="config-drawer-metric" id="drawer-server-count-card">
-            <div class="config-drawer-metric-label">已接入服务器</div>
-            <div class="config-drawer-metric-value" id="drawer-server-count">0</div>
-            <div class="config-drawer-metric-meta">当前配置总数</div>
-          </div>
-          <div class="config-drawer-metric" id="drawer-enabled-count-card">
-            <div class="config-drawer-metric-label">启用中服务器</div>
-            <div class="config-drawer-metric-value" id="drawer-enabled-count">0</div>
-            <div class="config-drawer-metric-meta">参与本次查询</div>
-          </div>
-          <div class="config-drawer-metric">
-            <div class="config-drawer-metric-label">缓存记录</div>
-            <div class="config-drawer-metric-value" id="drawer-cache-record-count">0</div>
-            <div class="config-drawer-metric-meta" id="drawer-cache-info">缓存尚未更新</div>
-          </div>
+      <div class="config-shell">
+        <div class="config-main">
+          <section class="config-drawer-section config-pane" id="cfg-assets">
+            <div class="config-drawer-section-title">统一配置中心</div>
+            <div class="config-drawer-section-desc">在同一页维护数据库服务器、应用服务器、监控服务器和中心库配置。</div>
+            <details class="config-collapsible" open>
+              <summary>数据库服务器</summary>
+              <div class="config-collapsible-body" id="cfg-assets-server-host"></div>
+            </details>
+            <details class="config-collapsible">
+              <summary>应用服务器</summary>
+              <div class="config-collapsible-body" id="cfg-assets-appserver-host"></div>
+            </details>
+            <details class="config-collapsible">
+              <summary>监控服务器</summary>
+              <div class="config-collapsible-body" id="cfg-assets-monitor-host"></div>
+            </details>
+            <details class="config-collapsible">
+              <summary>中心库配置</summary>
+              <div class="config-collapsible-body" id="cfg-assets-summary-host"></div>
+            </details>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-refresh">
+            <div class="config-drawer-section-title">数据更新</div>
+            <div class="config-drawer-section-desc">查看状态、执行更新并触发钉钉推送。</div>
+            <div id="cfg-refresh-host"></div>
+          </section>
+          <section class="config-drawer-section config-pane active" id="cfg-query">
+            <div class="config-drawer-section-title">查询库配置</div>
+            <div class="config-drawer-section-desc">维护查询数据库连接、账号与端口。</div>
+            <div id="cfg-query-host"></div>
+            <button id="open-server-modal" class="secondary" style="display:none;"></button>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-summary">
+            <div class="config-drawer-section-title">中心库配置</div>
+            <div class="config-drawer-section-desc">设置汇总中心库连接信息与可用状态。</div>
+            <div id="cfg-summary-host"></div>
+            <button id="open-summary-store-modal" class="secondary" style="display:none;">打开中心库配置</button>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-monitor">
+            <div class="config-drawer-section-title">服务器监控配置</div>
+            <div class="config-drawer-section-desc">维护监控主机、监控端口与告警阈值。</div>
+            <div id="cfg-monitor-host"></div>
+            <button id="open-monitor-server-modal" class="secondary" style="display:none;">打开服务器监控配置</button>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-appserver">
+            <div class="config-drawer-section-title">应用服务器配置</div>
+            <div class="config-drawer-section-desc">维护应用服务器选项、命名和映射。</div>
+            <div id="cfg-appserver-host"></div>
+            <button id="open-app-server-options-modal" class="secondary" style="display:none;">打开应用服务器配置</button>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-schedule">
+            <div class="config-drawer-section-title">定时任务</div>
+            <div class="config-drawer-section-desc">配置数据更新、监控巡检、钉钉推送时间。</div>
+            <div id="cfg-schedule-host"></div>
+            <button id="open-schedule-modal" class="secondary" style="display:none;">打开定时任务配置</button>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-monitor-live">
+            <div class="config-drawer-section-title">服务器监控</div>
+            <div class="config-drawer-section-desc">查看服务器实时状态和监控图表。</div>
+            <div id="cfg-monitor-live-host"></div>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-user-admin">
+            <div class="config-drawer-section-title">用户管理</div>
+            <div class="config-drawer-section-desc">新增用户、调整角色与维护推送配置。</div>
+            <div id="cfg-user-admin-host"></div>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-my-dingtalk">
+            <div class="config-drawer-section-title">我的钉钉</div>
+            <div class="config-drawer-section-desc">配置个人机器人地址与提醒时间。</div>
+            <div id="cfg-my-dingtalk-host"></div>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-profile">
+            <div class="config-drawer-section-title">个人中心</div>
+            <div class="config-drawer-section-desc">修改密码并维护个人账户安全。</div>
+            <div id="cfg-profile-host"></div>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-manage">
+            <div class="config-drawer-section-title">项目指派</div>
+            <div class="config-drawer-section-desc">维护项目负责人与归属分配。</div>
+            <div class="config-embed-shell">
+              <iframe id="cfg-manage-frame" class="config-embed-frame" title="项目指派"></iframe>
+            </div>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-workload">
+            <div class="config-drawer-section-title">工时统计</div>
+            <div class="config-drawer-section-desc">查看和统计项目工时数据。</div>
+            <div class="config-embed-shell">
+              <iframe id="cfg-workload-frame" class="config-embed-frame" title="工时统计"></iframe>
+            </div>
+          </section>
+          <section class="config-drawer-section config-pane" id="cfg-account">
+            <div class="config-drawer-section-title">账号与工作台</div>
+            <div class="config-drawer-section-desc">账号相关入口统一同级展示。</div>
+            <div class="config-drawer-actions">
+              <button id="open-user-modal" type="button" class="secondary" style="display:none;">用户管理</button>
+              <button id="open-my-dingtalk-modal" type="button" class="secondary" style="display:none;">我的钉钉</button>
+              <button id="open-password-modal" type="button" class="secondary" style="display:none;">个人中心</button>
+              <button id="open-manage-page" type="button" class="secondary" style="display:none;">项目指派</button>
+              <button id="open-workload-page" type="button" class="secondary" style="display:none;">工时统计</button>
+            </div>
+            <button id="toggle-advanced-config" class="config-nav-btn" style="display:none;">显示高级项</button>
+            <div class="config-drawer-foot">
+              <label id="allow-refresh-toggle" class="plain-check" style="display:none;margin-left:4px;">
+                <input type="checkbox" id="allow-user-refresh" checked>
+                <span>允许用户更新</span>
+              </label>
+            </div>
+          </section>
         </div>
-      </section>
-
-      <section class="config-drawer-section">
-        <div class="config-drawer-section-title">配置入口</div>
-        <div class="config-drawer-section-desc">左侧集中维护系统参数，右侧保留查询和结果区域。</div>
-        <div class="config-drawer-actions">
-          <button id="refresh-btn" class="header-toggle header-toggle-primary">立即更新数据</button>
-          <button id="refresh-monitor-btn" class="secondary">查询监控状态</button>
-          <button id="check-monitor-alert-btn" class="secondary">立即执行预警检查</button>
-          <button id="open-server-modal" class="secondary">管理查询服务器</button>
-          <button id="open-monitor-server-modal" class="secondary">管理监控服务器</button>
-          <button id="open-summary-store-modal" class="secondary" style="display:none;">中心库</button>
-          <button id="open-app-server-options-modal" class="secondary" style="display:none;">应用服务器</button>
-          <button id="open-schedule-modal" class="secondary" style="display:none;">定时任务</button>
-        </div>
-      </section>
-
-      <section class="config-drawer-section" id="monitor-panel-section">
-        <div class="config-drawer-section-title">服务器监控</div>
-        <div class="config-drawer-section-desc">展示各服务器 CPU、内存、磁盘占用，超过阈值将触发钉钉预警。</div>
-        <div class="status" id="monitor-status-line"></div>
-        <div id="monitor-status-list" style="display:grid;gap:8px;"></div>
-      </section>
-
-      <section class="config-drawer-section">
-        <div class="config-drawer-section-title">快捷操作</div>
-        <div class="config-drawer-section-desc">页面跳转和账号相关操作统一放在这里。</div>
-        <div class="config-drawer-actions">
-          <button id="open-manage-page" type="button" class="secondary" style="display:none;">分配管理</button>
-          <button id="open-workload-page" type="button" class="secondary" style="display:none;">工时统计</button>
-          <button id="open-user-modal" type="button" class="secondary" style="display:none;">用户管理</button>
-          <button id="open-my-dingtalk-modal" type="button" class="secondary" style="display:none;">我的钉钉</button>
-          <button id="open-password-modal" type="button" class="secondary" style="display:none;">修改密码</button>
-          <button id="logout-btn" type="button" class="header-toggle header-toggle-danger" style="display:none;">退出账号</button>
-        </div>
-      </section>
-
-      <div class="config-drawer-foot">
-        <label id="allow-refresh-toggle" class="plain-check" style="display:none;margin-left:4px;">
-          <input type="checkbox" id="allow-user-refresh" checked>
-          <span>允许用户更新</span>
-        </label>
       </div>
     </aside>
 
@@ -1421,22 +2302,45 @@
     <!-- Auth Overlay -->
     <div class="overlay auth-overlay show" id="auth-overlay">
       <div class="modal auth-modal">
-        <div class="modal-head">
+        <section class="auth-visual">
+          <div class="device-art" aria-hidden="true">
+            <div class="screen screen-main"></div>
+            <div class="screen screen-laptop"></div>
+            <div class="screen screen-phone"></div>
+            <div class="screen screen-mini"></div>
+          </div>
+          <div class="auth-visual-copy">
+            <p>项目阶段、服务器缓存、人员分配与工时统计统一管理。</p>
+            <p>先完成登录，进入首页后继续使用原有查询和配置能力。</p>
+          </div>
+          <div class="auth-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        </section>
+        <section class="auth-form-panel">
+          <div class="auth-logo">LOGO</div>
           <h2 id="auth-title">登录验证</h2>
-        </div>
-        <label>用户名</label>
-        <input id="auth-username" autocomplete="username" placeholder="请输入用户名">
-        <label style="margin-top:12px;">密码</label>
-        <input id="auth-password" type="password" autocomplete="current-password" placeholder="请输入密码">
-        <div id="auth-confirm-wrap" style="display:none;">
-          <label style="margin-top:12px;">确认密码</label>
-          <input id="auth-confirm-password" type="password" autocomplete="new-password" placeholder="请再次输入密码">
-        </div>
-        <div class="actions">
-          <button id="auth-submit-btn">登录</button>
-        </div>
-        <div class="hint" id="auth-hint">请输入登录账号后继续。</div>
-        <div class="auth-status" id="auth-status"></div>
+          <p class="auth-subtitle">欢迎使用项目阶段汇总服务</p>
+          <label class="auth-field-label">账号</label>
+          <input id="auth-username" autocomplete="username" placeholder="请输入账号">
+          <label class="auth-field-label">密码</label>
+          <input id="auth-password" type="password" autocomplete="current-password" placeholder="请输入密码">
+          <div id="auth-confirm-wrap" style="display:none;">
+            <label class="auth-field-label">确认密码</label>
+            <input id="auth-confirm-password" type="password" autocomplete="new-password" placeholder="请再次输入密码">
+          </div>
+          <label class="remember-row">
+            <input type="checkbox" id="remember-login">
+            <span>记住密码</span>
+          </label>
+          <div class="actions auth-submit-row">
+            <button id="auth-submit-btn">立即登录</button>
+          </div>
+          <div class="auth-links">
+            <span>没有账号？请联系管理员</span>
+            <button type="button" class="auth-link-btn" id="auth-forgot-btn">忘记密码?</button>
+          </div>
+          <div class="hint" id="auth-hint">请输入登录账号后继续。</div>
+          <div class="auth-status" id="auth-status"></div>
+        </section>
       </div>
     </div>
 
@@ -1482,6 +2386,7 @@
         <input id="password-confirm" type="password" autocomplete="new-password" placeholder="请再次输入新密码">
         <div class="auth-actions">
           <button id="change-password-btn">保存新密码</button>
+          <button id="logout-btn" type="button" class="header-toggle header-toggle-danger" style="display:none;">退出账号</button>
         </div>
         <div class="danger-note" id="password-note" style="display:none;">当前账号使用的是初始密码，必须先修改后才能继续使用。</div>
         <div class="auth-status" id="password-status"></div>
@@ -1575,11 +2480,15 @@
         <div style="margin-top:8px;">
           <button id="add-app-server-btn" type="button" class="ghost">+ 新增</button>
         </div>
+        <div class="hint">站点字段支持多值（逗号/分号/换行分隔），支持二级目录（如 <code>Default Web Site/cn_demo</code>）和通配符（如 <code>cn_2026*</code>）。</div>
         <div class="hint">修改名称后保存，会自动更新已分配该服务器的项目记录。</div>
         <div class="auth-actions">
           <button id="save-app-server-options-btn">保存配置</button>
+          <button id="auto-assign-preview-btn" type="button" class="secondary">预演自动归属</button>
+          <button id="auto-assign-apply-btn" type="button" class="secondary">正式自动归属</button>
         </div>
         <div class="auth-status" id="app-server-options-status"></div>
+        <div class="hint" id="app-server-auto-assign-summary"></div>
       </div>
     </div>
 
@@ -1686,6 +2595,28 @@
           </label>
         </div>
         <div class="hint" style="margin-top:6px;">每分钟检测：若某项目今日最后阶段恰好在 1 小时后结束，自动推送提醒（主群 + 负责人）。</div>
+        <hr style="margin:16px 0;border:none;border-top:1px solid var(--line);">
+        <div class="auth-actions">
+          <label class="plain-check">
+            <input type="checkbox" id="schedule-server-monitor-enabled">
+            <span>启用服务器监控定时检查</span>
+          </label>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;color:#374151;">检查间隔</span>
+            <input type="number" id="schedule-server-monitor-interval-minutes" min="1" max="60" value="5"
+                   style="width:80px;padding:6px 8px;font-size:13px;">
+            <span style="font-size:13px;color:#374151;">分钟</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;color:#374151;">告警冷却</span>
+            <input type="number" id="schedule-server-monitor-cooldown-minutes" min="1" max="1440" value="30"
+                   style="width:88px;padding:6px 8px;font-size:13px;">
+            <span style="font-size:13px;color:#374151;">分钟</span>
+          </div>
+        </div>
+        <div class="hint" style="margin-top:6px;">建议：检查间隔 1-5 分钟，告警冷却 10-30 分钟。</div>
         <div class="auth-actions" style="margin-top:16px;">
           <button id="save-schedule-btn">保存配置</button>
           <button id="test-dingtalk-btn" class="secondary">测试钉钉推送</button>
@@ -1761,6 +2692,8 @@
             <input id="monitor-server-memory-threshold" type="number" value="85" min="1" max="100">
             <label style="margin-top:12px;">磁盘告警阈值(%)</label>
             <input id="monitor-server-disk-threshold" type="number" value="90" min="1" max="100">
+            <label style="margin-top:12px;">带宽告警阈值(Mbps)</label>
+            <input id="monitor-server-bandwidth-threshold" type="number" value="200" min="1">
             <div class="actions">
               <button id="save-monitor-server">新增/更新</button>
               <button id="clear-monitor-server" class="ghost">清空表单</button>
@@ -1774,6 +2707,66 @@
         </div>
       </div>
     </div>
+
+    <div class="overlay" id="monitor-panel-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>服务器监控</h2>
+          <button id="close-monitor-panel" class="close-btn">关闭</button>
+        </div>
+        <div style="display:grid;gap:10px;">
+          <div class="actions" style="margin-top:0;">
+            <button id="refresh-monitor-btn" class="secondary">查询监控状态</button>
+            <button id="check-monitor-alert-btn" class="secondary">立即执行预警检查</button>
+          </div>
+          <div class="status" id="monitor-status-line"></div>
+          <div id="monitor-status-list" style="display:grid;gap:8px;max-height:60vh;overflow:auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="ops-panel-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>运行面板</h2>
+          <button id="close-ops-panel" class="close-btn">关闭</button>
+        </div>
+        <div style="display:grid;gap:10px;">
+          <div class="config-drawer-section" style="margin:0;">
+            <div class="config-drawer-section-title">当前状态</div>
+            <div class="config-drawer-section-desc">已接入服务和最近一次缓存刷新状态。</div>
+            <div class="config-drawer-metrics">
+              <div class="config-drawer-metric" id="drawer-server-count-card">
+                <div class="config-drawer-metric-label">已接入服务器</div>
+                <div class="config-drawer-metric-value" id="drawer-server-count">0</div>
+                <div class="config-drawer-metric-meta">当前配置总数</div>
+              </div>
+              <div class="config-drawer-metric" id="drawer-enabled-count-card">
+                <div class="config-drawer-metric-label">启用中服务器</div>
+                <div class="config-drawer-metric-value" id="drawer-enabled-count">0</div>
+                <div class="config-drawer-metric-meta">参与本次查询</div>
+              </div>
+              <div class="config-drawer-metric">
+                <div class="config-drawer-metric-label">缓存记录</div>
+                <div class="config-drawer-metric-value" id="drawer-cache-record-count">0</div>
+                <div class="config-drawer-metric-meta" id="drawer-cache-info">缓存尚未更新</div>
+              </div>
+            </div>
+          </div>
+          <div class="actions" style="margin-top:0;">
+            <button id="ops-open-server-config-btn" class="secondary">查询库配置</button>
+            <button id="ops-open-monitor-server-config-btn" class="secondary">监控服务器配置</button>
+            <button id="refresh-btn" class="header-toggle header-toggle-primary">立即更新数据</button>
+            <button id="open-monitor-panel" class="secondary">服务器监控</button>
+            <button id="ops-test-dingtalk-btn" class="secondary" style="display:none;">钉钉推送（当天）</button>
+            <button id="ops-test-dingtalk-nextday-btn" class="secondary" style="display:none;">钉钉推送（次日预告）</button>
+          </div>
+          <div class="status" id="ops-status-line"></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </main>
   </div>
 
   <script>
@@ -1783,6 +2776,7 @@
     let lastSummary = null;
     let serversCache = [];
     let monitorServersCache = [];
+    let advancedConfigVisible = false;
     let authMode = "login";
     let authReady = false;
     let currentRole = "external";
@@ -1796,8 +2790,11 @@
     let legacyProjectMetadataMap = {};
     let allUsersCache = [];
     let allAppServerOptions = [];
+    let allAppServerNodes = [];
     let currentUsername = "";
+    const inlineOverlayParents = new Map();
     let currentMetadataEditKey = "";
+    let currentHomeAction = "dashboard";
 
     function buildAppUrl(path) {
       const normalizedPath = String(path || "").replace(/^\/+/, "");
@@ -1839,6 +2836,97 @@
       return parseAppServerValues(Array.isArray(values) ? values.join("\n") : values)
         .filter((item, index, list) => list.findIndex(candidate => candidate.toLowerCase() === item.toLowerCase()) === index)
         .join("、");
+    }
+
+    function parseIisSiteRules(value) {
+      return String(value || "")
+        .split(/[\n,，;；]+/)
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeIisSiteIdentity(value) {
+      const raw = String(value || "").trim().toLowerCase();
+      if (!raw) return "";
+      const normalized = raw.replaceAll("\\", "/").replace(/\/+/g, "/").replace(/^\/+|\/+$/g, "");
+      if (!normalized) return "";
+      const parts = normalized.split("/").filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : normalized;
+    }
+
+    function buildDatabaseCandidates(databaseName) {
+      const db = String(databaseName || "").trim().toLowerCase();
+      if (!db) return [];
+      const set = new Set([db]);
+      if (!db.endsWith("gl")) set.add(`${db}gl`);
+      if (db.endsWith("gl") && db.length > 2) set.add(db.slice(0, -2));
+      return Array.from(set);
+    }
+
+    function wildcardMatch(text, pattern) {
+      const source = String(text || "").toLowerCase();
+      const rule = String(pattern || "").toLowerCase();
+      if (!source || !rule) return false;
+      if (!rule.includes("*")) return source === rule;
+      const escaped = rule.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      return new RegExp(`^${escaped}$`, "i").test(source);
+    }
+
+    function nodeMatchesDatabaseByIisRule(node, databaseName) {
+      const dbCandidates = buildDatabaseCandidates(databaseName);
+      if (!dbCandidates.length) return false;
+
+      const directName = normalizeIisSiteIdentity(node?.name || "");
+      if (directName && dbCandidates.includes(directName)) return true;
+
+      const rules = [
+        ...parseIisSiteRules(node?.frontSiteName || ""),
+        ...parseIisSiteRules(node?.backSiteName || "")
+      ];
+      if (!rules.length) return false;
+
+      return rules.some(rule => {
+        const token = normalizeIisSiteIdentity(rule);
+        if (!token) return false;
+        if (token.includes("{db}")) {
+          return dbCandidates.some(db => wildcardMatch(db, normalizeIisSiteIdentity(token.replaceAll("{db}", db))));
+        }
+        return dbCandidates.some(db => wildcardMatch(db, token));
+      });
+    }
+
+    function inferAppServersByDatabaseName(databaseName) {
+      const db = String(databaseName || "").trim();
+      if (!db || !allAppServerOptions.length) return [];
+
+      const optionsByKey = new Map(allAppServerOptions.map(name => [name.toLowerCase(), name]));
+      const matched = [];
+
+      (allAppServerNodes || []).forEach(node => {
+        if (!node?.enabled || !node?.name) return;
+        const hit = nodeMatchesDatabaseByIisRule(node, db);
+        if (!hit) return;
+        const optionName = optionsByKey.get(String(node.name).trim().toLowerCase()) || String(node.name).trim();
+        if (!optionName) return;
+        if (!matched.some(item => item.toLowerCase() === optionName.toLowerCase())) {
+          matched.push(optionName);
+        }
+      });
+
+      if (matched.length) return matched;
+
+      const fallbackCandidates = buildDatabaseCandidates(db);
+      fallbackCandidates.forEach(candidate => {
+        const hit = optionsByKey.get(candidate);
+        if (hit && !matched.some(item => item.toLowerCase() === hit.toLowerCase())) matched.push(hit);
+      });
+      return matched;
+    }
+
+    function resolveAppServersValue(item, meta) {
+      const manual = String(meta?.appServers || "").trim();
+      if (manual) return manual;
+      return joinAppServerValues(inferAppServersByDatabaseName(item?.databaseName || ""));
     }
 
     function toLocalDateValue(date) {
@@ -1910,6 +2998,23 @@
       return monitorServersCache;
     }
 
+    async function loadUnifiedServerConfig() {
+      const response = await apiFetch(buildAppUrl("api/unified-server-config"));
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "读取统一服务器配置失败");
+      }
+      const data = await response.json();
+      serversCache = Array.isArray(data?.databaseServers) ? data.databaseServers : [];
+      monitorServersCache = Array.isArray(data?.monitorServers) ? data.monitorServers : [];
+      allAppServerNodes = Array.isArray(data?.appServers) ? data.appServers : [];
+      allAppServerOptions = allAppServerNodes
+        .map(item => String(item?.name || "").trim())
+        .filter(Boolean);
+      summaryStoreConfig = data?.summaryStore || summaryStoreConfig || {};
+      return data;
+    }
+
     async function saveServers(servers) {
       const response = await apiFetch(buildAppUrl("api/servers"), {
         method: "POST",
@@ -1955,6 +3060,7 @@
       document.getElementById("monitor-server-cpu-threshold").value = server?.cpuAlertThreshold || 85;
       document.getElementById("monitor-server-memory-threshold").value = server?.memoryAlertThreshold || 85;
       document.getElementById("monitor-server-disk-threshold").value = server?.diskAlertThreshold || 90;
+      document.getElementById("monitor-server-bandwidth-threshold").value = server?.bandwidthAlertThresholdMbps || 200;
     }
 
     function renderServerFilterOptions() {
@@ -2035,7 +3141,7 @@
             <label><input type="checkbox" data-action="toggle" data-index="${index}" ${server.enabled ? "checked" : ""}> 启用</label>
           </div>
           <div class="server-meta">${server.host}:${server.monitorPort || 5200}</div>
-          <div class="server-meta">阈值 CPU ${server.cpuAlertThreshold || 85}% 内存 ${server.memoryAlertThreshold || 85}% 磁盘 ${server.diskAlertThreshold || 90}%</div>
+          <div class="server-meta">阈值 CPU ${server.cpuAlertThreshold || 85}% 内存 ${server.memoryAlertThreshold || 85}% 磁盘 ${server.diskAlertThreshold || 90}% 带宽 ${server.bandwidthAlertThresholdMbps || 200}Mbps</div>
           <div class="server-controls">
             <button class="ghost" data-action="edit" data-index="${index}">编辑</button>
             <button class="ghost" data-action="delete" data-index="${index}">删除</button>
@@ -2062,6 +3168,27 @@
       el.style.color = isError ? "var(--danger)" : "var(--muted)";
     }
 
+    function applyAdvancedConfigVisibility() {
+      document.querySelectorAll(".advanced-config-block").forEach((el) => {
+        el.classList.toggle("advanced-config-hidden", !advancedConfigVisible);
+      });
+      const btn = document.getElementById("toggle-advanced-config");
+      if (btn) {
+        btn.textContent = advancedConfigVisible ? "收起高级项" : "显示高级项";
+      }
+    }
+
+    function toPercent(value, maxValue) {
+      if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0) return 0;
+      return Math.max(0, Math.min(100, (value / maxValue) * 100));
+    }
+
+    function monitorBarClass(valuePercent) {
+      if (valuePercent >= 90) return "danger";
+      if (valuePercent >= 75) return "warn";
+      return "";
+    }
+
     function renderMonitorStatuses(statuses) {
       const container = document.getElementById("monitor-status-list");
       if (!Array.isArray(statuses) || statuses.length === 0) {
@@ -2073,8 +3200,19 @@
         const cpu = Number(item.cpuUsagePercent || 0).toFixed(1);
         const mem = Number(item.memoryUsagePercent || 0).toFixed(1);
         const disk = Number(item.diskUsagePercent || 0).toFixed(1);
+        const inMbps = Number(item.networkInMbps || 0).toFixed(1);
+        const outMbps = Number(item.networkOutMbps || 0).toFixed(1);
+        const totalMbps = Number(item.networkTotalMbps || 0).toFixed(1);
+        const cpuPercent = Number(item.cpuUsagePercent || 0);
+        const memPercent = Number(item.memoryUsagePercent || 0);
+        const diskPercent = Number(item.diskUsagePercent || 0);
+        const inValue = Number(item.networkInMbps || 0);
+        const outValue = Number(item.networkOutMbps || 0);
+        const bwMax = Math.max(10, inValue, outValue, Number(item.networkTotalMbps || 0), 100);
+        const inPercent = toPercent(inValue, bwMax);
+        const outPercent = toPercent(outValue, bwMax);
         const mark = item.success
-          ? ((item.cpuAlert || item.memoryAlert || item.diskAlert) ? "[ALERT]" : "[OK]")
+          ? ((item.cpuAlert || item.memoryAlert || item.diskAlert || item.bandwidthAlert) ? "[ALERT]" : "[OK]")
           : "[ERROR]";
         return `
           <div class="server-item" style="padding:10px 12px;">
@@ -2084,7 +3222,35 @@
             </div>
             <div class="server-meta">${escapeHtml(item.host || "-")} / ${escapeHtml(item.collectedAt || "-")}</div>
             ${item.success
-              ? `<div class="server-meta">CPU ${cpu}% ｜ 内存 ${mem}% ｜ 磁盘 ${disk}%</div>`
+              ? `<div class="monitor-metric-grid">
+                  <div class="monitor-metric">
+                    <div class="monitor-metric-head"><span>CPU</span><strong>${cpu}%</strong></div>
+                    <div class="monitor-bar ${monitorBarClass(cpuPercent)}"><span style="width:${Math.max(0, Math.min(100, cpuPercent)).toFixed(1)}%"></span></div>
+                  </div>
+                  <div class="monitor-metric">
+                    <div class="monitor-metric-head"><span>内存</span><strong>${mem}%</strong></div>
+                    <div class="monitor-bar ${monitorBarClass(memPercent)}"><span style="width:${Math.max(0, Math.min(100, memPercent)).toFixed(1)}%"></span></div>
+                  </div>
+                  <div class="monitor-metric">
+                    <div class="monitor-metric-head"><span>磁盘</span><strong>${disk}%</strong></div>
+                    <div class="monitor-bar ${monitorBarClass(diskPercent)}"><span style="width:${Math.max(0, Math.min(100, diskPercent)).toFixed(1)}%"></span></div>
+                  </div>
+                  <div class="monitor-metric">
+                    <div class="monitor-metric-head"><span>带宽(总)</span><strong>${totalMbps} Mbps</strong></div>
+                    <div class="monitor-bandwidth-lines">
+                      <div class="monitor-bandwidth-line">
+                        <span>上行</span>
+                        <div class="monitor-bar ${monitorBarClass(inPercent)}"><span style="width:${inPercent.toFixed(1)}%"></span></div>
+                        <span>${inMbps}</span>
+                      </div>
+                      <div class="monitor-bandwidth-line">
+                        <span>下行</span>
+                        <div class="monitor-bar ${monitorBarClass(outPercent)}"><span style="width:${outPercent.toFixed(1)}%"></span></div>
+                        <span>${outMbps}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>`
               : `<div class="server-meta" style="color:var(--danger);">${escapeHtml(item.error || "采集失败")}</div>`}
           </div>
         `;
@@ -2151,6 +3317,25 @@
       document.getElementById("monitor-server-overlay").classList.remove("show");
     }
 
+    function showMonitorPanel() {
+      hideOpsPanel();
+      document.getElementById("monitor-panel-overlay").classList.add("show");
+      refreshMonitorStatus().catch(() => {});
+    }
+
+    function hideMonitorPanel() {
+      document.getElementById("monitor-panel-overlay").classList.remove("show");
+    }
+
+    function showOpsPanel() {
+      document.getElementById("ops-panel-overlay").classList.add("show");
+      setOpsStatus("");
+    }
+
+    function hideOpsPanel() {
+      document.getElementById("ops-panel-overlay").classList.remove("show");
+    }
+
     function buildPayload() {
       const typedStageNames = parseStageKeywords(document.getElementById("stage-keyword").value);
       const stageNames = [...typedStageNames]
@@ -2191,6 +3376,11 @@
     function setAppServerOptionsStatus(text) {
       document.getElementById("app-server-options-status").textContent = text;
     }
+    function setAppServerAutoAssignSummary(text) {
+      const el = document.getElementById("app-server-auto-assign-summary");
+      if (!el) return;
+      el.textContent = text || "";
+    }
 
     function updateAuthView(hasAccount, username = "", role = "external", allowUserRefresh = true, canAssign = false) {
       authMode = hasAccount ? "login" : "setup";
@@ -2199,7 +3389,7 @@
       currentUsername = username || "";
       const roleLabels = { admin: "管理员", internal: "内部用户", external: "外部用户" };
       document.getElementById("auth-title").textContent = hasAccount ? "登录验证" : "初始化账号";
-      document.getElementById("auth-submit-btn").textContent = hasAccount ? "登录" : "设置账号并登录";
+      document.getElementById("auth-submit-btn").textContent = hasAccount ? "立即登录" : "设置账号并登录";
       document.getElementById("auth-hint").textContent = hasAccount
         ? "请输入登录账号后继续。"
         : "系统首次使用，请先设置一个本地管理员账号。";
@@ -2220,15 +3410,27 @@
       document.getElementById("open-user-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-password-modal").style.display = username ? "inline-flex" : "none";
       document.getElementById("open-my-dingtalk-modal").style.display = username ? "inline-flex" : "none";
+      const accountAdvancedBox = document.getElementById("account-advanced-box");
+      if (accountAdvancedBox) accountAdvancedBox.style.display = username ? "" : "none";
       document.getElementById("open-summary-store-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("open-app-server-options-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
       document.getElementById("open-schedule-modal").style.display = username && isAdmin() ? "inline-flex" : "none";
+      const openOpsPanelBtn = document.getElementById("open-ops-panel");
+      if (openOpsPanelBtn) {
+        openOpsPanelBtn.style.display = "none";
+      }
+      document.getElementById("open-monitor-panel").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      document.getElementById("toggle-advanced-config").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      document.getElementById("ops-test-dingtalk-btn").style.display = username && isAdmin() ? "inline-flex" : "none";
+      document.getElementById("ops-test-dingtalk-nextday-btn").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("refresh-monitor-btn").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
       document.getElementById("check-monitor-alert-btn").style.display = username && isAdmin() ? "inline-flex" : "none";
-      document.getElementById("monitor-panel-section").style.display = username && isAdminOrInternal() ? "" : "none";
-      // admin 和 internal 都可以管理服务器
-      document.getElementById("open-server-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
-      document.getElementById("open-monitor-server-modal").style.display = username && isAdminOrInternal() ? "inline-flex" : "none";
+      // 内联展示配置，不再显示“打开配置”二次按钮
+      document.getElementById("open-server-modal").style.display = "none";
+      document.getElementById("open-monitor-server-modal").style.display = "none";
+      document.getElementById("open-summary-store-modal").style.display = "none";
+      document.getElementById("open-app-server-options-modal").style.display = "none";
+      document.getElementById("open-schedule-modal").style.display = "none";
       // admin 可以控制是否允许用户更新数据
       document.getElementById("allow-refresh-toggle").style.display = username && isAdmin() ? "inline-flex" : "none";
       document.getElementById("allow-user-refresh").checked = allowUserRefresh;
@@ -2236,7 +3438,23 @@
       const canRefresh = isAdminOrInternal() || allowUserRefresh;
       document.getElementById("refresh-btn").style.display = username && canRefresh ? "inline-flex" : "none";
       // 允许刷新的 external 用户也需要进入配置面板查看状态并执行刷新
-      document.getElementById("toggle-config-panel").style.display = username && (isAdminOrInternal() || canRefresh) ? "inline-flex" : "none";
+      document.getElementById("toggle-config-panel").style.display = "none";
+      if (!username || !isAdminOrInternal()) {
+        advancedConfigVisible = false;
+      }
+      applyAdvancedConfigVisibility();
+      updateSidebarConfigVisibility(Boolean(username), allowUserRefresh);
+    }
+
+    function updateSidebarConfigVisibility(hasUser, allowUserRefresh = true) {
+      document.querySelectorAll("[data-config-trigger]").forEach((button) => {
+        const required = button.dataset.configRole || "user";
+        let visible = hasUser;
+        if (required === "admin") visible = hasUser && isAdmin();
+        if (required === "internal") visible = hasUser && isAdminOrInternal();
+        if (required === "refresh") visible = hasUser && (isAdminOrInternal() || allowUserRefresh);
+        button.classList.toggle("config-hidden", !visible);
+      });
     }
 
     function showAuthOverlay() {
@@ -2323,17 +3541,11 @@
     }
 
     async function loadAppServerOptions() {
-      const response = await apiFetch(buildAppUrl("api/app-server-options"));
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || "读取应用服务器配置失败");
-      }
-
-      const options = await response.json();
-      allAppServerOptions = (Array.isArray(options) ? options : [])
-        .map(item => String(item?.name ?? "").trim())
-        .filter(Boolean);
-      renderAppServerList(allAppServerOptions);
+      const data = await loadUnifiedServerConfig();
+      renderServers();
+      renderMonitorServers();
+      fillSummaryStoreForm(summaryStoreConfig);
+      renderAppServerList(allAppServerNodes);
       return allAppServerOptions;
     }
 
@@ -2368,12 +3580,19 @@
         .filter(Boolean);
     }
 
-    function renderAppServerList(names) {
+    function renderAppServerList(nodes) {
       const container = document.getElementById("app-server-list");
-      container.innerHTML = names.map(name => `
-        <div class="app-server-row" style="display:flex;gap:6px;align-items:center;">
-          <input type="text" class="filter-input app-server-name-input" value="${escapeHtml(name)}"
-            data-original="${escapeHtml(name)}" style="flex:1;min-width:0;">
+      container.innerHTML = (nodes || []).map(node => `
+        <div class="app-server-row" style="display:grid;grid-template-columns:1.2fr 1fr .6fr .6fr 1fr 1fr auto;gap:6px;align-items:center;">
+          <input type="text" class="filter-input app-server-name-input" value="${escapeHtml(node?.name || "")}" data-original="${escapeHtml(node?.name || "")}" placeholder="名称">
+          <input type="text" class="filter-input app-server-host-input" value="${escapeHtml(node?.host || "")}" placeholder="主机/IP">
+          <input type="number" class="filter-input app-server-port-input" value="${Number(node?.port || 80)}" placeholder="端口">
+          <select class="filter-input app-server-protocol-input">
+            <option value="http" ${(String(node?.protocol || "http").toLowerCase() === "http") ? "selected" : ""}>http</option>
+            <option value="https" ${(String(node?.protocol || "").toLowerCase() === "https") ? "selected" : ""}>https</option>
+          </select>
+          <input type="text" class="filter-input app-server-front-input" value="${escapeHtml(node?.frontSiteName || "")}" placeholder="前台站点(可多值)">
+          <input type="text" class="filter-input app-server-back-input" value="${escapeHtml(node?.backSiteName || "")}" placeholder="后台站点(可多值)">
           <button type="button" class="ghost app-server-delete-btn" style="color:#e53e3e;border-color:#e53e3e;white-space:nowrap;">删除</button>
         </div>
       `).join("") || '<div style="color:var(--muted);font-size:13px;">暂无数据，点击"新增"添加。</div>';
@@ -2385,10 +3604,17 @@
       if (container.querySelector("div:not(.app-server-row)")) container.innerHTML = "";
       const row = document.createElement("div");
       row.className = "app-server-row";
-      row.style.cssText = "display:flex;gap:6px;align-items:center;";
+      row.style.cssText = "display:grid;grid-template-columns:1.2fr 1fr .6fr .6fr 1fr 1fr auto;gap:6px;align-items:center;";
       row.innerHTML = `
-        <input type="text" class="filter-input app-server-name-input" value=""
-          data-original="" style="flex:1;min-width:0;" placeholder="输入服务器名称">
+        <input type="text" class="filter-input app-server-name-input" value="" data-original="" placeholder="名称">
+        <input type="text" class="filter-input app-server-host-input" value="" placeholder="主机/IP">
+        <input type="number" class="filter-input app-server-port-input" value="80" placeholder="端口">
+        <select class="filter-input app-server-protocol-input">
+          <option value="http" selected>http</option>
+          <option value="https">https</option>
+        </select>
+        <input type="text" class="filter-input app-server-front-input" value="" placeholder="前台站点(可多值)">
+        <input type="text" class="filter-input app-server-back-input" value="" placeholder="后台站点(可多值)">
         <button type="button" class="ghost app-server-delete-btn" style="color:#e53e3e;border-color:#e53e3e;white-space:nowrap;">删除</button>
       `;
       container.appendChild(row);
@@ -2464,13 +3690,16 @@
       } else if (!allAppServerOptions.length) {
         hint.textContent = `还没有可选应用服务器，请先在"应用服务器"里配置。`;
       } else {
-        const selectedValues = new Set(parseAppServerValues(meta.appServers).map(item => item.toLowerCase()));
+        const selectedValues = new Set(parseAppServerValues(resolveAppServersValue(item || { databaseName }, meta)).map(item => item.toLowerCase()));
         optionContainer.innerHTML = allAppServerOptions.map(name => `
           <label class="plain-check">
             <input type="checkbox" value="${escapeHtml(name)}" ${selectedValues.has(name.toLowerCase()) ? "checked" : ""}>
             <span>${escapeHtml(name)}</span>
           </label>
         `).join("");
+        if (!meta.appServers && selectedValues.size > 0) {
+          hint.textContent = "已按数据库名自动匹配（支持 gl 后缀/二级目录/通配规则），可手动调整后保存。";
+        }
       }
 
       document.getElementById("save-metadata-btn").disabled = !canEditAll && !canEditAppServers;
@@ -2480,6 +3709,33 @@
 
     function setScheduleStatus(text) {
       document.getElementById("schedule-status").textContent = text;
+    }
+
+    function setOpsStatus(text, isError = false) {
+      const el = document.getElementById("ops-status-line");
+      if (!el) return;
+      el.textContent = text || "";
+      el.style.color = isError ? "var(--danger)" : "var(--muted)";
+    }
+
+    async function sendGroupDingTalkTest(nextday = false) {
+      await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
+      const data = await postJson(buildAppUrl(nextday ? "api/dingtalk/test-nextday" : "api/dingtalk/test"), {});
+      if (nextday) {
+        let msg = "✅ 次日预告群消息已发送。";
+        if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
+        if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
+        if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
+        if (data.totalStages === 0) msg = "✅ 明天没有即将开始的项目，已发送预告通知。";
+        return msg;
+      }
+
+      let msg = "✅ 群消息已发送。";
+      if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
+      if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
+      if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
+      if (data.totalStages === 0) msg = "✅ 今天没有即将开始的项目，已发送通知。";
+      return msg;
     }
 
     async function loadScheduleConfig() {
@@ -2503,6 +3759,9 @@
       document.getElementById("schedule-unassigned-enabled").checked = Boolean(config.unassignedNotifyEnabled);
       renderTimeChipList("unassigned-notify-times", config.unassignedNotifyTimes || ["09:00"]);
       document.getElementById("schedule-ending-reminder-enabled").checked = Boolean(config.endingReminderEnabled);
+      document.getElementById("schedule-server-monitor-enabled").checked = Boolean(config.serverMonitorEnabled);
+      document.getElementById("schedule-server-monitor-interval-minutes").value = Number(config.serverMonitorIntervalMinutes || 5);
+      document.getElementById("schedule-server-monitor-cooldown-minutes").value = Number(config.serverMonitorAlertCooldownMinutes || 30);
       // Load proxy heartbeat status
       try {
         const proxyResp = await apiFetch(buildAppUrl("api/dingtalk/proxy-status"));
@@ -2538,6 +3797,9 @@
         unassignedNotifyEnabled: document.getElementById("schedule-unassigned-enabled").checked,
         unassignedNotifyTimes: getTimesFromChipList("unassigned-notify-times"),
         endingReminderEnabled: document.getElementById("schedule-ending-reminder-enabled").checked,
+        serverMonitorEnabled: document.getElementById("schedule-server-monitor-enabled").checked,
+        serverMonitorIntervalMinutes: Math.max(1, Math.min(60, parseInt(document.getElementById("schedule-server-monitor-interval-minutes").value, 10) || 5)),
+        serverMonitorAlertCooldownMinutes: Math.max(1, Math.min(1440, parseInt(document.getElementById("schedule-server-monitor-cooldown-minutes").value, 10) || 30)),
         dingTalkConfig: {
           webhookUrl: document.getElementById("dingtalk-webhook").value.trim(),
           secret: document.getElementById("dingtalk-secret").value.trim(),
@@ -2638,7 +3900,7 @@
       if (filterNoAppServer) {
         groups = groups.filter(g => {
           const meta = getMetadataRecord(g, currentRole === "external");
-          return !meta?.appServers || parseAppServerValues(meta.appServers).length === 0;
+          return parseAppServerValues(resolveAppServersValue(g, meta)).length === 0;
         });
       }
       groups = applyMaintainerFilter(groups);
@@ -2699,7 +3961,7 @@
       const appServerMetrics = Array.from(
         groups.reduce((map, item) => {
           const metadata = getMetadataRecord(item, currentRole === "external");
-          const assignedAppServers = parseAppServerValues(metadata?.appServers || "");
+          const assignedAppServers = parseAppServerValues(resolveAppServersValue(item, metadata));
           if (!assignedAppServers.length) {
             return map;
           }
@@ -2866,7 +4128,7 @@
       const key = getMetadataKey(item);
       const meta = getMetadataRecord(item, currentRole === "external");
       const maintainer = meta?.maintainer || "";
-      const appServers = meta?.appServers || "";
+      const appServers = resolveAppServersValue(item, meta);
       const canManageMetadata = isAdminOrInternal() || (currentRole === "external" && maintainer === currentUsername);
 
       let html = '<div class="board-card-top">';
@@ -2893,15 +4155,14 @@
       if (!allUsersCache.length) { row.style.display = "none"; return; }
       row.style.display = "";
       const names = allUsersCache.map(u => u.username);
-      const allSelected = filterMaintainers.size === 0;
       container.innerHTML = [
-        `<label class="tag-option ${allSelected || filterMaintainers.has("") ? "active" : ""}">
-          <input type="checkbox" class="maintainer-filter" value="" ${allSelected || filterMaintainers.has("") ? "checked" : ""}>
+        `<label class="tag-option ${filterMaintainers.has("") ? "active" : ""}">
+          <input type="checkbox" class="maintainer-filter" value="" ${filterMaintainers.has("") ? "checked" : ""}>
           <span>未指定</span>
         </label>`
       ].concat(names.map(name => `
-        <label class="tag-option ${allSelected || filterMaintainers.has(name) ? "active" : ""}">
-          <input type="checkbox" class="maintainer-filter" value="${escapeHtml(name)}" ${allSelected || filterMaintainers.has(name) ? "checked" : ""}>
+        <label class="tag-option ${filterMaintainers.has(name) ? "active" : ""}">
+          <input type="checkbox" class="maintainer-filter" value="${escapeHtml(name)}" ${filterMaintainers.has(name) ? "checked" : ""}>
           <span>${escapeHtml(name)}</span>
         </label>
       `)).join("");
@@ -3023,20 +4284,181 @@
 
     function setConfigPanelOpen(open) {
       const panel = document.getElementById("config-panel");
-      const overlay = document.getElementById("config-panel-overlay");
       const button = document.getElementById("toggle-config-panel");
       panel.classList.toggle("show", open);
-      overlay.classList.toggle("show", open);
       panel.setAttribute("aria-hidden", open ? "false" : "true");
       button.textContent = open ? "收起配置" : "系统配置";
+      if (!open) {
+        clearInlineOverlays();
+        const homeBtn = document.querySelector(`.side-menu-item[data-home-action="${currentHomeAction}"]`)
+          || document.querySelector('.side-menu-item[data-home-action="dashboard"]');
+        if (homeBtn) {
+          document.querySelectorAll(".side-menu-item").forEach(item => item.classList.toggle("active", item === homeBtn));
+        }
+      }
     }
 
-    document.getElementById("toggle-config-panel").addEventListener("click", () => {
+    function setConfigPane(paneId) {
+      document.querySelectorAll(".config-pane").forEach((pane) => {
+        pane.classList.toggle("active", pane.id === paneId);
+      });
+      document.querySelectorAll(".config-nav-btn[data-config-pane]").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.configPane === paneId);
+      });
+    }
+
+    function paneToTrigger(paneId) {
+      if (paneId === "cfg-assets") return "open-assets-center";
+      if (paneId === "cfg-refresh") return "open-ops-panel";
+      if (paneId === "cfg-query") return "open-server-modal";
+      if (paneId === "cfg-summary") return "open-summary-store-modal";
+      if (paneId === "cfg-monitor") return "open-monitor-server-modal";
+      if (paneId === "cfg-appserver") return "open-app-server-options-modal";
+      if (paneId === "cfg-schedule") return "open-schedule-modal";
+      if (paneId === "cfg-monitor-live") return "open-monitor-panel";
+      if (paneId === "cfg-user-admin") return "open-user-modal";
+      if (paneId === "cfg-my-dingtalk") return "open-my-dingtalk-modal";
+      if (paneId === "cfg-profile") return "open-password-modal";
+      if (paneId === "cfg-manage") return "open-manage-page";
+      if (paneId === "cfg-workload") return "open-workload-page";
+      return "";
+    }
+
+    function mountInlineOverlay(overlayId, hostId) {
+      const overlay = document.getElementById(overlayId);
+      const host = document.getElementById(hostId);
+      if (!overlay || !host) return;
+      if (!inlineOverlayParents.has(overlayId)) {
+        inlineOverlayParents.set(overlayId, overlay.parentElement);
+      }
+      host.appendChild(overlay);
+      overlay.classList.add("inline-config-overlay", "show");
+    }
+
+    function clearInlineOverlays() {
+      inlineOverlayParents.forEach((parent, overlayId) => {
+        const overlay = document.getElementById(overlayId);
+        if (!overlay || !parent) return;
+        overlay.classList.remove("inline-config-overlay", "show");
+        parent.appendChild(overlay);
+      });
+    }
+
+    async function openConfigInlineByTrigger(targetId) {
+      if (targetId === "open-assets-center") {
+        setConfigPane("cfg-assets");
+        mountInlineOverlay("server-overlay", "cfg-assets-server-host");
+        mountInlineOverlay("app-server-options-overlay", "cfg-assets-appserver-host");
+        mountInlineOverlay("monitor-server-overlay", "cfg-assets-monitor-host");
+        mountInlineOverlay("summary-store-overlay", "cfg-assets-summary-host");
+        try { await loadAppServerOptions(); } catch (error) { setQueryStatus(error.message); }
+        return;
+      }
+      if (targetId === "open-server-modal") {
+        setConfigPane("cfg-query");
+        mountInlineOverlay("server-overlay", "cfg-query-host");
+        return;
+      }
+      if (targetId === "open-summary-store-modal") {
+        setConfigPane("cfg-summary");
+        mountInlineOverlay("summary-store-overlay", "cfg-summary-host");
+        try { await loadSummaryStoreConfig(); } catch (error) { setQueryStatus(error.message); }
+        return;
+      }
+      if (targetId === "open-monitor-server-modal") {
+        setConfigPane("cfg-monitor");
+        mountInlineOverlay("monitor-server-overlay", "cfg-monitor-host");
+        try {
+          await loadMonitorServers();
+          renderMonitorServers();
+        } catch (error) {
+          setQueryStatus(error.message);
+        }
+        return;
+      }
+      if (targetId === "open-app-server-options-modal") {
+        setConfigPane("cfg-appserver");
+        mountInlineOverlay("app-server-options-overlay", "cfg-appserver-host");
+        try { await loadAppServerOptions(); } catch (error) { setQueryStatus(error.message); }
+        return;
+      }
+      if (targetId === "open-schedule-modal") {
+        setConfigPane("cfg-schedule");
+        mountInlineOverlay("schedule-overlay", "cfg-schedule-host");
+        try { await loadScheduleConfig(); } catch (error) { setQueryStatus(error.message); }
+        return;
+      }
+      if (targetId === "open-ops-panel") {
+        setConfigPane("cfg-refresh");
+        mountInlineOverlay("ops-panel-overlay", "cfg-refresh-host");
+        setOpsStatus("");
+        return;
+      }
+      if (targetId === "open-monitor-panel") {
+        setConfigPane("cfg-monitor-live");
+        mountInlineOverlay("monitor-panel-overlay", "cfg-monitor-live-host");
+        await refreshMonitorStatus();
+        return;
+      }
+      if (targetId === "open-user-modal") {
+        setConfigPane("cfg-user-admin");
+        mountInlineOverlay("user-overlay", "cfg-user-admin-host");
+        await loadUsersForAdmin();
+        return;
+      }
+      if (targetId === "open-my-dingtalk-modal") {
+        setConfigPane("cfg-my-dingtalk");
+        mountInlineOverlay("my-dingtalk-overlay", "cfg-my-dingtalk-host");
+        const statusEl = document.getElementById("my-dingtalk-status");
+        if (statusEl) statusEl.textContent = "";
+        myDingTalkTimes.today.clear();
+        myDingTalkTimes.nextday.clear();
+        renderAllTimeTags();
+        const cfg = await apiFetch(buildAppUrl("api/auth/me/dingtalk-config")).then(r => r.ok ? r.json() : Promise.reject(new Error("加载失败")));
+        document.getElementById("my-dingtalk-enabled").checked = !!cfg.enabled;
+        document.getElementById("my-dingtalk-webhook").value = cfg.webhook || "";
+        document.getElementById("my-dingtalk-secret").value = cfg.secret || "";
+        document.getElementById("my-dingtalk-proxy-url").value = cfg.proxyUrl || "";
+        (cfg.remindTimesToday || []).forEach(t => myDingTalkTimes.today.add(t));
+        (cfg.remindTimesNextday || []).forEach(t => myDingTalkTimes.nextday.add(t));
+        renderAllTimeTags();
+        return;
+      }
+      if (targetId === "open-password-modal") {
+        setConfigPane("cfg-profile");
+        mountInlineOverlay("password-overlay", "cfg-profile-host");
+        showPasswordOverlay(false);
+        return;
+      }
+      if (targetId === "open-manage-page") {
+        setConfigPane("cfg-manage");
+        const frame = document.getElementById("cfg-manage-frame");
+        if (frame && !frame.src) frame.src = buildAppUrl("manage.html");
+        return;
+      }
+      if (targetId === "open-workload-page") {
+        setConfigPane("cfg-workload");
+        const frame = document.getElementById("cfg-workload-frame");
+        if (frame && !frame.src) frame.src = buildAppUrl("workload.html");
+        return;
+      }
+    }
+
+    document.getElementById("toggle-config-panel")?.addEventListener("click", () => {
       const panel = document.getElementById("config-panel");
+      if (!panel) return;
+      setConfigPane("cfg-assets");
       setConfigPanelOpen(!panel.classList.contains("show"));
     });
-    document.getElementById("close-config-panel").addEventListener("click", () => setConfigPanelOpen(false));
-    document.getElementById("config-panel-overlay").addEventListener("click", () => setConfigPanelOpen(false));
+    document.getElementById("toggle-advanced-config")?.addEventListener("click", () => {
+      advancedConfigVisible = !advancedConfigVisible;
+      applyAdvancedConfigVisibility();
+    });
+    document.getElementById("close-config-panel")?.addEventListener("click", () => setConfigPanelOpen(false));
+    document.getElementById("config-panel-overlay")?.addEventListener("click", () => setConfigPanelOpen(false));
+    document.querySelectorAll(".config-nav-btn[data-config-pane]").forEach((btn) => {
+      btn.addEventListener("click", () => setConfigPane(btn.dataset.configPane));
+    });
 
     function setQueryPanelOpen(open) {
       const panel = document.getElementById("query-panel");
@@ -3061,11 +4483,21 @@
     document.getElementById("close-query-panel-secondary")?.addEventListener("click", () => setQueryPanelOpen(false));
     document.getElementById("query-panel-overlay")?.addEventListener("click", () => setQueryPanelOpen(false));
 
-    document.getElementById("open-server-modal").addEventListener("click", showServerModal);
-    document.getElementById("close-server-modal").addEventListener("click", hideServerModal);
-    document.getElementById("open-monitor-server-modal").addEventListener("click", showMonitorServerModal);
-    document.getElementById("close-monitor-server-modal").addEventListener("click", hideMonitorServerModal);
-    document.getElementById("allow-user-refresh").addEventListener("change", async (event) => {
+    document.getElementById("open-server-modal")?.addEventListener("click", showServerModal);
+    document.getElementById("close-server-modal")?.addEventListener("click", hideServerModal);
+    document.getElementById("open-monitor-panel")?.addEventListener("click", showMonitorPanel);
+    document.getElementById("close-monitor-panel")?.addEventListener("click", hideMonitorPanel);
+    document.getElementById("open-ops-panel")?.addEventListener("click", showOpsPanel);
+    document.getElementById("close-ops-panel")?.addEventListener("click", hideOpsPanel);
+    document.getElementById("open-monitor-server-modal")?.addEventListener("click", showMonitorServerModal);
+    document.getElementById("close-monitor-server-modal")?.addEventListener("click", hideMonitorServerModal);
+    document.getElementById("ops-open-server-config-btn")?.addEventListener("click", () => {
+      openConfigInlineByTrigger("open-server-modal").catch((error) => setQueryStatus(error.message));
+    });
+    document.getElementById("ops-open-monitor-server-config-btn")?.addEventListener("click", () => {
+      openConfigInlineByTrigger("open-monitor-server-modal").catch((error) => setQueryStatus(error.message));
+    });
+    document.getElementById("allow-user-refresh")?.addEventListener("change", async (event) => {
       try {
         await postJson(buildAppUrl("api/auth/allow-user-refresh"), { allow: event.target.checked });
       } catch (error) {
@@ -3078,17 +4510,37 @@
     document.querySelectorAll(".overlay").forEach(overlay => {
       overlay.addEventListener("mousedown", (e) => { overlayMouseDownTarget = e.target; });
     });
-    document.getElementById("server-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("server-overlay") && overlayMouseDownTarget === event.target) {
+    document.getElementById("server-overlay")?.addEventListener("click", (event) => {
+      const overlay = document.getElementById("server-overlay");
+      if (!overlay) return;
+      if (!event.currentTarget.classList.contains("inline-config-overlay") &&
+          event.target === overlay && overlayMouseDownTarget === event.target) {
         hideServerModal();
       }
     });
-    document.getElementById("monitor-server-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("monitor-server-overlay") && overlayMouseDownTarget === event.target) {
+    document.getElementById("monitor-server-overlay")?.addEventListener("click", (event) => {
+      const overlay = document.getElementById("monitor-server-overlay");
+      if (!overlay) return;
+      if (!event.currentTarget.classList.contains("inline-config-overlay") &&
+          event.target === overlay && overlayMouseDownTarget === event.target) {
         hideMonitorServerModal();
       }
     });
-    document.getElementById("logout-btn").addEventListener("click", async () => {
+    document.getElementById("monitor-panel-overlay")?.addEventListener("click", (event) => {
+      const overlay = document.getElementById("monitor-panel-overlay");
+      if (!overlay) return;
+      if (event.target === overlay && overlayMouseDownTarget === event.target) {
+        hideMonitorPanel();
+      }
+    });
+    document.getElementById("ops-panel-overlay")?.addEventListener("click", (event) => {
+      const overlay = document.getElementById("ops-panel-overlay");
+      if (!overlay) return;
+      if (event.target === overlay && overlayMouseDownTarget === event.target) {
+        hideOpsPanel();
+      }
+    });
+    document.getElementById("logout-btn")?.addEventListener("click", async () => {
       try {
         await postJson(buildAppUrl("api/auth/logout"), {});
       } catch (error) {
@@ -3099,19 +4551,21 @@
         showAuthOverlay();
       }
     });
-    document.getElementById("open-user-modal").addEventListener("click", () => {
+    document.getElementById("open-user-modal")?.addEventListener("click", () => {
       if (!isAdmin()) return;
       showUserOverlay();
     });
-    document.getElementById("open-manage-page").addEventListener("click", () => {
+    document.getElementById("open-manage-page")?.addEventListener("click", () => {
       if (!isAdmin() && !currentCanAssign) return;
-      window.location.href = buildAppUrl("manage.html");
+      setConfigPanelOpen(true);
+      openConfigInlineByTrigger("open-manage-page").catch((error) => setQueryStatus(error.message));
     });
-    document.getElementById("open-workload-page").addEventListener("click", () => {
+    document.getElementById("open-workload-page")?.addEventListener("click", () => {
       if (!isAdmin()) return;
-      window.location.href = buildAppUrl("workload.html");
+      setConfigPanelOpen(true);
+      openConfigInlineByTrigger("open-workload-page").catch((error) => setQueryStatus(error.message));
     });
-    document.getElementById("open-summary-store-modal").addEventListener("click", async () => {
+    document.getElementById("open-summary-store-modal")?.addEventListener("click", async () => {
       if (!isAdmin()) return;
       try {
         await showSummaryStoreOverlay();
@@ -3119,7 +4573,7 @@
         setQueryStatus(error.message);
       }
     });
-    document.getElementById("open-app-server-options-modal").addEventListener("click", async () => {
+    document.getElementById("open-app-server-options-modal")?.addEventListener("click", async () => {
       if (!isAdminOrInternal()) return;
       try {
         await loadAppServerOptions();
@@ -3128,7 +4582,7 @@
         setQueryStatus(error.message);
       }
     });
-    document.getElementById("open-schedule-modal").addEventListener("click", async () => {
+    document.getElementById("open-schedule-modal")?.addEventListener("click", async () => {
       if (!isAdmin()) return;
       try {
         await showScheduleOverlay();
@@ -3136,9 +4590,12 @@
         setQueryStatus(error.message);
       }
     });
-    document.getElementById("close-app-server-options-modal").addEventListener("click", hideAppServerOptionsOverlay);
-    document.getElementById("app-server-options-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("app-server-options-overlay") && overlayMouseDownTarget === event.target) {
+    document.getElementById("close-app-server-options-modal")?.addEventListener("click", hideAppServerOptionsOverlay);
+    document.getElementById("app-server-options-overlay")?.addEventListener("click", (event) => {
+      const overlay = document.getElementById("app-server-options-overlay");
+      if (!overlay) return;
+      if (!event.currentTarget.classList.contains("inline-config-overlay") &&
+          event.target === overlay && overlayMouseDownTarget === event.target) {
         hideAppServerOptionsOverlay();
       }
     });
@@ -3155,7 +4612,8 @@
     });
     document.getElementById("close-schedule-modal").addEventListener("click", hideScheduleOverlay);
     document.getElementById("schedule-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("schedule-overlay") && overlayMouseDownTarget === event.target) {
+      if (!event.currentTarget.classList.contains("inline-config-overlay") &&
+          event.target === document.getElementById("schedule-overlay") && overlayMouseDownTarget === event.target) {
         hideScheduleOverlay();
       }
     });
@@ -3187,55 +4645,87 @@
       try {
         setAppServerOptionsStatus("正在保存应用服务器配置...");
         const rows = [...document.querySelectorAll(".app-server-row")];
-        const entries = rows.map(row => ({
-          original: row.querySelector("input").dataset.original || "",
-          current: row.querySelector("input").value.trim()
-        })).filter(e => e.current);
+        const appServers = rows.map(row => {
+          const nameEl = row.querySelector(".app-server-name-input");
+          const hostEl = row.querySelector(".app-server-host-input");
+          const portEl = row.querySelector(".app-server-port-input");
+          const protocolEl = row.querySelector(".app-server-protocol-input");
+          const frontEl = row.querySelector(".app-server-front-input");
+          const backEl = row.querySelector(".app-server-back-input");
+          return {
+            name: nameEl?.value?.trim() || "",
+            host: hostEl?.value?.trim() || "",
+            port: Number(portEl?.value || 80),
+            protocol: (protocolEl?.value || "http").toLowerCase(),
+            enabled: true,
+            frontSiteName: frontEl?.value?.trim() || "",
+            backSiteName: backEl?.value?.trim() || ""
+          };
+        }).filter(item => item.name);
 
-        // Apply renames first (original exists and differs from current)
-        const renames = entries.filter(e => e.original && e.original !== e.current);
-        for (const { original, current } of renames) {
-          await postJson(buildAppUrl("api/app-server-options/rename"), { oldName: original, newName: current });
-        }
-
-        const options = entries.map(e => e.current);
-        await postJson(buildAppUrl("api/app-server-options"), { options });
+        const payload = {
+          databaseServers: serversCache,
+          monitorServers: monitorServersCache,
+          appServers,
+          summaryStore: buildSummaryStorePayload()
+        };
+        await postJson(buildAppUrl("api/unified-server-config"), payload);
         await loadAppServerOptions();
         if (allBoardGroups.length) renderBoard(allBoardGroups);
-        setAppServerOptionsStatus(`应用服务器配置已保存，共 ${allAppServerOptions.length} 项。${renames.length ? `已同步更新 ${renames.length} 个改名。` : ""}`);
+        setAppServerOptionsStatus(`应用服务器配置已保存，共 ${allAppServerOptions.length} 项。`);
       } catch (error) {
         setAppServerOptionsStatus(error.message);
       }
     });
+
+    async function runAutoAssignAppServers(dryRun) {
+      const modeText = dryRun ? "预演" : "正式";
+      try {
+        setAppServerOptionsStatus(`正在${modeText}自动归属...`);
+        setAppServerAutoAssignSummary("");
+        const data = await postJson(buildAppUrl("api/app-servers/auto-assign"), {
+          dryRun,
+          overwriteExisting: false
+        });
+        const summaryText = `总计 ${data.total || 0}，单匹配 ${data.single || 0}，多匹配 ${data.multiple || 0}，未匹配 ${data.unmatched || 0}`;
+        setAppServerAutoAssignSummary(summaryText);
+        setAppServerOptionsStatus(dryRun ? "预演完成。" : "正式归属完成。");
+
+        if (!dryRun) {
+          await loadProjectMetadata();
+          if (allBoardGroups.length) renderBoard(allBoardGroups);
+        }
+      } catch (error) {
+        setAppServerOptionsStatus(`${modeText}失败：${error.message}`);
+      }
+    }
+
+    document.getElementById("auto-assign-preview-btn").addEventListener("click", async () => {
+      await runAutoAssignAppServers(true);
+    });
+    document.getElementById("auto-assign-apply-btn").addEventListener("click", async () => {
+      await runAutoAssignAppServers(false);
+    });
     document.getElementById("test-dingtalk-btn").addEventListener("click", async () => {
       try {
         setScheduleStatus("正在发送测试消息...");
-        // 先保存配置再测试
-        await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
-        const data = await postJson(buildAppUrl("api/dingtalk/test"), {});
-        let msg = "✅ 群消息已发送。";
-        if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
-        if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
-        if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
-        if (data.totalStages === 0) msg = "✅ 今天没有即将开始的项目，已发送通知。";
+        const msg = await sendGroupDingTalkTest(false);
         setScheduleStatus(msg);
+        setOpsStatus(msg);
       } catch (error) {
         setScheduleStatus(error.message);
+        setOpsStatus(error.message, true);
       }
     });
     document.getElementById("test-dingtalk-nextday-btn").addEventListener("click", async () => {
       try {
         setScheduleStatus("正在发送次日预告测试消息...");
-        await postJson(buildAppUrl("api/schedule"), buildSchedulePayload());
-        const data = await postJson(buildAppUrl("api/dingtalk/test-nextday"), {});
-        let msg = "✅ 次日预告群消息已发送。";
-        if (data.sentUsers?.length > 0) msg += ` 个人推送：${data.sentUsers.join("、")}。`;
-        if (data.skippedUsers?.length > 0) msg += ` 无匹配项目跳过：${data.skippedUsers.join("、")}。`;
-        if (data.failedUsers?.length > 0) msg += ` 发送失败：${data.failedUsers.join("、")}。`;
-        if (data.totalStages === 0) msg = "✅ 明天没有即将开始的项目，已发送预告通知。";
+        const msg = await sendGroupDingTalkTest(true);
         setScheduleStatus(msg);
+        setOpsStatus(msg);
       } catch (error) {
         setScheduleStatus(error.message);
+        setOpsStatus(error.message, true);
       }
     });
     document.getElementById("open-password-modal").addEventListener("click", () => showPasswordOverlay(false));
@@ -3345,7 +4835,8 @@
       }
     });
     document.getElementById("summary-store-overlay").addEventListener("click", (event) => {
-      if (event.target === document.getElementById("summary-store-overlay") && overlayMouseDownTarget === event.target) {
+      if (!event.currentTarget.classList.contains("inline-config-overlay") &&
+          event.target === document.getElementById("summary-store-overlay") && overlayMouseDownTarget === event.target) {
         hideSummaryStoreOverlay();
       }
     });
@@ -3619,6 +5110,7 @@
         cpuAlertThreshold: Number(document.getElementById("monitor-server-cpu-threshold").value || "85"),
         memoryAlertThreshold: Number(document.getElementById("monitor-server-memory-threshold").value || "85"),
         diskAlertThreshold: Number(document.getElementById("monitor-server-disk-threshold").value || "90"),
+        bandwidthAlertThresholdMbps: Number(document.getElementById("monitor-server-bandwidth-threshold").value || "200"),
         enabled: true
       };
 
@@ -3807,6 +5299,26 @@
 
     document.getElementById("check-monitor-alert-btn").addEventListener("click", async () => {
       await runMonitorAlertCheck();
+    });
+
+    document.getElementById("ops-test-dingtalk-btn").addEventListener("click", async () => {
+      try {
+        setOpsStatus("正在发送当天推送测试消息...");
+        const msg = await sendGroupDingTalkTest(false);
+        setOpsStatus(msg);
+      } catch (error) {
+        setOpsStatus(error.message || "发送失败", true);
+      }
+    });
+
+    document.getElementById("ops-test-dingtalk-nextday-btn").addEventListener("click", async () => {
+      try {
+        setOpsStatus("正在发送次日预告测试消息...");
+        const msg = await sendGroupDingTalkTest(true);
+        setOpsStatus(msg);
+      } catch (error) {
+        setOpsStatus(error.message || "发送失败", true);
+      }
     });
 
     document.getElementById("query-btn").addEventListener("click", async () => {
@@ -4020,6 +5532,113 @@
       } catch (error) {
         setQueryStatus(error.message);
       }
+    });
+
+    document.addEventListener("click", (event) => {
+      const paneButton = event.target.closest("[data-config-pane]");
+      if (paneButton) {
+        const required = paneButton.dataset.configRole || "user";
+        if (!authReady) {
+          setQueryStatus("请先登录。");
+          return;
+        }
+        if (required === "admin" && !isAdmin()) {
+          setQueryStatus("当前账号暂无该配置权限。");
+          return;
+        }
+        if (required === "internal" && !isAdminOrInternal()) {
+          setQueryStatus("当前账号暂无该配置权限。");
+          return;
+        }
+        const paneId = paneButton.dataset.configPane || "cfg-query";
+        setConfigPane(paneId);
+        setConfigPanelOpen(true);
+        document.querySelectorAll(".side-menu-item").forEach(item => item.classList.toggle("active", item === paneButton));
+        const triggerId = paneToTrigger(paneId);
+        if (triggerId) {
+          openConfigInlineByTrigger(triggerId).catch((error) => setQueryStatus(error.message));
+        }
+        return;
+      }
+
+      const configButton = event.target.closest("[data-config-trigger]");
+      if (configButton) {
+        const targetId = configButton.dataset.configTrigger;
+        const required = configButton.dataset.configRole || "user";
+        if (!authReady) {
+          setQueryStatus("请先登录。");
+          return;
+        }
+        if (required === "admin" && !isAdmin()) {
+          setQueryStatus("当前账号暂无该配置权限。");
+          return;
+        }
+        if (required === "internal" && !isAdminOrInternal()) {
+          setQueryStatus("当前账号暂无该配置权限。");
+          return;
+        }
+        if (required === "refresh" && !(isAdminOrInternal() || document.getElementById("refresh-btn").style.display !== "none")) {
+          setQueryStatus("当前账号暂无数据更新权限。");
+          return;
+        }
+        document.querySelectorAll(".config-nav-btn[data-config-trigger]").forEach(btn => btn.classList.toggle("active", btn === configButton));
+        document.querySelectorAll(".side-menu-item").forEach(item => item.classList.toggle("active", item === configButton));
+        if (["open-assets-center", "open-ops-panel", "open-server-modal", "open-summary-store-modal", "open-monitor-server-modal", "open-app-server-options-modal", "open-schedule-modal", "open-monitor-panel", "open-user-modal", "open-my-dingtalk-modal", "open-password-modal", "open-manage-page", "open-workload-page"].includes(targetId)) {
+          setConfigPanelOpen(true);
+          openConfigInlineByTrigger(targetId).catch((error) => setQueryStatus(error.message));
+          return;
+        }
+        document.getElementById(targetId)?.click();
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-home-action]");
+      if (!actionButton) return;
+      const action = actionButton.dataset.homeAction;
+      currentHomeAction = action || "dashboard";
+      document.querySelectorAll(".side-menu-item").forEach(item => {
+        item.classList.toggle("active", item === actionButton || item.dataset.homeAction === action);
+      });
+
+      if (action === "dashboard") {
+        document.querySelector(".page-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (action === "manage") {
+        document.getElementById("open-manage-page")?.click();
+        return;
+      }
+      if (action === "workload") {
+        document.getElementById("open-workload-page")?.click();
+        return;
+      }
+      if (action === "config" || action === "account") {
+        document.getElementById("toggle-config-panel")?.click();
+        if (action === "account") {
+          document.querySelector('[data-config-pane="cfg-account"]')?.click();
+        }
+        return;
+      }
+      if (action === "monitor") {
+        if (!isAdminOrInternal()) {
+          setQueryStatus("当前账号暂无监控服务权限。");
+          return;
+        }
+        setConfigPanelOpen(true);
+        openConfigInlineByTrigger("open-monitor-panel").catch((error) => setQueryStatus(error.message));
+        return;
+      }
+      if (action === "help") {
+        setQueryStatus("帮助文档入口已保留，当前页面先继续使用查询、配置、分配与工时统计功能。");
+        return;
+      }
+      if (action === "theme" || action === "message") {
+        setQueryStatus("该入口已预留，后续可以接入主题和消息中心。");
+      }
+    });
+
+    document.getElementById("auth-forgot-btn").addEventListener("click", () => {
+      setAuthStatus("请联系管理员重置密码。");
     });
 
     document.getElementById("save-metadata-btn").addEventListener("click", async () => {

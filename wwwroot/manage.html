@@ -830,7 +830,13 @@
             <button class="btn-primary" type="button" id="save-batch-btn">保存选中项目</button>
             <button class="btn-secondary" type="button" id="clear-selection-btn">清空选中</button>
           </div>
+          <div class="actions" style="margin-top:8px;">
+            <button class="btn-secondary" type="button" id="auto-assign-preview-btn">预演自动归属</button>
+            <button class="btn-secondary" type="button" id="auto-assign-apply-btn">正式自动归属</button>
+          </div>
           <div class="status-line" id="batch-status"></div>
+          <div class="status-line" id="auto-assign-status"></div>
+          <div id="auto-assign-unmatched" class="hint" style="white-space:pre-wrap;line-height:1.6;"></div>
         </section>
       </aside>
 
@@ -1558,6 +1564,49 @@
       }
     }
 
+    function setAutoAssignStatus(text, type = "") {
+      const el = document.getElementById("auto-assign-status");
+      el.textContent = text || "";
+      el.className = `status-line${type ? ` ${type}` : ""}`;
+    }
+
+    function renderAutoAssignUnmatched(items) {
+      const el = document.getElementById("auto-assign-unmatched");
+      const list = Array.isArray(items) ? items : [];
+      if (!list.length) {
+        el.textContent = "未匹配项目：0";
+        return;
+      }
+      const lines = list.slice(0, 80).map(item => `${item.serverName} / ${item.databaseName} / ${item.examCode}`);
+      const more = list.length > 80 ? `\n... 其余 ${list.length - 80} 条未展示` : "";
+      el.textContent = `未匹配项目：${list.length}\n${lines.join("\n")}${more}`;
+    }
+
+    async function runAutoAssign(dryRun) {
+      const modeText = dryRun ? "预演" : "正式";
+      setAutoAssignStatus(`正在${modeText}自动归属...`);
+      renderAutoAssignUnmatched([]);
+      try {
+        const data = await postJson(buildAppUrl("/api/app-servers/auto-assign"), {
+          dryRun,
+          overwriteExisting: false
+        });
+        const items = Array.isArray(data.items) ? data.items : [];
+        const unmatched = items.filter(item => item.matchStatus === "unmatched");
+        const summary = `总计 ${data.total || 0}，单匹配 ${data.single || 0}，多匹配 ${data.multiple || 0}，未匹配 ${data.unmatched || 0}`;
+        setAutoAssignStatus(`${modeText}完成。${summary}`, "success");
+        renderAutoAssignUnmatched(unmatched);
+
+        if (!dryRun) {
+          state.metadata = await getJson(buildAppUrl("/api/project-metadata"));
+          syncMetadataMap();
+          renderProjectList();
+        }
+      } catch (error) {
+        setAutoAssignStatus(`${modeText}失败：${error.message || "未知错误"}`, "error");
+      }
+    }
+
     document.querySelectorAll(".tag-option").forEach(el => {
       el.addEventListener("click", () => {
         el.classList.toggle("active");
@@ -1705,6 +1754,12 @@
     });
 
     document.getElementById("save-batch-btn").addEventListener("click", saveBatch);
+    document.getElementById("auto-assign-preview-btn").addEventListener("click", async () => {
+      await runAutoAssign(true);
+    });
+    document.getElementById("auto-assign-apply-btn").addEventListener("click", async () => {
+      await runAutoAssign(false);
+    });
     document.getElementById("clear-app-servers-btn").addEventListener("click", async () => {
       const selectedProjects = state.filteredProjects.filter(project => state.selectedKeys.has(getProjectKey(project)));
       if (!selectedProjects.length) {

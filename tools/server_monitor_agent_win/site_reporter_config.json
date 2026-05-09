@@ -1,0 +1,9 @@
+{
+  "MainServer": "http://127.0.0.1:5187",
+  "ReportPath": "/api/app-server-sites/report-agent",
+  "Token": "replace-with-app-server-site-report-token",
+  "ServerName": "",
+  "IntervalSeconds": 300,
+  "IgnoreStoppedSites": false
+}
+

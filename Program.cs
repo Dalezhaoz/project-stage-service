@@ -34,6 +34,7 @@ builder.Services.AddSingleton<ProjectStageExportService>();
 builder.Services.AddSingleton<ProjectStageSummaryBuilder>();
 builder.Services.AddSingleton<ServerConfigStore>();
 builder.Services.AddSingleton<MonitorServerConfigStore>();
+builder.Services.AddSingleton<AppServerNodeStore>();
 builder.Services.AddSingleton<ProjectStageCacheStore>();
 builder.Services.AddSingleton<AgentClientService>();
 builder.Services.AddSingleton<ProjectStageRefreshService>();
@@ -48,6 +49,9 @@ builder.Services.AddSingleton<ProjectMetadataService>();
 builder.Services.AddSingleton<WorkloadStatsService>();
 builder.Services.AddSingleton<ServerMetricClientService>();
 builder.Services.AddSingleton<ServerMonitorService>();
+builder.Services.AddSingleton<UnifiedServerConfigService>();
+builder.Services.AddSingleton<AppServerSiteInventoryStore>();
+builder.Services.AddSingleton<AppServerAutoAssignService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<ProjectStageRefreshHostedService>();
 builder.Services.AddHostedService<ProjectStageCountRefreshHostedService>();
@@ -679,6 +683,111 @@ app.MapPost("/api/monitor-servers", async (List<MonitorServerConfig> servers, Mo
 {
     await store.SaveAsync(servers, cancellationToken);
     return Results.Ok(new { saved = servers.Count });
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapGet("/api/unified-server-config", async (UnifiedServerConfigService service, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await service.LoadAsync(cancellationToken));
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapPost("/api/unified-server-config", async (UnifiedServerConfigPayload payload, UnifiedServerConfigService service, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await service.SaveAsync(payload, cancellationToken);
+        return Results.Ok(new
+        {
+            saved = true,
+            databaseServers = payload.DatabaseServers?.Count ?? 0,
+            monitorServers = payload.MonitorServers?.Count ?? 0,
+            appServers = payload.AppServers?.Count ?? 0
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapGet("/api/app-server-sites", async (AppServerAutoAssignService service, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var data = await service.GetInventoryAsync(cancellationToken);
+        return Results.Ok(data);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapPost("/api/app-server-sites/report", async (AppServerSiteReportRequest request, AppServerAutoAssignService service, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        await service.UpsertInventoryAsync(request, cancellationToken);
+        return Results.Ok(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+}).RequireAuthorization("InternalOrAbove");
+
+app.MapPost("/api/app-server-sites/report-agent", async (
+    AppServerSiteReportRequest request,
+    AppServerAutoAssignService service,
+    IConfiguration configuration,
+    CancellationToken cancellationToken) =>
+{
+    var expectedToken = configuration["AppServerSiteReportToken"]?.Trim() ?? "";
+    if (string.IsNullOrWhiteSpace(expectedToken))
+    {
+        return Results.BadRequest(new { detail = "服务端未配置 AppServerSiteReportToken。" });
+    }
+
+    if (!string.Equals(expectedToken, request.Token?.Trim() ?? "", StringComparison.Ordinal))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        await service.UpsertInventoryAsync(request, cancellationToken);
+        return Results.Ok(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
+});
+
+app.MapPost("/api/app-servers/auto-assign", async (AutoAssignAppServersRequest request, AppServerAutoAssignService service, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var result = await service.AutoAssignAsync(request, cancellationToken);
+        return Results.Ok(new
+        {
+            total = result.Count,
+            single = result.Count(item => item.MatchStatus == "single"),
+            multiple = result.Count(item => item.MatchStatus == "multiple"),
+            unmatched = result.Count(item => item.MatchStatus == "unmatched"),
+            items = result
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { detail = ex.Message });
+    }
 }).RequireAuthorization("InternalOrAbove");
 
 app.MapPost("/api/server-monitor/status", async (

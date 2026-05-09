@@ -30,6 +30,7 @@ public sealed class MonitorServerConfig
     public double CpuAlertThreshold { get; set; } = 85;
     public double MemoryAlertThreshold { get; set; } = 85;
     public double DiskAlertThreshold { get; set; } = 90;
+    public double BandwidthAlertThresholdMbps { get; set; } = 200;
 }
 
 public sealed class TestConnectionRequest
@@ -108,6 +109,56 @@ public sealed class RenameAppServerRequest
 public sealed class AppServerOptionRequest
 {
     public List<string> Options { get; set; } = [];
+}
+
+public sealed class AppServerNode
+{
+    public string Name { get; set; } = "";
+    public string Host { get; set; } = "";
+    public int Port { get; set; } = 80;
+    public string Protocol { get; set; } = "http";
+    public bool Enabled { get; set; } = true;
+    public string FrontSiteName { get; set; } = "";
+    public string BackSiteName { get; set; } = "";
+    public string Remark { get; set; } = "";
+}
+
+public sealed class UnifiedServerConfigPayload
+{
+    public List<StageServerConfig> DatabaseServers { get; set; } = [];
+    public List<MonitorServerConfig> MonitorServers { get; set; } = [];
+    public List<AppServerNode> AppServers { get; set; } = [];
+    public SummaryStoreConfig SummaryStore { get; set; } = new();
+}
+
+public sealed class AppServerSiteSnapshot
+{
+    public string ServerName { get; set; } = "";
+    public List<string> SiteNames { get; set; } = [];
+    public DateTime CollectedAt { get; set; } = DateTime.Now;
+}
+
+public sealed class AppServerSiteReportRequest
+{
+    public string ServerName { get; set; } = "";
+    public List<string> SiteNames { get; set; } = [];
+    public DateTime? CollectedAt { get; set; }
+    public string Token { get; set; } = "";
+}
+
+public sealed class AutoAssignAppServersRequest
+{
+    public bool DryRun { get; set; }
+    public bool OverwriteExisting { get; set; }
+}
+
+public sealed class AutoAssignAppServersResultItem
+{
+    public string ServerName { get; set; } = "";
+    public string DatabaseName { get; set; } = "";
+    public string ExamCode { get; set; } = "";
+    public string MatchedAppServers { get; set; } = "";
+    public string MatchStatus { get; set; } = "";
 }
 
 public sealed class SummaryStoreConfig
@@ -344,8 +395,12 @@ public sealed class ServerMetricStatus
     public double CpuUsagePercent { get; set; }
     public double MemoryUsagePercent { get; set; }
     public double DiskUsagePercent { get; set; }
+    public double NetworkInMbps { get; set; }
+    public double NetworkOutMbps { get; set; }
+    public double NetworkTotalMbps { get; set; }
     public string? Error { get; set; }
     public bool CpuAlert { get; set; }
     public bool MemoryAlert { get; set; }
     public bool DiskAlert { get; set; }
+    public bool BandwidthAlert { get; set; }
 }
